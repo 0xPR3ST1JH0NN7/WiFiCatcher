@@ -42,3 +42,21 @@ def test_deauth_dry_run(monkeypatch):
         assert "DC:A6:32:11:22:33" in result["command"]
     finally:
         set_offensive_enabled(False)
+
+
+def test_deauth_client_targets_one_station(monkeypatch):
+    set_offensive_enabled(True)
+    monkeypatch.setattr(deauth_mod, "require_tools", lambda *a: None)
+    import wifihound.operations.base as base
+    monkeypatch.setattr(base, "_is_root", lambda: True)
+    try:
+        result = deauth_mod.deauth(
+            "wlan0mon", "DC:A6:32:11:22:33", client="5C:F3:70:01:02:03",
+            count=3, acknowledged=True, dry_run=True,
+        )
+        cmd = result["command"]
+        assert cmd[:3] == ["aireplay-ng", "--deauth", "3"]
+        assert "-a" in cmd and "DC:A6:32:11:22:33" in cmd
+        assert "-c" in cmd and "5C:F3:70:01:02:03" in cmd
+    finally:
+        set_offensive_enabled(False)

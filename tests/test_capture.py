@@ -30,6 +30,20 @@ def test_replay_source_reveals_progressively():
     assert counts[0] < counts[-1]
 
 
+def test_airodump_command_includes_filters():
+    from wifihound.capture.sources import AirodumpSource
+    src = AirodumpSource("wlan0mon", channel="6", encrypt="WPA2", wps=True,
+                         essid="HomeNet", bssid="DC:A6:32:11:22:33")
+    cmd = src.build_command("/tmp/cap")
+    assert cmd[:2] == ["airodump-ng", "--output-format"]
+    assert "-c" in cmd and "6" in cmd
+    assert "--encrypt" in cmd and "WPA2" in cmd
+    assert "--wps" in cmd
+    assert "--essid" in cmd and "HomeNet" in cmd
+    assert "--bssid" in cmd and "DC:A6:32:11:22:33" in cmd
+    assert cmd[-1] == "wlan0mon"
+
+
 def test_diff_elements():
     g_prev = {}
     cyto1 = {"elements": {"nodes": [{"data": {"id": "a", "label": "A"}}], "edges": []}}

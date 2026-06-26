@@ -75,8 +75,50 @@ def test_deauth_blocked_when_disabled():
     import_sample(c)
     res = c.post(
         "/api/operations/deauth",
-        json={"interface": "wlan0mon", "bssid": "DC:A6:32:11:22:33",
-              "acknowledged": True},
+        json={"bssid": "DC:A6:32:11:22:33", "acknowledged": True},
     )
     # Offensive ops are off by default -> forbidden
     assert res.status_code == 403
+
+
+def test_deauth_requires_active_capture(monkeypatch):
+    from wifihound.api import routes
+    # Pass the authorization gate, but no live capture is running.
+    monkeypatch.setattr(routes, "require_authorization", lambda ack: None)
+    c = client()
+    res = c.post(
+        "/api/operations/deauth",
+        json={"bssid": "DC:A6:32:11:22:33", "acknowledged": True},
+    )
+    assert res.status_code == 409  # needs a fixed-channel airodump capture
+
+
+def test_deauth_runs_with_fixed_channel_capture(monkeypatch):
+    from wifihound.api import routes
+    from wifihound.capture.controller import CaptureController
+
+    monkeypatch.setattr(routes, "require_authorization", lambda ack: None)
+
+    # Fake an active airodump capture locked on channel 6.
+    fake = CaptureController()
+    fake.running = True
+    fake.mode = "airodump"
+
+    class _Src:
+        interface = "wlan0mon"
+        channel = "6"
+
+    fake._source = _Src()
+    monkeypatch.setattr(routes, "CAPTURE", fake)
+    monkeypatch.setattr(routes.deauth_op, "deauth",
+                        lambda **kw: {"status": "dry-run",
+                                      "command": ["aireplay-ng", "--deauth",
+                                                  str(kw["count"]), "-a", kw["bssid"],
+                                                  kw["interface"]]})
+
+    c = client()
+    res = c.post("/api/operations/deauth",
+                 json={"bssid": "DC:A6:32:11:22:33", "client": "5C:F3:70:01:02:03",
+                       "count": 3, "acknowledged": True, "dry_run": True})
+    assert res.status_code == 200
+    assert res.json()["command"][0] == "aireplay-ng"

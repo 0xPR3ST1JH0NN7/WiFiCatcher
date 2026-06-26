@@ -103,9 +103,8 @@ def enrich_oui():
 
 # ------------------------------------------------------------------ offensive
 class DeauthRequest(BaseModel):
-    interface: str
     bssid: str
-    client: str | None = None
+    client: str | None = None      # set -> deauth one client off the AP
     count: int = 5
     acknowledged: bool = False
     dry_run: bool = False
@@ -113,9 +112,24 @@ class DeauthRequest(BaseModel):
 
 @router.post("/operations/deauth")
 def operations_deauth(req: DeauthRequest):
+    # 1) Authorization gate (offensive enabled + root + acknowledgement).
+    try:
+        require_authorization(req.acknowledged)
+    except _OpError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    # 2) Deauth reuses the live airodump capture, which must be locked on one
+    #    channel (aireplay-ng can only reach APs on the interface's channel).
+    if not CAPTURE.can_deauth:
+        raise HTTPException(
+            status_code=409,
+            detail="Deauth requires an active airodump capture started on a "
+                   "specific channel. Start a live capture with a channel first.",
+        )
+
     try:
         return deauth_op.deauth(
-            interface=req.interface,
+            interface=CAPTURE.interface,
             bssid=req.bssid,
             client=req.client,
             count=req.count,
@@ -130,7 +144,11 @@ def operations_deauth(req: DeauthRequest):
 class LiveStartRequest(BaseModel):
     mode: str = "replay"            # "replay" | "airodump"
     interface: str | None = None
-    channel: str | None = None
+    channel: str | None = None      # fixed channel; required to allow deauth
+    encrypt: str | None = None      # WEP | WPA2 | WPA3 | OPN ...
+    wps: bool = False               # show WPS info (--wps)
+    essid: str | None = None        # capture one ESSID only
+    bssid: str | None = None        # capture one BSSID only
     interval: float | None = None
     acknowledged: bool = False
 
@@ -155,12 +173,15 @@ async def live_start(req: LiveStartRequest):
         if not req.interface:
             raise HTTPException(status_code=400,
                                 detail="A monitor-mode interface is required.")
-        source = AirodumpSource(req.interface, req.channel)
+        source = AirodumpSource(
+            req.interface, channel=req.channel, encrypt=req.encrypt,
+            wps=req.wps, essid=req.essid, bssid=req.bssid,
+        )
     else:
         raise HTTPException(status_code=400, detail=f"Unknown mode '{req.mode}'.")
 
     await CAPTURE.start(source, mode=req.mode, interval=req.interval or 1.5)
-    return {"status": "running", "mode": req.mode}
+    return {"status": "running", "mode": req.mode, "channel": req.channel}
 
 
 @router.post("/live/stop")

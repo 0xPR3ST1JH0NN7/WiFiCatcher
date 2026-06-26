@@ -80,25 +80,48 @@ class ReplaySource(Source):
 
 
 class AirodumpSource(Source):
-    """Spawn airodump-ng and tail its rotating CSV (authorized use only)."""
+    """Spawn airodump-ng and tail its rotating CSV (authorized use only).
 
-    def __init__(self, interface: str, channel: Optional[str] = None):
+    Capture can be narrowed with the usual airodump-ng filters: a fixed channel
+    (``-c``), encryption suite (``--encrypt``), WPS info (``--wps``), and a
+    specific ESSID (``--essid``) or BSSID (``--bssid``).
+    """
+
+    def __init__(self, interface: str, channel: Optional[str] = None,
+                 encrypt: Optional[str] = None, wps: bool = False,
+                 essid: Optional[str] = None, bssid: Optional[str] = None):
         self.interface = interface
         self.channel = channel
+        self.encrypt = encrypt        # WEP | WPA2 | WPA3 | OPN ...
+        self.wps = wps
+        self.essid = essid
+        self.bssid = bssid
         self._proc: Optional[subprocess.Popen] = None
         self._dir: Optional[str] = None
         self._parser = AirodumpCsvParser()
 
-    async def start(self) -> None:
-        self._dir = tempfile.mkdtemp(prefix="wifihound-cap-")
-        prefix = os.path.join(self._dir, "cap")
+    def build_command(self, prefix: str) -> list[str]:
         cmd = ["airodump-ng", "--output-format", "csv", "-w", prefix]
         if self.channel:
             cmd += ["-c", str(self.channel)]
+        if self.encrypt:
+            cmd += ["--encrypt", str(self.encrypt)]
+        if self.wps:
+            cmd += ["--wps"]
+        if self.bssid:
+            cmd += ["--bssid", str(self.bssid)]
+        if self.essid:
+            cmd += ["--essid", str(self.essid)]
         cmd.append(self.interface)
+        return cmd
+
+    async def start(self) -> None:
+        self._dir = tempfile.mkdtemp(prefix="wifihound-cap-")
+        prefix = os.path.join(self._dir, "cap")
         # airodump-ng runs until terminated; it rewrites cap-01.csv ~once/sec.
         self._proc = subprocess.Popen(
-            cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            self.build_command(prefix),
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
 
     def _latest_csv(self) -> Optional[str]:

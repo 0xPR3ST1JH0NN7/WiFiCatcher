@@ -72,9 +72,31 @@
             <option value="airodump" disabled>airodump (live radio)</option>
           </select>
         </label>
-        <label class="filter-row" id="live-iface-row" style="display:none">Interface
-          <input id="live-iface" class="mini-input" placeholder="wlan0mon"/>
-        </label>
+        <div id="live-airodump-opts" style="display:none">
+          <label class="filter-row">Interface
+            <input id="live-iface" class="mini-input" placeholder="wlan0mon"/>
+          </label>
+          <label class="filter-row">Channel
+            <input id="live-channel" class="mini-input" type="number" min="1" max="196" placeholder="e.g. 6"/>
+          </label>
+          <label class="filter-row">Protocol
+            <select id="live-encrypt">
+              <option value="">any</option>
+              <option value="WEP">WEP</option>
+              <option value="WPA2">WPA2</option>
+              <option value="WPA3">WPA3</option>
+              <option value="OPN">Open</option>
+            </select>
+          </label>
+          <label class="filter"><input type="checkbox" id="live-wps"/> Show WPS info</label>
+          <label class="filter-row">ESSID
+            <input id="live-essid" class="mini-input" placeholder="optional"/>
+          </label>
+          <label class="filter-row">BSSID
+            <input id="live-bssid" class="mini-input" placeholder="optional"/>
+          </label>
+          <p class="hint">Set a <strong>channel</strong> to enable deauth on captured APs.</p>
+        </div>
         <button class="btn primary" id="live-toggle">Start live</button>
         <p class="hint" id="live-status">Replay reveals the loaded capture as if it were
           discovered live. Real radio capture needs <code>--enable-offensive</code>.</p>

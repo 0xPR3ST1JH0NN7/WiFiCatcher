@@ -122,12 +122,28 @@ class CaptureController:
             except asyncio.QueueFull:
                 pass
 
+    # --------------------------------------------------------------- source
+    @property
+    def interface(self):
+        return getattr(self._source, "interface", None)
+
+    @property
+    def channel(self):
+        return getattr(self._source, "channel", None)
+
+    @property
+    def can_deauth(self) -> bool:
+        """Deauth needs a live airodump capture locked on one channel."""
+        return bool(self.running and self.mode == "airodump" and self.channel)
+
     def snapshot(self) -> dict:
         """Full current graph, used as the init message for a new subscriber."""
         return {
             "type": "init",
             "running": self.running,
             "mode": self.mode,
+            "channel": self.channel,
+            "can_deauth": self.can_deauth,
             "summary": self._graph.stats(),
             **self._graph.to_cytoscape(),
         }
@@ -136,6 +152,8 @@ class CaptureController:
         return {
             "running": self.running,
             "mode": self.mode,
+            "channel": self.channel,
+            "can_deauth": self.can_deauth,
             "interval": self._interval,
             "summary": self._graph.stats(),
         }

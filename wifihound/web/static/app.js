@@ -261,10 +261,14 @@ function showDetails(info) {
   }
 
   const title = isAp ? info.essid || "&lt;Hidden&gt;" : info.id;
-  const offBtn =
-    OFFENSIVE && isAp
-      ? `<button class="btn danger" id="op-deauth-btn">Deauth this AP…</button>`
-      : "";
+  const clientAssociated =
+    !isAp && info.associated_bssid && info.associated_bssid !== "(not associated)";
+  let offBtn = "";
+  if (OFFENSIVE && isAp) {
+    offBtn = `<button class="btn danger" id="op-deauth-btn">Deauth this AP…</button>`;
+  } else if (OFFENSIVE && clientAssociated) {
+    offBtn = `<button class="btn danger" id="op-deauth-btn">Deauth from AP…</button>`;
+  }
 
   body.innerHTML = `
     <span class="kind-badge ${info.kind}">${isAp ? "Access Point" : "Client"}</span>
@@ -333,7 +337,9 @@ cy.cxtmenu({
       { content: "Isolate", select: () => isolate(id) },
       { content: "Copy ID", select: () => copyText(id) },
     ];
-    if (OFFENSIVE && isAp) {
+    // Deauth an AP directly, or a client off its associated AP (degree > 0).
+    const canDeauthNode = isAp || (ele.data("kind") === "client" && ele.degree(false) > 0);
+    if (OFFENSIVE && canDeauthNode) {
       cmds.push({
         content: "Deauth",
         select: () => API.node(id).then(openDeauthModal),
@@ -404,15 +410,28 @@ document.addEventListener("click", (e) => {
 let pendingOp = null;
 
 function openDeauthModal(info) {
-  pendingOp = info;
+  // Target an AP directly, or a client off its associated AP.
+  const isAp = info.kind === "ap";
+  const bssid = isAp ? info.id : info.associated_bssid;
+  const client = isAp ? null : info.id;
+  pendingOp = { bssid, client };
+
+  const target = isAp
+    ? `AP <strong>${escapeHtml(info.essid || info.id)}</strong> (${escapeHtml(info.id)})`
+    : `client <strong>${escapeHtml(info.id)}</strong> off AP <strong>${escapeHtml(bssid)}</strong>`;
+  const capLine = live.canDeauth
+    ? `Uses the live capture interface, locked on channel <strong>${escapeHtml(live.channel)}</strong>.`
+    : `<span style="color:#ffb3ba">No fixed-channel airodump capture is running — start a
+       live airodump capture on a channel to enable deauth.</span>`;
+
   document.getElementById("op-title").textContent = "Deauthentication";
   document.getElementById("op-body").innerHTML = `
-    <p>Target AP <strong>${escapeHtml(info.essid || info.id)}</strong> (${escapeHtml(info.id)})</p>
-    <label>Monitor interface</label>
-    <input id="op-iface" placeholder="wlan0mon" value="wlan0mon"/>
-    <label>Deauth bursts (1–64)</label>
+    <p>Target ${target}</p>
+    <p class="hint">${capLine}</p>
+    <label>Deauth bursts (1–64, 0 = continuous not allowed)</label>
     <input id="op-count" type="number" min="1" max="64" value="5"/>
     <label><input type="checkbox" id="op-dry"/> Dry run (build command only)</label>`;
+  document.getElementById("op-confirm").disabled = !live.canDeauth;
   document.getElementById("op-modal").classList.remove("hidden");
 }
 
@@ -424,8 +443,8 @@ document.getElementById("op-cancel").onclick = () => {
 document.getElementById("op-confirm").onclick = async () => {
   if (!pendingOp) return;
   const payload = {
-    interface: document.getElementById("op-iface").value.trim(),
-    bssid: pendingOp.id,
+    bssid: pendingOp.bssid,
+    client: pendingOp.client || null,
     count: Number(document.getElementById("op-count").value) || 5,
     acknowledged: true,
     dry_run: document.getElementById("op-dry").checked,
@@ -499,7 +518,8 @@ document.getElementById("layout-select").onchange = (e) => runLayout(e.target.va
 );
 
 /* ------------------------------------------------------------- live capture */
-const live = { ws: null, running: false, fitDone: false, layoutTimer: null };
+const live = { ws: null, running: false, fitDone: false, layoutTimer: null,
+               mode: null, channel: null, canDeauth: false };
 
 // Clients with no edges are "unassociated"; recompute after live changes.
 function recomputeUnassoc() {
@@ -580,20 +600,32 @@ function openLiveSocket() {
 async function startLive() {
   const mode = document.getElementById("live-mode").value;
   const payload = { mode, interval: 1.2 };
+  let channel = null;
   if (mode === "airodump") {
     const iface = document.getElementById("live-iface").value.trim();
     if (!iface) return toast("Enter a monitor-mode interface", "error");
+    channel = document.getElementById("live-channel").value.trim() || null;
     if (!confirm("Start a real radio capture on " + iface +
-                 "?\nAuthorized testing only — networks you own or may assess.")) return;
+                 (channel ? " (channel " + channel + ")" : "") +
+                 "?\nAuthorized testing only: networks you own or may assess.")) return;
     payload.interface = iface;
+    payload.channel = channel;
+    payload.encrypt = document.getElementById("live-encrypt").value || null;
+    payload.wps = document.getElementById("live-wps").checked;
+    payload.essid = document.getElementById("live-essid").value.trim() || null;
+    payload.bssid = document.getElementById("live-bssid").value.trim() || null;
     payload.acknowledged = true;
   }
   try {
     live.fitDone = false;
     await API.liveStart(payload);
+    live.mode = mode;
+    live.channel = channel;
+    live.canDeauth = mode === "airodump" && !!channel;
     openLiveSocket();
     setLiveUI(true);
-    toast(`Live capture started (${mode})`, "ok");
+    const extra = live.canDeauth ? " — deauth enabled (ch " + channel + ")" : "";
+    toast(`Live capture started (${mode})${extra}`, "ok");
   } catch (e) {
     toast(e.message, "error");
   }
@@ -602,6 +634,9 @@ async function startLive() {
 async function stopLive() {
   try { await API.liveStop(); } catch (e) { /* ignore */ }
   if (live.ws) { live.ws.close(); live.ws = null; }
+  live.mode = null;
+  live.channel = null;
+  live.canDeauth = false;
   setLiveUI(false);
   toast("Live capture stopped", "ok");
 }
@@ -610,7 +645,7 @@ document.getElementById("live-toggle").onclick = () =>
   live.running ? stopLive() : startLive();
 
 document.getElementById("live-mode").onchange = (e) => {
-  document.getElementById("live-iface-row").style.display =
+  document.getElementById("live-airodump-opts").style.display =
     e.target.value === "airodump" ? "" : "none";
 };
 
