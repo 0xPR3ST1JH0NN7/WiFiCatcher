@@ -6,9 +6,12 @@
       <stop offset="1" stop-color="#10b981"/>
     </linearGradient>
     <linearGradient id="wh-hat" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#fbbf24"/>
-      <stop offset="0.5" stop-color="#f97316"/>
-      <stop offset="1" stop-color="#ef4444"/>
+      <stop offset="0" stop-color="#c79a63"/>
+      <stop offset="1" stop-color="#7a5230"/>
+    </linearGradient>
+    <linearGradient id="wh-bill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a87c49"/>
+      <stop offset="1" stop-color="#6b4622"/>
     </linearGradient>
     <radialGradient id="wh-bg" cx="0.5" cy="0.42" r="0.65">
       <stop offset="0" stop-color="#13212b"/>
@@ -21,6 +24,9 @@
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
+    <clipPath id="wh-crown-clip">
+      <path d="M66 94 C 62 66, 80 48, 96 47 C 112 48, 130 66, 126 94 C 116 99, 76 99, 66 94 Z"/>
+    </clipPath>
   </defs>
 
   <!-- radar badge -->
@@ -48,37 +54,49 @@
       C 101 173, 113 183, 127 179
       C 141 175, 150 163, 154 154
       Z"/>
-    <!-- ear shading: the signature droop -->
     <path fill="#0a1016" opacity="0.2" d="
       M86 108 C 74 113, 66 131, 68 154 C 70 174, 80 187, 92 182
       C 86 165, 84 136, 91 113 C 90 109, 89 107, 86 108 Z"/>
-    <!-- nose -->
     <circle cx="150" cy="143" r="6.5" fill="#0a1016"/>
-    <!-- eye -->
     <circle cx="114" cy="116" r="6.5" fill="#0a1016"/>
   </g>
 
   <!-- deerstalker (detective) cap -->
-  <g filter="url(#wh-glow)">
-    <!-- front and back bills -->
-    <path fill="url(#wh-hat)" d="M58 84 C 44 86, 40 96, 52 100 C 70 96, 86 96, 96 98 C 92 86, 76 80, 58 84 Z"/>
-    <path fill="url(#wh-hat)" d="M118 86 C 138 82, 156 88, 160 98 C 150 100, 132 98, 116 100 C 112 92, 114 88, 118 86 Z"/>
+  <g filter="url(#wh-glow)" transform="translate(0,5)">
+    <!-- back bill (points left, behind the head) -->
+    <path fill="url(#wh-bill)" d="M76 92 C 58 87, 44 91, 39 98 C 47 101, 62 100, 80 98 C 81 95, 79 92, 76 92 Z"/>
+    <!-- front bill (peak over the brow, points right) -->
+    <path fill="url(#wh-bill)" d="M116 92 C 134 87, 150 91, 156 99 C 147 102, 131 101, 113 99 C 111 96, 113 93, 116 92 Z"/>
+
     <!-- crown -->
-    <path fill="url(#wh-hat)" d="
-      M60 92
-      C 58 64, 84 48, 108 54
-      C 128 59, 136 78, 126 96
-      C 110 90, 80 90, 60 92 Z"/>
-    <!-- hatband -->
-    <path fill="#b91c1c" opacity="0.9" d="M60 92 C 80 90, 110 90, 126 96 C 124 100, 120 102, 116 103 C 100 98, 80 98, 64 100 C 61 98, 60 95, 60 92 Z"/>
-    <!-- tweed check accents -->
-    <g stroke="#fde68a" stroke-width="1.4" opacity="0.5">
-      <line x1="78" y1="56" x2="74" y2="92"/>
-      <line x1="98" y1="53" x2="98" y2="92"/>
-      <line x1="116" y1="58" x2="118" y2="93"/>
-      <line x1="64" y1="74" x2="128" y2="78"/>
+    <path fill="url(#wh-hat)" d="M66 94 C 62 66, 80 48, 96 47 C 112 48, 130 66, 126 94 C 116 99, 76 99, 66 94 Z"/>
+
+    <!-- subtle tweed crosshatch, clipped to the crown -->
+    <g clip-path="url(#wh-crown-clip)" stroke="#5a3c1d" stroke-width="1.2" opacity="0.35">
+      <line x1="58" y1="64" x2="86" y2="104"/>
+      <line x1="72" y1="50" x2="104" y2="104"/>
+      <line x1="88" y1="44" x2="120" y2="100"/>
+      <line x1="104" y1="44" x2="132" y2="92"/>
+      <line x1="120" y1="50" x2="138" y2="80"/>
+      <line x1="138" y1="64" x2="110" y2="104"/>
+      <line x1="124" y1="50" x2="92" y2="104"/>
+      <line x1="108" y1="44" x2="76" y2="100"/>
+      <line x1="92" y1="44" x2="64" y2="92"/>
+      <line x1="76" y1="50" x2="58" y2="80"/>
     </g>
-    <!-- top button -->
-    <circle cx="100" cy="51" r="4.5" fill="#fde68a"/>
+
+    <!-- folded ear flaps tucked against the crown -->
+    <path fill="url(#wh-bill)" d="M66 92 C 62 80, 64 70, 70 64 C 74 74, 74 84, 72 94 C 70 95, 67 94, 66 92 Z"/>
+    <path fill="url(#wh-bill)" d="M126 92 C 130 80, 128 70, 122 64 C 118 74, 118 84, 120 94 C 122 95, 125 94, 126 92 Z"/>
+
+    <!-- center seam -->
+    <path fill="none" stroke="#4a3219" stroke-width="2" opacity="0.7" d="M96 49 C 94 64, 95 80, 96 96"/>
+
+    <!-- ribbon bow tying the flaps on top -->
+    <g>
+      <path fill="#8a5a2e" d="M96 50 L82 41 C 79 47, 80 55, 86 56 Z"/>
+      <path fill="#8a5a2e" d="M96 50 L110 41 C 113 47, 112 55, 106 56 Z"/>
+      <circle cx="96" cy="50" r="4" fill="#a87c49"/>
+    </g>
   </g>
 </svg>
