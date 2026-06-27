@@ -6,99 +6,62 @@
   **Interactive graph analysis for WiFi reconnaissance data.**
 </div>
 
----
+WiFiHound turns `airodump-ng` output into an explorable graph of access points,
+clients and their associations. Import a past scan and replay it, or run a live
+capture and watch the map build in real time.
 
-WiFiHound builds on the `aircrack-ng` suite and turns it into an explorable graph
-of access points, clients and their associations, with live capture on top.
-Import a CSV to analyze a past scan — and **replay** it node by node — or run a
-live capture and watch the network map build in real time, deauth included.
+## Features
 
-- **Graph UI**: APs (red) and clients (blue) as nodes, associations as edges.
-- **Explore**: search, filter (type, encryption, channel), node details, context actions.
-- **Vendor enrichment** from the OUI, fully offline.
-- **Two ways to watch the map build**: **Replay** an imported capture node by node (offline, no radio), or **Live capture** a real `airodump-ng` stream over WebSocket.
-- **Offensive** (opt in): deauth an AP or a single client during a live capture.
+* Graph UI with access points in red, clients in blue, associations as edges.
+* Search and filters by type, encryption and channel.
+* Offline vendor lookup from the OUI database.
+* Two ways to build the map: replay an imported capture, or live capture a real
+  `airodump-ng` stream.
 
 ## Install
 
-WiFiHound needs **Python 3.8+** (FastAPI does not run on Python 2). Always use
-`python3` / `pip3` — on systems where a legacy Python 2 is still the default
-`python`, a bare `pip install` targets Python 2.7 and fails with
-`No matching distribution found for fastapi`.
+WiFiHound needs Python 3.8 or newer, so use `python3` and `pip3` (a bare `pip`
+on an old system can still point at Python 2).
 
 ```bash
 git clone https://github.com/0xPR3ST1JH0NN7/WiFiHound
 cd WiFiHound
-python3 -m venv .venv            # recommended: keep deps off the system Python
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt  # inside the venv, pip is Python 3's pip
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-Prefer not to use a virtualenv? Install straight into Python 3 instead:
+## Run
 
 ```bash
-python3 -m pip install -r requirements.txt
+python3 -m wifihound        # opens http://127.0.0.1:8000
+sudo python3 -m wifihound   # also enables live radio capture
 ```
-
-> Check what your `pip` targets with `pip --version`: the trailing
-> `(python 3.x)` must be 3.8 or newer. If it says `(python 2.7)`, use
-> `pip3` / `python3 -m pip` as shown above.
-
-## Usage
-
-```bash
-python3 -m wifihound                 # opens http://127.0.0.1:8000
-sudo python3 -m wifihound            # also unlocks live radio capture + deauth
-```
-
-(Inside an activated virtualenv you can just use `python -m wifihound`.)
-
-There is one way to run it. Offline analysis works unprivileged; live radio
-capture and deauth turn on automatically when you start it with **sudo**
-(root). No special flags.
 
 Click **Import capture** and pick an `airodump-ng` CSV
-(`airodump-ng -w scan --output-format csv wlan0mon`). From there the network map
-builds **two ways**:
+(`airodump-ng -w scan --output-format csv wlan0mon`).
 
-### Offline + Replay — no privileges
+## Replay
 
-Importing a capture immediately gives you the **full graph** of a past scan to
-explore. Then, in the sidebar **Replay** panel, hit **Replay capture** to watch
-that same scan **rebuild itself node by node**, as if it were being discovered
-live. It is a pure visualization of data you already have — no radio, no root —
-so it works anywhere, and it is great for reviewing an old capture or presenting
-one. The reveal speed is the *Interval* field.
+Importing a capture gives you the full graph of a past scan. In the **Replay**
+panel press **Replay capture** to watch it rebuild node by node, as if it were
+being discovered live. It runs fully offline, with no radio and no root.
 
-### Live capture — real radio (needs sudo)
+![Replay in action](docs/replay.gif)
 
-The sidebar **Live capture** panel streams a real `airodump-ng` capture and maps
-the network as it appears. It needs root (run with `sudo`):
+## Live capture
 
-- Pick a **wireless interface** from the auto-detected list (the panel reads the
-  adapters present on the host; hit ↻ to rescan). A managed interface is put
-  into **monitor mode automatically** (`airmon-ng check kill` + start) and
-  returned to managed mode when you stop.
-- Optionally set a fixed **channel**, **protocol** (WEP / WPA2 / WPA3 / Open),
-  **WPS**, and an **ESSID** or **BSSID** filter. A fixed channel also unlocks
-  deauth on the captured APs.
-- WPA handshakes captured during the session (e.g. from a deauth) are flagged on
-  the AP with a 🔑.
+The **Live capture** panel streams a real `airodump-ng` capture and maps the
+network as it appears. It needs root, so run with `sudo`. Pick a wireless
+interface from the list of detected adapters; a managed one is switched to
+monitor mode automatically and restored when you stop. You can also set a
+channel, protocol, WPS and an ESSID or BSSID filter.
 
-The poll speed is the *Interval* field.
+![Live capture panel](docs/live-capture.png)
 
-## Offensive operations
-
-Deauthentication runs `aireplay-ng -0 <count> -a <AP> [-c <client>]` on the live
-capture interface. It is **only available while an airodump capture is running on
-a fixed channel** (aireplay can reach the AP only on the interface's channel),
-and stays behind its guardrails: requires root (run with sudo), confirmed per
-action, with capped bursts and logging.
-
-> ⚠️ Use only on networks you own or are explicitly authorized to test.
-> Unauthorized deauthentication is illegal in most jurisdictions.
+> Use WiFiHound only on networks you own or are authorized to test.
 
 ## Authors
 
-- [@0xPR3ST1JH0NN7](https://github.com/0xPR3ST1JH0NN7)
-- [@tvasari](https://github.com/tvasari)
+* [@0xPR3ST1JH0NN7](https://github.com/0xPR3ST1JH0NN7)
+* [@tvasari](https://github.com/tvasari)
