@@ -25,6 +25,7 @@ import subprocess
 import tempfile
 from typing import Optional
 
+from wifihound.capture.interfaces import MonitorHandle, restore_managed_mode
 from wifihound.models import Scan
 from wifihound.parsers.airodump_csv import AirodumpCsvParser
 
@@ -89,13 +90,17 @@ class AirodumpSource(Source):
 
     def __init__(self, interface: str, channel: Optional[str] = None,
                  encrypt: Optional[str] = None, wps: bool = False,
-                 essid: Optional[str] = None, bssid: Optional[str] = None):
+                 essid: Optional[str] = None, bssid: Optional[str] = None,
+                 monitor: Optional[MonitorHandle] = None):
         self.interface = interface
         self.channel = channel
         self.encrypt = encrypt        # WEP | WPA2 | WPA3 | OPN ...
         self.wps = wps
         self.essid = essid
         self.bssid = bssid
+        # When we enabled monitor mode for this capture, this handle lets stop()
+        # put the interface back to managed mode automatically.
+        self._monitor = monitor
         self._proc: Optional[subprocess.Popen] = None
         self._dir: Optional[str] = None
         self._parser = AirodumpCsvParser()
@@ -163,3 +168,11 @@ class AirodumpSource(Source):
         if self._dir and os.path.isdir(self._dir):
             shutil.rmtree(self._dir, ignore_errors=True)
         self._dir = None
+        # Return the radio to managed mode if we put it into monitor mode.
+        if self._monitor is not None:
+            monitor, self._monitor = self._monitor, None
+            try:
+                await asyncio.get_event_loop().run_in_executor(
+                    None, lambda: restore_managed_mode(monitor))
+            except Exception:
+                pass

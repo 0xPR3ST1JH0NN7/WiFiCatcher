@@ -681,6 +681,7 @@ async function stopLive() {
   live.canDeauth = false;
   setLiveUI(false);
   toast("Live capture stopped", "ok");
+  if (OFFENSIVE) loadInterfaces(); // adapter is back to managed mode now
 }
 
 document.getElementById("live-toggle").onclick = () =>

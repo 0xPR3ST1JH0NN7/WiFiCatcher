@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+from dataclasses import dataclass
 from typing import Callable, Optional
 
 from wifihound.operations.base import (
@@ -90,6 +91,21 @@ def list_wireless_interfaces(sysfs: str = SYSFS_NET) -> list[dict]:
 Runner = Callable[[list], "subprocess.CompletedProcess"]
 
 
+@dataclass
+class MonitorHandle:
+    """What :func:`ensure_monitor_mode` set up, so it can be undone on teardown.
+
+    ``interface`` is the monitor-mode interface to capture on, ``original`` is
+    the interface the user selected, and ``enabled`` records whether *we*
+    switched it into monitor mode — restoration only touches interfaces we
+    changed ourselves.
+    """
+
+    interface: str
+    original: str
+    enabled: bool
+
+
 def _run(cmd: list) -> "subprocess.CompletedProcess":
     return subprocess.run(cmd, capture_output=True, text=True,
                           timeout=30, check=False)
@@ -117,12 +133,17 @@ def _parse_monitor_iface(stdout: str) -> Optional[str]:
 
 
 def ensure_monitor_mode(iface: str, acknowledged: bool = True,
-                        run: Runner = _run, sysfs: str = SYSFS_NET) -> str:
+                        kill_interferers: bool = True,
+                        run: Runner = _run, sysfs: str = SYSFS_NET) -> MonitorHandle:
     """Ensure ``iface`` is in monitor mode, enabling it with airmon-ng if not.
 
-    Returns the interface to capture on, which may differ from ``iface`` when
-    airmon-ng creates a separate monitor vif (e.g. ``wlan0`` -> ``wlan0mon``).
-    An interface already in monitor mode is returned untouched.
+    Returns a :class:`MonitorHandle`. When the interface has to be switched, the
+    processes that fight monitor mode (NetworkManager, wpa_supplicant, …) are
+    cleared first with ``airmon-ng check kill`` so capture is reliable without
+    the user doing it by hand. The capture interface may differ from ``iface``
+    when airmon-ng creates a separate monitor vif (e.g. ``wlan0`` ->
+    ``wlan0mon``). An interface already in monitor mode is returned untouched
+    and is not restored afterwards, since we did not change it.
 
     Raises :class:`~wifihound.operations.base.OperationError` (or its
     :class:`OperationNotAuthorized` subclass) if the interface is missing, the
@@ -132,11 +153,19 @@ def ensure_monitor_mode(iface: str, acknowledged: bool = True,
     if not interface_exists(iface, sysfs):
         raise OperationError(f"Interface '{iface}' was not found on this system.")
     if is_monitor(iface, sysfs):
-        return iface
+        return MonitorHandle(interface=iface, original=iface, enabled=False)
 
     # Changing the radio's mode is privileged: enforce the offensive guardrails.
     require_authorization(acknowledged)
     require_tools("airmon-ng")
+
+    # Clear interfering processes first so monitor mode actually sticks. This is
+    # best-effort: a failure here must not block enabling monitor mode.
+    if kill_interferers:
+        try:
+            run(["airmon-ng", "check", "kill"])
+        except Exception:
+            pass
 
     before = {i["name"] for i in list_wireless_interfaces(sysfs)}
     proc = run(["airmon-ng", "start", iface])
@@ -147,7 +176,13 @@ def ensure_monitor_mode(iface: str, acknowledged: bool = True,
             f"airmon-ng could not enable monitor mode on '{iface}'."
             + (f" {detail}" if detail else ""))
 
-    # Resolve the resulting monitor interface, most reliable signal first.
+    cap = _resolve_capture_iface(iface, stdout, before, sysfs)
+    return MonitorHandle(interface=cap, original=iface, enabled=True)
+
+
+def _resolve_capture_iface(iface: str, stdout: str, before: set,
+                           sysfs: str) -> str:
+    """Pick the monitor interface airmon-ng produced, most reliable cue first."""
     named = _parse_monitor_iface(stdout)
     if named and is_monitor(named, sysfs):
         return named
@@ -163,3 +198,23 @@ def ensure_monitor_mode(iface: str, acknowledged: bool = True,
     raise OperationError(
         f"Monitor mode was enabled but the monitor interface for '{iface}' "
         "could not be determined. Check `airmon-ng` / `iw dev`.")
+
+
+def restore_managed_mode(handle: Optional[MonitorHandle], run: Runner = _run) -> None:
+    """Return an interface we switched to monitor mode back to managed mode.
+
+    Best-effort and safe to call unconditionally on teardown: a no-op when
+    ``handle`` is ``None`` or when we did not enable monitor mode ourselves, and
+    it never raises (cleanup must not crash a stop path).
+
+    Note: ``airmon-ng check kill`` stops NetworkManager / wpa_supplicant when
+    monitor mode is enabled; airmon-ng does not bring them back, so normal
+    connectivity is restored by restarting those services (e.g.
+    ``systemctl start NetworkManager``) — outside what this teardown does.
+    """
+    if handle is None or not handle.enabled:
+        return
+    try:
+        run(["airmon-ng", "stop", handle.interface])
+    except Exception:
+        pass

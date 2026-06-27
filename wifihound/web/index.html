@@ -101,7 +101,8 @@
                    step="0.1" value="1.2"/>
           </label>
           <p class="hint">A managed interface is switched to <strong>monitor mode</strong>
-            automatically (airmon-ng). Set a <strong>channel</strong> to enable deauth on captured APs.</p>
+            automatically (airmon-ng check kill + start) and returned to managed mode when
+            you stop. Set a <strong>channel</strong> to enable deauth on captured APs.</p>
         </div>
         <button class="btn primary" id="live-toggle">Start live</button>
         <p class="hint" id="live-status">Streams a real <code>airodump-ng</code> capture and maps

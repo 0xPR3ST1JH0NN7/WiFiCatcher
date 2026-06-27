@@ -3,11 +3,13 @@
 from wifihound.capture.controller import CaptureController, diff_elements
 from wifihound.capture.handshake import HandshakeWatcher, parse_handshakes
 from wifihound.capture.interfaces import (
+    MonitorHandle,
     ensure_monitor_mode,
     interface_exists,
     interface_mode,
     is_monitor,
     list_wireless_interfaces,
+    restore_managed_mode,
 )
 from wifihound.capture.sources import AirodumpSource, ReplaySource, Source
 
@@ -24,4 +26,6 @@ __all__ = [
     "interface_mode",
     "is_monitor",
     "ensure_monitor_mode",
+    "restore_managed_mode",
+    "MonitorHandle",
 ]

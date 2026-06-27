@@ -208,24 +208,26 @@ async def live_start(req: LiveStartRequest):
                        f"Available: {available or 'none detected'}.",
             )
         # 2) Make sure it is in monitor mode, enabling it with airmon-ng if
-        #    needed; capture on whatever interface monitor mode lands on.
+        #    needed (clearing interfering processes first). Capture on whatever
+        #    interface monitor mode lands on; the handle restores managed mode
+        #    automatically when the capture stops.
         try:
-            cap_iface = ensure_monitor_mode(req.interface,
-                                            acknowledged=req.acknowledged)
+            monitor = ensure_monitor_mode(req.interface,
+                                          acknowledged=req.acknowledged)
         except OperationNotAuthorized as exc:
             raise HTTPException(status_code=403, detail=str(exc)) from exc
         except _OpError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         source = AirodumpSource(
-            cap_iface, channel=req.channel, encrypt=req.encrypt,
-            wps=req.wps, essid=req.essid, bssid=req.bssid,
+            monitor.interface, channel=req.channel, encrypt=req.encrypt,
+            wps=req.wps, essid=req.essid, bssid=req.bssid, monitor=monitor,
         )
         # Watch the live pcap for WPA handshakes (e.g. captured during a deauth).
         handshakes = HandshakeWatcher(source)
         await CAPTURE.start(source, mode=req.mode,
                             interval=interval, handshakes=handshakes)
         return {"status": "running", "mode": req.mode,
-                "channel": req.channel, "interface": cap_iface}
+                "channel": req.channel, "interface": monitor.interface}
     else:
         raise HTTPException(status_code=400, detail=f"Unknown mode '{req.mode}'.")
 
