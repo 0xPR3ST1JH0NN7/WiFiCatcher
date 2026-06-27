@@ -66,19 +66,16 @@
 
       <section class="panel">
         <h2>Live capture <span id="live-dot" class="live-dot"></span></h2>
-        <label class="filter-row">Mode
-          <select id="live-mode">
-            <option value="replay">replay loaded CSV</option>
-            <option value="airodump" disabled>airodump (live radio)</option>
-          </select>
-        </label>
-        <label class="filter-row">Interval (s)
-          <input id="live-interval" class="mini-input" type="number" min="0.2" max="10"
-                 step="0.1" value="1.2"/>
-        </label>
-        <div id="live-airodump-opts" style="display:none">
+        <p class="hint" id="live-locked" style="display:none">
+          Live radio capture needs root. Start WiFiHound with <code>sudo</code> to enable it.
+        </p>
+        <div id="live-airodump-opts">
           <label class="filter-row">Interface
-            <input id="live-iface" class="mini-input" placeholder="wlan0mon"/>
+            <span class="iface-pick">
+              <select id="live-iface"><option value="">scanning…</option></select>
+              <button class="btn ghost mini-btn" id="live-iface-refresh" type="button"
+                      title="Rescan interfaces">↻</button>
+            </span>
           </label>
           <label class="filter-row">Channel
             <input id="live-channel" class="mini-input" type="number" min="1" max="196" placeholder="e.g. 6"/>
@@ -99,11 +96,16 @@
           <label class="filter-row">BSSID
             <input id="live-bssid" class="mini-input" placeholder="optional"/>
           </label>
-          <p class="hint">Set a <strong>channel</strong> to enable deauth on captured APs.</p>
+          <label class="filter-row">Interval (s)
+            <input id="live-interval" class="mini-input" type="number" min="0.2" max="10"
+                   step="0.1" value="1.2"/>
+          </label>
+          <p class="hint">A managed interface is switched to <strong>monitor mode</strong>
+            automatically (airmon-ng). Set a <strong>channel</strong> to enable deauth on captured APs.</p>
         </div>
         <button class="btn primary" id="live-toggle">Start live</button>
-        <p class="hint" id="live-status">Replay reveals the loaded capture as if it were
-          discovered live. Real radio capture and deauth need root (run with <code>sudo</code>).</p>
+        <p class="hint" id="live-status">Streams a real <code>airodump-ng</code> capture and maps
+          the network live. Needs root (run with <code>sudo</code>).</p>
       </section>
 
       <section class="panel">

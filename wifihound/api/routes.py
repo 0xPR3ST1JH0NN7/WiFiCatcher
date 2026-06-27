@@ -18,11 +18,19 @@ from wifihound.capture import (
     CaptureController,
     HandshakeWatcher,
     ReplaySource,
+    ensure_monitor_mode,
+    interface_exists,
+    list_wireless_interfaces,
 )
 from wifihound.enrichment import oui
 from wifihound.graph import WifiGraph
 from wifihound.operations import OperationError, deauth as deauth_op, offensive_available
-from wifihound.operations.base import OperationError as _OpError, require_authorization, require_tools
+from wifihound.operations.base import (
+    OperationError as _OpError,
+    OperationNotAuthorized,
+    require_authorization,
+    require_tools,
+)
 
 router = APIRouter(prefix="/api")
 
@@ -147,6 +155,16 @@ def operations_deauth(req: DeauthRequest):
 
 
 # ----------------------------------------------------------------- live capture
+@router.get("/live/interfaces")
+def live_interfaces():
+    """Wireless interfaces detected on this host, with their current mode.
+
+    Lets the UI offer a pick-list instead of a free-text interface name. Reads
+    sysfs only, so it works unprivileged (mode switching still needs root).
+    """
+    return {"interfaces": list_wireless_interfaces()}
+
+
 class LiveStartRequest(BaseModel):
     mode: str = "replay"            # "replay" | "airodump"
     interface: str | None = None
@@ -180,16 +198,34 @@ async def live_start(req: LiveStartRequest):
             raise HTTPException(status_code=403, detail=str(exc)) from exc
         if not req.interface:
             raise HTTPException(status_code=400,
-                                detail="A monitor-mode interface is required.")
+                                detail="Select a wireless interface to capture on.")
+        # 1) Verify the chosen interface actually exists on this host.
+        if not interface_exists(req.interface):
+            available = ", ".join(i["name"] for i in list_wireless_interfaces())
+            raise HTTPException(
+                status_code=404,
+                detail=f"Interface '{req.interface}' was not found. "
+                       f"Available: {available or 'none detected'}.",
+            )
+        # 2) Make sure it is in monitor mode, enabling it with airmon-ng if
+        #    needed; capture on whatever interface monitor mode lands on.
+        try:
+            cap_iface = ensure_monitor_mode(req.interface,
+                                            acknowledged=req.acknowledged)
+        except OperationNotAuthorized as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        except _OpError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         source = AirodumpSource(
-            req.interface, channel=req.channel, encrypt=req.encrypt,
+            cap_iface, channel=req.channel, encrypt=req.encrypt,
             wps=req.wps, essid=req.essid, bssid=req.bssid,
         )
         # Watch the live pcap for WPA handshakes (e.g. captured during a deauth).
         handshakes = HandshakeWatcher(source)
         await CAPTURE.start(source, mode=req.mode,
                             interval=interval, handshakes=handshakes)
-        return {"status": "running", "mode": req.mode, "channel": req.channel}
+        return {"status": "running", "mode": req.mode,
+                "channel": req.channel, "interface": cap_iface}
     else:
         raise HTTPException(status_code=400, detail=f"Unknown mode '{req.mode}'.")
 

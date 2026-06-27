@@ -25,6 +25,7 @@ const API = {
       body: JSON.stringify(payload),
     }),
   liveStop: () => fetchJSON("/api/live/stop", { method: "POST" }),
+  interfaces: () => fetchJSON("/api/live/interfaces"),
 };
 
 async function fetchJSON(url, opts) {
@@ -614,36 +615,59 @@ function openLiveSocket() {
   ws.onclose = () => { live.ws = null; };
 }
 
-async function startLive() {
-  const mode = document.getElementById("live-mode").value;
-  const interval = Number(document.getElementById("live-interval").value) || 1.2;
-  const payload = { mode, interval };
-  let channel = null;
-  if (mode === "airodump") {
-    const iface = document.getElementById("live-iface").value.trim();
-    if (!iface) return toast("Enter a monitor-mode interface", "error");
-    channel = document.getElementById("live-channel").value.trim() || null;
-    if (!confirm("Start a real radio capture on " + iface +
-                 (channel ? " (channel " + channel + ")" : "") +
-                 "?\nAuthorized testing only: networks you own or may assess.")) return;
-    payload.interface = iface;
-    payload.channel = channel;
-    payload.encrypt = document.getElementById("live-encrypt").value || null;
-    payload.wps = document.getElementById("live-wps").checked;
-    payload.essid = document.getElementById("live-essid").value.trim() || null;
-    payload.bssid = document.getElementById("live-bssid").value.trim() || null;
-    payload.acknowledged = true;
+// Populate the interface pick-list from the host's detected wireless adapters.
+async function loadInterfaces() {
+  const sel = document.getElementById("live-iface");
+  const prev = sel.value;
+  try {
+    const { interfaces } = await API.interfaces();
+    if (!interfaces.length) {
+      sel.innerHTML = '<option value="">no wireless interface found</option>';
+      return;
+    }
+    sel.innerHTML = interfaces
+      .map((i) => `<option value="${escapeHtml(i.name)}">${escapeHtml(i.name)} (${escapeHtml(i.mode)})</option>`)
+      .join("");
+    if (prev && interfaces.some((i) => i.name === prev)) sel.value = prev;
+  } catch (e) {
+    sel.innerHTML = '<option value="">scan failed</option>';
   }
+}
+
+async function startLive() {
+  // Live capture is always a real airodump-ng capture (radio), never a CSV.
+  const iface = document.getElementById("live-iface").value.trim();
+  if (!iface) return toast("Select a wireless interface", "error");
+  const interval = Number(document.getElementById("live-interval").value) || 1.2;
+  const channel = document.getElementById("live-channel").value.trim() || null;
+  if (!confirm("Start a real radio capture on " + iface +
+               (channel ? " (channel " + channel + ")" : "") +
+               "?\nThe interface will be switched to monitor mode if needed.\n" +
+               "Authorized testing only: networks you own or may assess.")) return;
+  const payload = {
+    mode: "airodump",
+    interface: iface,
+    channel,
+    interval,
+    encrypt: document.getElementById("live-encrypt").value || null,
+    wps: document.getElementById("live-wps").checked,
+    essid: document.getElementById("live-essid").value.trim() || null,
+    bssid: document.getElementById("live-bssid").value.trim() || null,
+    acknowledged: true,
+  };
   try {
     live.fitDone = false;
-    await API.liveStart(payload);
-    live.mode = mode;
+    const res = await API.liveStart(payload);
+    live.mode = "airodump";
     live.channel = channel;
-    live.canDeauth = mode === "airodump" && !!channel;
+    live.canDeauth = !!channel;
     openLiveSocket();
     setLiveUI(true);
-    const extra = live.canDeauth ? " — deauth enabled (ch " + channel + ")" : "";
-    toast(`Live capture started (${mode})${extra}`, "ok");
+    const onIface =
+      res.interface && res.interface !== iface ? ` on ${res.interface}` : "";
+    const extra = live.canDeauth ? ` — deauth enabled (ch ${channel})` : "";
+    toast(`Live capture started${onIface}${extra}`, "ok");
+    loadInterfaces(); // the adapter may now report as monitor / be renamed
   } catch (e) {
     toast(e.message, "error");
   }
@@ -662,10 +686,7 @@ async function stopLive() {
 document.getElementById("live-toggle").onclick = () =>
   live.running ? stopLive() : startLive();
 
-document.getElementById("live-mode").onchange = (e) => {
-  document.getElementById("live-airodump-opts").style.display =
-    e.target.value === "airodump" ? "" : "none";
-};
+document.getElementById("live-iface-refresh").onclick = () => loadInterfaces();
 
 /* ------------------------------------------------------------------ utils */
 function copyText(text) {
@@ -700,8 +721,12 @@ function escapeHtml(value) {
   }
   if (OFFENSIVE) {
     // Real radio capture is unlocked only when the server enables offensive ops.
-    const opt = document.querySelector('#live-mode option[value="airodump"]');
-    if (opt) opt.disabled = false;
+    loadInterfaces();
+  } else {
+    // No root: lock the live-capture controls and explain why.
+    document.getElementById("live-locked").style.display = "";
+    document.getElementById("live-airodump-opts").style.display = "none";
+    document.getElementById("live-toggle").disabled = true;
   }
   try {
     const payload = await API.graph();

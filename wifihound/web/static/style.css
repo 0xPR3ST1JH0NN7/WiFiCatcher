@@ -162,6 +162,11 @@ html, body {
 @keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 .mini-input { width: 110px; background: var(--panel); color: var(--text);
   border: 1px solid var(--border); border-radius: 7px; padding: 5px 8px; }
+.iface-pick { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.iface-pick select { background: var(--panel); color: var(--text);
+  border: 1px solid var(--border); border-radius: 7px; padding: 5px 8px;
+  max-width: 120px; }
+.mini-btn { width: auto; padding: 4px 9px; line-height: 1; flex-shrink: 0; }
 code { background: var(--panel); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
 
 .legend { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
