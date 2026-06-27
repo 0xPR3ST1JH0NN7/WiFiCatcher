@@ -38,6 +38,12 @@ const API = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     }),
+  enterpriseCertUpload: (file, bssid) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    if (bssid) fd.append("ap_bssid", bssid);
+    return fetchJSON("/api/operations/enterprise/cert/upload", { method: "POST", body: fd });
+  },
 };
 
 async function fetchJSON(url, opts) {
@@ -566,8 +572,8 @@ async function inspectCert(info) {
   }
 }
 
-function renderCert(res) {
-  const box = document.getElementById("enterprise-result");
+function renderCert(res, box) {
+  box = box || document.getElementById("enterprise-result");
   if (!box) return;
   if (res.status === "empty" || !res.certificates || !res.certificates.length) {
     box.innerHTML = `<h4>RADIUS certificate</h4><p class="hint">No certificate found —
@@ -604,6 +610,22 @@ function renderEap(res, dry) {
         `<span class="v">${escapeHtml(m.supported)}</span></div>`)
       .join("");
 }
+
+// Inspect the RADIUS certificate from an uploaded .cap (offline, no root).
+document.getElementById("cert-file").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const bssid = document.getElementById("cert-bssid").value.trim();
+  const box = document.getElementById("cert-result");
+  box.innerHTML = `<p class="hint">Inspecting ${escapeHtml(file.name)}…</p>`;
+  try {
+    renderCert(await API.enterpriseCertUpload(file, bssid), box);
+  } catch (err) {
+    box.innerHTML = `<p class="hint" style="color:#ffb3ba">${escapeHtml(err.message)}</p>`;
+  } finally {
+    e.target.value = "";
+  }
+});
 
 /* --------------------------------------------------------------- wiring up */
 async function openNode(id) {

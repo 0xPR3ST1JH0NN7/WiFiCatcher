@@ -211,9 +211,9 @@ code { background: var(--panel); padding: 1px 5px; border-radius: 4px; font-size
 .kind-badge.ap { background: rgba(255,93,108,.15); color: var(--ap); }
 .kind-badge.client { background: rgba(77,166,255,.15); color: var(--client); }
 .kind-badge.enterprise { background: rgba(167,139,250,.15); color: #a78bfa; margin-left: 6px; }
-#enterprise-result { margin-top: 12px; }
-#enterprise-result h4 { margin: 14px 0 6px; font-size: 13px; }
-#enterprise-result code { word-break: break-all; }
+#enterprise-result, #cert-result { margin-top: 12px; }
+#enterprise-result h4, #cert-result h4 { margin: 14px 0 6px; font-size: 13px; }
+#enterprise-result code, #cert-result code { word-break: break-all; }
 .cert-sep { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
 .detail-row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0;
   border-bottom: 1px solid var(--border); }

@@ -125,6 +125,18 @@
       </section>
 
       <section class="panel">
+        <h2>RADIUS certificate</h2>
+        <p class="hint">Inspect the server certificate from an enterprise
+          <code>.cap</code>/<code>.pcap</code>. Offline, no root.</p>
+        <label class="filter-row">BSSID
+          <input id="cert-bssid" class="mini-input" placeholder="any"/>
+        </label>
+        <label class="btn" for="cert-file">Upload .cap / .pcap</label>
+        <input id="cert-file" type="file" accept=".cap,.pcap,.pcapng" hidden/>
+        <div id="cert-result"></div>
+      </section>
+
+      <section class="panel">
         <h2>Legend</h2>
         <div class="legend"><span class="dot ap"></span> Access Point</div>
         <div class="legend"><span class="dot client"></span> Client</div>
