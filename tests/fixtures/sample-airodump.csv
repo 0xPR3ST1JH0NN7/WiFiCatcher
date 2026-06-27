@@ -1,0 +1,14 @@
+
+BSSID, First time seen, Last time seen, channel, Speed, Privacy, Cipher, Authentication, Power, # beacons, # IV, LAN IP, ID-length, ESSID, Key
+
+DC:A6:32:11:22:33, 2026-06-26 10:00:00, 2026-06-26 10:30:00,  6,  130, WPA2, CCMP, PSK, -42,      120,       40,   0.  0.  0.  0,   8, HomeNet,
+B8:27:EB:AA:BB:CC, 2026-06-26 10:01:00, 2026-06-26 10:29:00, 11,  130, WPA3, CCMP, SAE, -55,       90,       12,   0.  0.  0.  0,   7, OfficeWiFi,
+00:50:F2:DE:AD:01, 2026-06-26 10:02:00, 2026-06-26 10:28:00,  1,   54, OPN,      ,    , -70,       60,        0,   0.  0.  0.  0,   0, ,
+A4:2B:B0:CA:FE:99, 2026-06-26 10:03:00, 2026-06-26 10:27:00,  6,  130, WPA2, CCMP, PSK, -61,       80,        5,   0.  0.  0.  0,  10, Cafe Guest,
+
+Station MAC, First time seen, Last time seen, Power, # packets, BSSID, Probed ESSIDs
+
+5C:F3:70:01:02:03, 2026-06-26 10:05:00, 2026-06-26 10:25:00, -48,      300, DC:A6:32:11:22:33,
+3C:A9:F4:04:05:06, 2026-06-26 10:06:00, 2026-06-26 10:24:00, -52,      210, B8:27:EB:AA:BB:CC, OfficeWiFi
+F0:18:98:07:08:09, 2026-06-26 10:07:00, 2026-06-26 10:23:00, -66,       50, A4:2B:B0:CA:FE:99,
+AC:DE:48:0A:0B:0C, 2026-06-26 10:08:00, 2026-06-26 10:22:00, -73,       15, (not associated), HomeNet,FreeWiFi,Starbucks
