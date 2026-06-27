@@ -57,7 +57,7 @@ interface from the list of detected adapters; a managed one is switched to
 monitor mode automatically and restored when you stop. You can also set a
 channel, protocol, WPS and an ESSID or BSSID filter.
 
-![Live capture panel](docs/live-capture.png)
+![Live capture in action](docs/live-capture.gif)
 
 > Use WiFiHound only on networks you own or are authorized to test.
 
