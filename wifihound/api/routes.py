@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import os
+import tempfile
 import threading
 
 from fastapi import (
     APIRouter,
     File,
+    Form,
     HTTPException,
     UploadFile,
     WebSocket,
@@ -191,6 +194,30 @@ def operations_enterprise_cert(req: CertRequest):
             cap_path=cap, ap_bssid=req.ap_bssid, dry_run=req.dry_run)
     except OperationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/operations/enterprise/cert/upload")
+async def operations_enterprise_cert_upload(
+        file: UploadFile = File(...), ap_bssid: str | None = Form(None)):
+    """Inspect the RADIUS certificate in an uploaded .cap/.pcap. Read-only.
+
+    The upload is written to a temporary file, scanned, then deleted.
+    """
+    raw = await file.read()
+    suffix = os.path.splitext(file.filename or "")[1] or ".cap"
+    fd, path = tempfile.mkstemp(prefix="wifihound-up-", suffix=suffix)
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(raw)
+        return enterprise.extract_radius_cert(
+            cap_path=path, ap_bssid=(ap_bssid or None))
+    except OperationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
 
 
 class EapMethodsRequest(BaseModel):
