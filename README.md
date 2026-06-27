@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="wifihound/web/static/img/logo.svg" alt="WiFiHound" width="130"/>
+  <img src="wifihound/web/static/img/logo.png" alt="WiFiHound" width="130"/>
 
   # WiFiHound
 
