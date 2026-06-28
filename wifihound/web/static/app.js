@@ -334,6 +334,8 @@ function showDetails(info) {
     ${probes}
     <div class="actions">
       <button class="btn" id="neighbors-btn">Highlight neighbors</button>
+      <button class="btn" id="isolate-btn">Isolate</button>
+      <button class="btn" id="copy-btn">Copy ${isAp ? "BSSID" : "MAC"}</button>
       ${offBtn}
       ${entBtns}
     </div>
@@ -344,6 +346,8 @@ function showDetails(info) {
   panel.classList.remove("hidden");
   document.getElementById("resizer-right").classList.remove("hidden");
   document.getElementById("neighbors-btn").onclick = () => highlightNeighbors(info.id);
+  document.getElementById("isolate-btn").onclick = () => isolate(info.id);
+  document.getElementById("copy-btn").onclick = () => copyText(info.id);
   const deauthBtn = document.getElementById("op-deauth-btn");
   if (deauthBtn) deauthBtn.onclick = () => openDeauthModal(info);
   const certBtn = document.getElementById("op-cert-btn");
@@ -387,35 +391,11 @@ function focusNode(id) {
   setTimeout(() => node.removeClass("highlight"), 1200);
 }
 
-/* ----------------------------------------------------------- context menu */
-cy.cxtmenu({
-  selector: "node",
-  menuRadius: 80,
-  fillColor: "rgba(16, 28, 39, 0.95)",
-  activeFillColor: "rgba(52, 211, 153, 0.85)",
-  commands: (ele) => {
-    const id = ele.id();
-    const isAp = ele.data("kind") === "ap";
-    const cmds = [
-      { content: "Details", select: () => openNode(id) },
-      { content: "Neighbors", select: () => highlightNeighbors(id) },
-      { content: "Isolate", select: () => isolate(id) },
-      { content: "Copy ID", select: () => copyText(id) },
-    ];
-    // Deauth an AP directly, or a client off its associated AP (degree > 0).
-    // Only during a live airodump capture on a fixed channel — pointless on a
-    // static import / replay.
-    const canDeauthNode = isAp || (ele.data("kind") === "client" && ele.degree(false) > 0);
-    if (live.canDeauth && canDeauthNode) {
-      cmds.push({
-        content: "Deauth",
-        select: () => API.node(id).then(openDeauthModal),
-        fillColor: "rgba(255, 93, 108, 0.85)",
-      });
-    }
-    return cmds;
-  },
-});
+/* --------------------------------------------------- right click → details */
+// Right-click (or long-press) opens the same details panel as a left click —
+// all the info and actions live in that panel, no radial menu.
+cy.on("cxttap", "node", (evt) => openNode(evt.target.id()));
+document.getElementById("cy").addEventListener("contextmenu", (e) => e.preventDefault());
 
 function isolate(id) {
   const node = cy.getElementById(id);

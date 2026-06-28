@@ -92,7 +92,9 @@ def get_parsers():
 
 @router.get("/node/{node_id}")
 def get_node(node_id: str):
-    info = STATE.node(node_id)
+    # During a live/replay capture the nodes live in the capture graph, not in
+    # the imported STATE — fall back to it so node details work mid-capture.
+    info = STATE.node(node_id) or CAPTURE.node(node_id)
     if info is None:
         raise HTTPException(status_code=404, detail="Node not found")
     return info
@@ -100,7 +102,8 @@ def get_node(node_id: str):
 
 @router.get("/search")
 def search(q: str = ""):
-    return {"query": q, "results": STATE.search(q)}
+    results = STATE.search(q) or CAPTURE.search(q)
+    return {"query": q, "results": results}
 
 
 @router.get("/path")

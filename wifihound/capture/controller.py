@@ -159,6 +159,15 @@ class CaptureController:
         getter = getattr(self._source, "latest_cap", None)
         return getter() if callable(getter) else None
 
+    # ----------------------------------------------------------- live lookups
+    def node(self, node_id: str):
+        """Node detail from the live capture graph (mid-capture lookups)."""
+        return self._graph.node(node_id)
+
+    def search(self, query: str):
+        """Search the live capture graph (mid-capture)."""
+        return self._graph.search(query)
+
     @property
     def can_deauth(self) -> bool:
         """Deauth needs a live airodump capture locked on one channel."""
