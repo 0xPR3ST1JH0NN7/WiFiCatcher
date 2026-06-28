@@ -23,6 +23,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 from typing import Optional
 
 from wifihound.capture.interfaces import MonitorHandle, restore_managed_mode
@@ -80,24 +81,35 @@ class ReplaySource(Source):
         return snap
 
 
+# airodump-ng --band letters: 'a' = 5 GHz, 'b'/'g' = 2.4 GHz.
+_BAND_FLAGS = {"2.4": "bg", "5": "a", "both": "abg"}
+
+
 class AirodumpSource(Source):
     """Spawn airodump-ng and tail its rotating CSV (authorized use only).
 
     Capture can be narrowed with the usual airodump-ng filters: a fixed channel
-    (``-c``), encryption suite (``--encrypt``), WPS info (``--wps``), and a
-    specific ESSID (``--essid``) or BSSID (``--bssid``).
+    (``-c``), a band (``--band`` for 2.4 GHz / 5 GHz / both), encryption suite
+    (``--encrypt``), WPS info (``--wps``), and a specific ESSID (``--essid``) or
+    BSSID (``--bssid``). When ``save`` is set the capture files are kept under
+    ``./captures`` instead of being discarded on stop.
     """
 
     def __init__(self, interface: str, channel: Optional[str] = None,
-                 encrypt: Optional[str] = None, wps: bool = False,
-                 essid: Optional[str] = None, bssid: Optional[str] = None,
-                 monitor: Optional[MonitorHandle] = None):
+                 band: Optional[str] = None, encrypt: Optional[str] = None,
+                 wps: bool = False, essid: Optional[str] = None,
+                 bssid: Optional[str] = None,
+                 monitor: Optional[MonitorHandle] = None, save: bool = False):
         self.interface = interface
         self.channel = channel
+        self.band = band             # "2.4" | "5" | "both"
         self.encrypt = encrypt        # WEP | WPA2 | WPA3 | OPN ...
         self.wps = wps
         self.essid = essid
         self.bssid = bssid
+        self.save = save
+        # Directory holding the kept capture once stop() runs (None if discarded).
+        self.saved_path: Optional[str] = None
         # When we enabled monitor mode for this capture, this handle lets stop()
         # put the interface back to managed mode automatically.
         self._monitor = monitor
@@ -109,7 +121,10 @@ class AirodumpSource(Source):
         # pcap is written alongside the CSV so handshakes can be detected.
         cmd = ["airodump-ng", "--output-format", "pcap,csv", "-w", prefix]
         if self.channel:
+            # A fixed channel already pins the band; --band would conflict.
             cmd += ["-c", str(self.channel)]
+        elif self.band in _BAND_FLAGS:
+            cmd += ["--band", _BAND_FLAGS[self.band]]
         if self.encrypt:
             cmd += ["--encrypt", str(self.encrypt)]
         if self.wps:
@@ -122,7 +137,14 @@ class AirodumpSource(Source):
         return cmd
 
     async def start(self) -> None:
-        self._dir = tempfile.mkdtemp(prefix="wifihound-cap-")
+        if self.save:
+            # Keep the capture in a readable, git-ignored ./captures subfolder.
+            base = os.path.join(os.getcwd(), "captures")
+            os.makedirs(base, exist_ok=True)
+            self._dir = tempfile.mkdtemp(
+                prefix="capture-" + time.strftime("%Y%m%d-%H%M%S") + "-", dir=base)
+        else:
+            self._dir = tempfile.mkdtemp(prefix="wifihound-cap-")
         prefix = os.path.join(self._dir, "cap")
         # airodump-ng runs until terminated; it rewrites cap-01.csv ~once/sec.
         self._proc = subprocess.Popen(
@@ -166,7 +188,10 @@ class AirodumpSource(Source):
                 self._proc.kill()
         self._proc = None
         if self._dir and os.path.isdir(self._dir):
-            shutil.rmtree(self._dir, ignore_errors=True)
+            if self.save:
+                self.saved_path = self._dir   # keep it; report the location
+            else:
+                shutil.rmtree(self._dir, ignore_errors=True)
         self._dir = None
         # Return the radio to managed mode if we put it into monitor mode.
         if self._monitor is not None:

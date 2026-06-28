@@ -26,13 +26,14 @@
       <ul id="search-results" class="search-results hidden"></ul>
     </div>
     <div class="topbar-actions">
+      <button class="btn ghost" id="clear-btn" title="Remove the loaded capture">Clear</button>
       <label class="btn primary" for="file-input">Import capture</label>
       <input id="file-input" type="file" accept=".csv,.txt" hidden/>
     </div>
   </header>
 
   <main class="layout">
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
       <section class="panel">
         <h2>Overview</h2>
         <div id="stats" class="stats">
@@ -43,107 +44,123 @@
         </div>
       </section>
 
-      <section class="panel">
-        <h2>Filters</h2>
-        <label class="filter"><input type="checkbox" id="filter-aps" checked/> Access Points</label>
-        <label class="filter"><input type="checkbox" id="filter-clients" checked/> Clients</label>
-        <label class="filter"><input type="checkbox" id="filter-unassoc" checked/> Unassociated clients</label>
-        <label class="filter-row">Encryption
-          <select id="filter-enc"><option value="">all</option></select>
-        </label>
-        <label class="filter-row">Channel
-          <select id="filter-chan"><option value="">all</option></select>
-        </label>
-        <label class="filter-row">Layout
-          <select id="layout-select">
-            <option value="fcose">force (fcose)</option>
-            <option value="concentric">concentric</option>
-            <option value="breadthfirst">hierarchical</option>
-            <option value="circle">circle</option>
-            <option value="grid">grid</option>
-          </select>
-        </label>
-        <button class="btn" id="enrich-btn">Enrich vendors (OUI)</button>
-        <button class="btn ghost" id="reset-btn">Reset view</button>
-      </section>
-
-      <section class="panel">
-        <h2>Live capture <span id="live-dot" class="live-dot"></span></h2>
-        <p class="hint" id="live-locked" style="display:none">
-          Live radio capture needs root. Start WiFiHound with <code>sudo</code> to enable it.
-        </p>
-        <div id="live-airodump-opts">
-          <label class="filter-row">Interface
-            <span class="iface-pick">
-              <select id="live-iface"><option value="">scanning…</option></select>
-              <button class="btn ghost mini-btn" id="live-iface-refresh" type="button"
-                      title="Rescan interfaces">↻</button>
-            </span>
+      <details class="panel" open>
+        <summary><h2>Filters &amp; view</h2></summary>
+        <div class="panel-body">
+          <label class="filter"><input type="checkbox" id="filter-aps" checked/> Access Points</label>
+          <label class="filter"><input type="checkbox" id="filter-clients" checked/> Clients</label>
+          <label class="filter"><input type="checkbox" id="filter-unassoc" checked/> Unassociated clients</label>
+          <label class="filter-row">Encryption
+            <select id="filter-enc"><option value="">all</option></select>
           </label>
           <label class="filter-row">Channel
-            <input id="live-channel" class="mini-input" type="number" min="1" max="196" placeholder="e.g. 6"/>
+            <select id="filter-chan"><option value="">all</option></select>
           </label>
-          <label class="filter-row">Protocol
-            <select id="live-encrypt">
-              <option value="">any</option>
-              <option value="WEP">WEP</option>
-              <option value="WPA2">WPA2</option>
-              <option value="WPA3">WPA3</option>
-              <option value="OPN">Open</option>
+          <label class="filter-row">Layout
+            <select id="layout-select">
+              <option value="fcose">force (fcose)</option>
+              <option value="concentric">concentric</option>
+              <option value="breadthfirst">hierarchical</option>
+              <option value="circle">circle</option>
+              <option value="grid">grid</option>
             </select>
           </label>
-          <label class="filter"><input type="checkbox" id="live-wps"/> Show WPS info</label>
-          <label class="filter-row">ESSID
-            <input id="live-essid" class="mini-input" placeholder="optional"/>
-          </label>
-          <label class="filter-row">BSSID
-            <input id="live-bssid" class="mini-input" placeholder="optional"/>
-          </label>
+          <button class="btn" id="enrich-btn">Enrich vendors (OUI)</button>
+          <button class="btn ghost" id="reset-btn">Reset view</button>
+        </div>
+      </details>
+
+      <details class="panel" open>
+        <summary><h2>Live capture <span id="live-dot" class="live-dot"></span></h2></summary>
+        <div class="panel-body">
+          <p class="hint" id="live-locked" style="display:none">
+            Live capture needs root — start WiFiHound with <code>sudo</code>.
+          </p>
+          <div id="live-airodump-opts">
+            <label class="filter-row">Interface
+              <span class="iface-pick">
+                <select id="live-iface"><option value="">scanning…</option></select>
+                <button class="btn ghost mini-btn" id="live-iface-refresh" type="button"
+                        title="Rescan interfaces">↻</button>
+              </span>
+            </label>
+            <button class="btn primary" id="live-toggle">Start live</button>
+            <label class="filter-row">Band
+              <select id="live-band">
+                <option value="2.4">2.4 GHz</option>
+                <option value="5">5 GHz</option>
+                <option value="both" selected>both</option>
+              </select>
+            </label>
+            <label class="filter"><input type="checkbox" id="live-save"/> Save capture file</label>
+            <details class="subpanel">
+              <summary>More options</summary>
+              <div class="panel-body">
+                <label class="filter-row">Channel
+                  <input id="live-channel" class="mini-input" type="number" min="1" max="196" placeholder="e.g. 6"/>
+                </label>
+                <label class="filter-row">Protocol
+                  <select id="live-encrypt">
+                    <option value="">any</option>
+                    <option value="WEP">WEP</option>
+                    <option value="WPA2">WPA2</option>
+                    <option value="WPA3">WPA3</option>
+                    <option value="OPN">Open</option>
+                  </select>
+                </label>
+                <label class="filter"><input type="checkbox" id="live-wps"/> Show WPS info</label>
+                <label class="filter-row">ESSID
+                  <input id="live-essid" class="mini-input" placeholder="optional"/>
+                </label>
+                <label class="filter-row">BSSID
+                  <input id="live-bssid" class="mini-input" placeholder="optional"/>
+                </label>
+                <label class="filter-row">Interval (s)
+                  <input id="live-interval" class="mini-input" type="number" min="0.2" max="10"
+                         step="0.1" value="1.2"/>
+                </label>
+              </div>
+            </details>
+          </div>
+        </div>
+      </details>
+
+      <details class="panel">
+        <summary><h2>Replay <span id="replay-dot" class="live-dot"></span></h2></summary>
+        <div class="panel-body">
           <label class="filter-row">Interval (s)
-            <input id="live-interval" class="mini-input" type="number" min="0.2" max="10"
+            <input id="replay-interval" class="mini-input" type="number" min="0.2" max="10"
                    step="0.1" value="1.2"/>
           </label>
-          <p class="hint">A managed interface is switched to <strong>monitor mode</strong>
-            automatically (airmon-ng check kill + start) and returned to managed mode when
-            you stop. Set a <strong>channel</strong> to enable deauth on captured APs.</p>
+          <button class="btn" id="replay-toggle" disabled>Replay capture</button>
+          <p class="hint" id="replay-hint">Import a capture first, then replay it.</p>
         </div>
-        <button class="btn primary" id="live-toggle">Start live</button>
-        <p class="hint" id="live-status">Streams a real <code>airodump-ng</code> capture and maps
-          the network live. Needs root (run with <code>sudo</code>).</p>
-      </section>
+      </details>
 
-      <section class="panel">
-        <h2>Replay <span id="replay-dot" class="live-dot"></span></h2>
-        <p class="hint">Re-play an <strong>imported</strong> capture node by node, as if it were
-          being discovered live. Fully offline — no radio or root needed.</p>
-        <label class="filter-row">Interval (s)
-          <input id="replay-interval" class="mini-input" type="number" min="0.2" max="10"
-                 step="0.1" value="1.2"/>
-        </label>
-        <button class="btn" id="replay-toggle" disabled>Replay capture</button>
-        <p class="hint" id="replay-hint">Import a capture first, then replay it.</p>
-      </section>
+      <details class="panel">
+        <summary><h2>RADIUS certificate</h2></summary>
+        <div class="panel-body">
+          <label class="filter-row">BSSID
+            <input id="cert-bssid" class="mini-input" placeholder="any"/>
+          </label>
+          <label class="btn" for="cert-file">Upload .cap / .pcap</label>
+          <input id="cert-file" type="file" accept=".cap,.pcap,.pcapng" hidden/>
+          <div id="cert-result"></div>
+        </div>
+      </details>
 
-      <section class="panel">
-        <h2>RADIUS certificate</h2>
-        <p class="hint">Inspect the server certificate from an enterprise
-          <code>.cap</code>/<code>.pcap</code>. Offline, no root.</p>
-        <label class="filter-row">BSSID
-          <input id="cert-bssid" class="mini-input" placeholder="any"/>
-        </label>
-        <label class="btn" for="cert-file">Upload .cap / .pcap</label>
-        <input id="cert-file" type="file" accept=".cap,.pcap,.pcapng" hidden/>
-        <div id="cert-result"></div>
-      </section>
-
-      <section class="panel">
-        <h2>Legend</h2>
-        <div class="legend"><span class="dot ap"></span> Access Point</div>
-        <div class="legend"><span class="dot client"></span> Client</div>
-        <div class="legend"><span class="dot client-un"></span> Unassociated client</div>
-        <p class="hint">Right click a node for actions. Drag to pan, scroll to zoom.</p>
-      </section>
+      <details class="panel">
+        <summary><h2>Legend</h2></summary>
+        <div class="panel-body">
+          <div class="legend"><span class="dot ap"></span> Access Point</div>
+          <div class="legend"><span class="dot client"></span> Client</div>
+          <div class="legend"><span class="dot client-un"></span> Unassociated client</div>
+          <p class="hint">Right click a node for actions. Drag to pan, scroll to zoom.</p>
+        </div>
+      </details>
     </aside>
+
+    <div class="resizer" id="resizer-left" title="Drag to resize"></div>
 
     <section class="graph-wrap">
       <div id="cy"></div>
@@ -154,6 +171,8 @@
         <label class="btn primary" for="file-input">Import capture</label>
       </div>
     </section>
+
+    <div class="resizer hidden" id="resizer-right" title="Drag to resize"></div>
 
     <aside id="details" class="details hidden">
       <button class="details-close" id="details-close" aria-label="Close">&times;</button>

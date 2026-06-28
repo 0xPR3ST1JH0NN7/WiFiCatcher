@@ -115,6 +115,13 @@ def config():
     return {"offensive_available": offensive_available()}
 
 
+@router.post("/clear")
+def clear_state():
+    """Drop the loaded capture so a reload or an explicit Clear starts fresh."""
+    STATE.clear()
+    return {"status": "cleared", "summary": STATE.stats()}
+
+
 # ------------------------------------------------------------------ enrichment
 @router.post("/enrich/oui")
 def enrich_oui():
@@ -277,11 +284,13 @@ class LiveStartRequest(BaseModel):
     mode: str = "replay"            # "replay" | "airodump"
     interface: str | None = None
     channel: str | None = None      # fixed channel; required to allow deauth
+    band: str | None = None         # "2.4" | "5" | "both" (ignored if channel set)
     encrypt: str | None = None      # WEP | WPA2 | WPA3 | OPN ...
     wps: bool = False               # show WPS info (--wps)
     essid: str | None = None        # capture one ESSID only
     bssid: str | None = None        # capture one BSSID only
     interval: float | None = None
+    save: bool = False              # keep the capture files under ./captures
     acknowledged: bool = False
 
 
@@ -327,8 +336,9 @@ async def live_start(req: LiveStartRequest):
         except _OpError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         source = AirodumpSource(
-            monitor.interface, channel=req.channel, encrypt=req.encrypt,
-            wps=req.wps, essid=req.essid, bssid=req.bssid, monitor=monitor,
+            monitor.interface, channel=req.channel, band=req.band,
+            encrypt=req.encrypt, wps=req.wps, essid=req.essid, bssid=req.bssid,
+            monitor=monitor, save=req.save,
         )
         # Watch the live pcap for WPA handshakes (e.g. captured during a deauth).
         handshakes = HandshakeWatcher(source)
@@ -346,7 +356,7 @@ async def live_start(req: LiveStartRequest):
 @router.post("/live/stop")
 async def live_stop():
     await CAPTURE.stop()
-    return {"status": "stopped"}
+    return {"status": "stopped", "saved_path": CAPTURE.last_saved_path}
 
 
 @router.get("/live/status")

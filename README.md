@@ -62,23 +62,6 @@ channel, protocol, WPS and an ESSID or BSSID filter.
 
 > Use WiFiHound only on networks you own or are authorized to test.
 
-## WPA2-Enterprise
-
-Enterprise (802.1X) APs are flagged in the graph and their details, with two
-assessment actions when you select one.
-
-* **Inspect RADIUS cert** reads the captured `.cap`/`.pcap` and shows the RADIUS
-  server certificate (subject, issuer, validity, serial). It is read-only and
-  needs no root; it uses `tshark` (or `pcapFilter.sh` when installed) and the
-  `cryptography` package.
-* **Enumerate EAP methods** runs `EAP_buster.sh` to find which EAP methods the
-  network accepts (EAP-TLS, PEAP, TTLS and friends). It authenticates for real,
-  so it needs root, takes a few minutes, and puts the interface in managed mode.
-  Install `EAP_buster.sh` and `wpa_supplicant`, and set `WIFIHOUND_EAP_BUSTER`
-  to the script path if it is not on your PATH.
-
-> These features are for authorized testing only.
-
 ## Authors
 
 * [@0xPR3ST1JH0NN7](https://github.com/0xPR3ST1JH0NN7)

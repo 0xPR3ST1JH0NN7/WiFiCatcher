@@ -42,6 +42,11 @@ class WifiGraph:
 
         self.graph = g
 
+    def clear(self) -> None:
+        """Drop the current scan and graph, returning to an empty session."""
+        self.graph = nx.Graph()
+        self.scan = None
+
     # ----------------------------------------------------------------- access
     def node(self, node_id: str) -> Optional[dict]:
         if node_id not in self.graph:

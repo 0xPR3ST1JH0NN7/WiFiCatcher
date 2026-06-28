@@ -11,6 +11,8 @@ const API = {
   node: (id) => fetchJSON(`/api/node/${encodeURIComponent(id)}`),
   search: (q) => fetchJSON(`/api/search?q=${encodeURIComponent(q)}`),
   config: () => fetchJSON("/api/config"),
+  clear: () => fetchJSON("/api/clear", { method: "POST" }),
+  liveStatus: () => fetchJSON("/api/live/status"),
   enrich: () => fetchJSON("/api/enrich/oui", { method: "POST" }),
   deauth: (payload) =>
     fetchJSON("/api/operations/deauth", {
@@ -326,6 +328,7 @@ function showDetails(info) {
   const panel = document.getElementById("details");
   const wasHidden = panel.classList.contains("hidden");
   panel.classList.remove("hidden");
+  document.getElementById("resizer-right").classList.remove("hidden");
   document.getElementById("neighbors-btn").onclick = () => highlightNeighbors(info.id);
   const deauthBtn = document.getElementById("op-deauth-btn");
   if (deauthBtn) deauthBtn.onclick = () => openDeauthModal(info);
@@ -347,6 +350,7 @@ function showDetails(info) {
 
 function closeDetails() {
   document.getElementById("details").classList.add("hidden");
+  document.getElementById("resizer-right").classList.add("hidden");
   requestAnimationFrame(() => cy.resize());
 }
 
@@ -674,10 +678,35 @@ document.getElementById("enrich-btn").onclick = async () => {
 document.getElementById("reset-btn").onclick = () => {
   cy.elements().removeClass("faded highlight");
   cy.nodes().removeClass("hidden-node");
-  document.querySelectorAll(".filter input").forEach((c) => (c.checked = true));
+  // Only the graph filters — not the live-capture checkboxes that share .filter.
+  ["filter-aps", "filter-clients", "filter-unassoc"].forEach(
+    (id) => (document.getElementById(id).checked = true)
+  );
   document.getElementById("filter-enc").value = "";
   document.getElementById("filter-chan").value = "";
+  applyFilters();
   fitGraph();
+};
+
+// Wipe the loaded capture from the view and the server (a fresh start).
+function clearGraph() {
+  cy.elements().remove();
+  updateStats({});
+  populateFilterOptions();
+  document.getElementById("empty-state").classList.remove("hidden");
+  closeDetails();
+  live.loaded = false;
+  refreshLiveButtons();
+}
+
+document.getElementById("clear-btn").onclick = async () => {
+  // Stop any live/replay session first, but keep its toast silent so the single
+  // shared toast can report both the clear and where a saved capture landed.
+  let saved = null;
+  if (live.running) saved = await stopLive({ silent: true });
+  try { await API.clear(); } catch (e) { /* ignore */ }
+  clearGraph();
+  toast(saved ? `Capture cleared — saved to ${saved}` : "Capture cleared", "ok");
 };
 
 document.getElementById("details-close").onclick = closeDetails;
@@ -833,11 +862,13 @@ async function startLive() {
     mode: "airodump",
     interface: iface,
     channel,
+    band: document.getElementById("live-band").value || null,
     interval,
     encrypt: document.getElementById("live-encrypt").value || null,
     wps: document.getElementById("live-wps").checked,
     essid: document.getElementById("live-essid").value.trim() || null,
     bssid: document.getElementById("live-bssid").value.trim() || null,
+    save: document.getElementById("live-save").checked,
     acknowledged: true,
   };
   try {
@@ -876,16 +907,24 @@ async function startReplay() {
   }
 }
 
-async function stopLive() {
+async function stopLive(opts = {}) {
   const wasReplay = live.mode === "replay";
-  try { await API.liveStop(); } catch (e) { /* ignore */ }
+  let saved = null;
+  try {
+    const res = await API.liveStop();
+    saved = res && res.saved_path;
+  } catch (e) { /* ignore */ }
   if (live.ws) { live.ws.close(); live.ws = null; }
   live.mode = null;
   live.channel = null;
   live.canDeauth = false;
   setLiveUI(false);
-  toast(wasReplay ? "Replay stopped" : "Live capture stopped", "ok");
+  if (!opts.silent) {
+    if (saved) toast(`Capture saved to ${saved}`, "ok");
+    else toast(wasReplay ? "Replay stopped" : "Live capture stopped", "ok");
+  }
   if (OFFENSIVE && !wasReplay) loadInterfaces(); // adapter is back to managed mode now
+  return saved;
 }
 
 document.getElementById("live-toggle").onclick = () =>
@@ -895,6 +934,53 @@ document.getElementById("replay-toggle").onclick = () =>
   live.running && live.mode === "replay" ? stopLive() : startReplay();
 
 document.getElementById("live-iface-refresh").onclick = () => loadInterfaces();
+
+/* -------------------------------------------------------------- resizing */
+// Drag a handle to resize the panel it sits beside. The sidebar (left) grows
+// as the handle moves right; the details panel (right) grows as it moves left.
+// Min/max come from the panels' CSS, so the graph never collapses to nothing.
+function makeResizer(handleId, panelId, side) {
+  const handle = document.getElementById(handleId);
+  const panel = document.getElementById(panelId);
+  if (!handle || !panel) return;
+  let startX = 0, startW = 0, dragging = false;
+
+  const bound = (w) => {
+    const cs = getComputedStyle(panel);
+    const min = parseInt(cs.minWidth, 10) || 180;
+    const max = parseInt(cs.maxWidth, 10) || 640;
+    return Math.max(min, Math.min(w, max));
+  };
+  const onMove = (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - startX;
+    panel.style.width = bound(side === "left" ? startW + dx : startW - dx) + "px";
+    cy.resize();
+  };
+  const onUp = () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove("dragging");
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+    window.removeEventListener("mousemove", onMove);
+    window.removeEventListener("mouseup", onUp);
+    requestAnimationFrame(() => cy.resize());
+  };
+  handle.addEventListener("mousedown", (e) => {
+    dragging = true;
+    startX = e.clientX;
+    startW = panel.getBoundingClientRect().width;
+    handle.classList.add("dragging");
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    e.preventDefault();
+  });
+}
+makeResizer("resizer-left", "sidebar", "left");
+makeResizer("resizer-right", "details", "right");
 
 /* ------------------------------------------------------------------ utils */
 function copyText(text) {
@@ -936,14 +1022,29 @@ function escapeHtml(value) {
     document.getElementById("live-airodump-opts").style.display = "none";
     document.getElementById("live-toggle").disabled = true;
   }
+
+  // A live/replay session that is still running should survive a reload — rejoin
+  // it. Otherwise a reload starts fresh: stale imported data is discarded so the
+  // page never resurrects a capture the user thought they had moved on from.
+  let reconnected = false;
   try {
-    const payload = await API.graph();
-    if (payload.elements.nodes.length) {
-      renderGraph(payload);
-      live.loaded = true;          // a capture is already loaded server-side
+    const status = await API.liveStatus();
+    if (status.running) {
+      live.mode = status.mode;
+      live.channel = status.channel;
+      live.canDeauth = !!status.can_deauth;
+      live.loaded = status.mode === "replay"; // a replay implies a loaded capture
+      live.fitDone = false;
+      openLiveSocket();            // the init snapshot rebuilds the live graph
+      setLiveUI(true);
+      reconnected = true;
     }
   } catch (e) {
-    /* nothing loaded yet */
+    /* no live session to rejoin */
+  }
+  if (!reconnected) {
+    try { await API.clear(); } catch (e) { /* ignore */ }
+    document.getElementById("empty-state").classList.remove("hidden");
   }
   refreshLiveButtons();            // set initial button/enabled state
 })();

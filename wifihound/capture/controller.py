@@ -55,6 +55,8 @@ class CaptureController:
         self._seen_handshakes: set[str] = set()
         self.running = False
         self.mode: Optional[str] = None
+        # Where the most recent capture was kept, if "save" was requested.
+        self.last_saved_path: Optional[str] = None
 
     # ----------------------------------------------------------- lifecycle
     async def start(self, source: Source, mode: str,
@@ -66,6 +68,7 @@ class CaptureController:
         self._graph = WifiGraph()
         self._handshakes = handshakes
         self._seen_handshakes = set()
+        self.last_saved_path = None
         if interval:
             self._interval = interval
         await source.start()
@@ -86,6 +89,8 @@ class CaptureController:
                 await self._source.stop()
             except Exception:
                 pass
+            # Surface where a "saved" capture was kept, if any, before we drop it.
+            self.last_saved_path = getattr(self._source, "saved_path", None)
             self._source = None
         self.mode = None
         await self._broadcast({"type": "stopped"})
