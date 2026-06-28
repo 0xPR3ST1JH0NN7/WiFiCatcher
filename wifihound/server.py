@@ -31,7 +31,11 @@ def create_app() -> FastAPI:
     @app.get("/favicon.ico", include_in_schema=False)
     def favicon():
         # Serve the icon for browsers that request /favicon.ico at the site root.
-        return FileResponse(str(WEB_DIR / "static" / "img" / "favicon.ico"))
+        # no-cache so a refreshed icon is picked up instead of a stale cached one.
+        return FileResponse(
+            str(WEB_DIR / "static" / "img" / "favicon.ico"),
+            headers={"Cache-Control": "no-cache"},
+        )
 
     @app.get("/health")
     def health():
