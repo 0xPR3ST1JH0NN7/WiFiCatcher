@@ -1,13 +1,5 @@
-```
- _       ___ _______ __  __                      __
-| |     / (_) ____(_) / / /___  __  ______  ____/ /
-| | /| / / / /_  / / /_/ / __ \/ / / / __ \/ __  /
-| |/ |/ / / __/ / / __  / /_/ / /_/ / / / / /_/ /
-|__/|__/_/_/   /_/_/ /_/\____/\__,_/_/ /_/\__,_/
-```
-
 <div align="center">
-  <img src="wifihound/web/static/img/logo.png" alt="WiFiHound" width="130"/>
+  <img src="wifihound/web/static/img/logo-wordmark.png" alt="WiFiHound" width="440"/>
 
   # WiFiHound
 
