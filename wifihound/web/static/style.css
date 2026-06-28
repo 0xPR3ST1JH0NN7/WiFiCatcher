@@ -67,15 +67,17 @@ body { font-size: 14px; }   /* design baseline; the size setting zooms the whole
   z-index: 20;
 }
 .brand { display: flex; align-items: center; gap: 11px; }
-.logo { width: 46px; height: 46px; filter: drop-shadow(0 2px 6px rgba(0,0,0,.5)); }
-.brand-name {
+/* WiFiHound wordmark, the same ASCII art shown in the terminal banner. */
+.logo-ascii {
+  margin: 0;
+  font-family: ui-monospace, "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  font-size: 9px;
+  line-height: 9px;
   font-weight: 700;
-  font-size: 18px;
-  letter-spacing: .5px;
-  background: linear-gradient(90deg, var(--accent-2), var(--accent));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--accent);
+  white-space: pre;
+  text-shadow: 0 0 6px color-mix(in srgb, var(--accent) 55%, transparent);
+  user-select: none;
 }
 .search { position: relative; flex: 1; max-width: 520px; }
 .search input {
