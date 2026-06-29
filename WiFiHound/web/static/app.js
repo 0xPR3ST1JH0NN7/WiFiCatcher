@@ -141,11 +141,11 @@ const cy = cytoscape({
       selector: "node:selected",
       style: { "border-color": "#22d3ee", "border-width": 4 },
     },
-    // Pulsing red halo while a deauth runs against this node / edge.
+    // Pulsing red circular halo while a deauth runs against this node / edge.
     {
       selector: "node.deauthing",
-      style: { "overlay-color": "#ff3b3b", "overlay-opacity": 0.28,
-               "overlay-padding": 8 },
+      style: { "overlay-color": "#ff3b3b", "overlay-shape": "ellipse",
+               "overlay-opacity": 0.28, "overlay-padding": 8 },
     },
     {
       selector: "edge.deauthing",
@@ -540,21 +540,21 @@ document.getElementById("op-confirm").onclick = () => {
   return pendingOp.type === "eap" ? confirmEap() : confirmDeauth();
 };
 
-// Pulse a red halo on the deauth target (and the edge to its AP) while the
-// operation runs server-side, so it is clear something is happening. Returns a
-// stop function that ends the animation and clears the effect.
+// Pulse a red circular halo while a deauth runs server-side, so it is clear
+// something is happening. A client deauth lights the client and the link to its
+// AP (the deauth targets that association); an AP deauth lights the AP and its
+// links. Returns a stop function that ends the animation and clears the effect.
 function startDeauthFx(op) {
   let targets = cy.collection();
-  const ap = op.bssid ? cy.getElementById(op.bssid) : cy.collection();
   if (op.client) {
     const client = cy.getElementById(op.client);
+    const ap = op.bssid ? cy.getElementById(op.bssid) : cy.collection();
     if (client.nonempty()) targets = targets.union(client);
-    if (ap.nonempty()) {
-      targets = targets.union(ap);
-      if (client.nonempty()) targets = targets.union(client.edgesWith(ap));
-    }
-  } else if (ap.nonempty()) {
-    targets = targets.union(ap).union(ap.connectedEdges());
+    if (client.nonempty() && ap.nonempty())
+      targets = targets.union(client.edgesWith(ap));
+  } else if (op.bssid) {
+    const ap = cy.getElementById(op.bssid);
+    if (ap.nonempty()) targets = targets.union(ap).union(ap.connectedEdges());
   }
   if (targets.empty()) return () => {};
 
@@ -575,9 +575,10 @@ function startDeauthFx(op) {
 
   return () => {
     stopped = true;
-    nodes.stop();
+    nodes.stop(true);                         // stop + clear any queued pulse
     targets.removeClass("deauthing");
-    nodes.removeStyle("overlay-opacity overlay-padding");
+    nodes.removeStyle("overlay-opacity");     // clear bypass so no halo lingers
+    nodes.removeStyle("overlay-padding");
   };
 }
 

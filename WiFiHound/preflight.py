@@ -14,7 +14,6 @@ back to ``tshark``); ``EAP_buster`` is bundled with WiFiHound. Run with
 
 from __future__ import annotations
 
-import os
 import shutil
 import sys
 from dataclasses import dataclass
@@ -33,11 +32,10 @@ def _c(text: str, code: str) -> str:
 
 @dataclass(frozen=True)
 class Tool:
-    name: str            # command resolved on PATH (or absolute path)
+    name: str            # command resolved on PATH
     purpose: str         # short human description
     required: bool       # True -> missing blocks startup
     install: str = ""    # how to obtain it
-    env: str = ""        # env var that overrides the command name / path
 
 
 # Python distributions the app imports (all required to run at all).
@@ -74,25 +72,8 @@ def _dist_present(dist: str) -> bool:
 
 
 def _resolve(tool: Tool) -> str | None:
-    """Absolute path to the tool, honouring any env override, or None.
-
-    An env override that gives an explicit path is expanded (``~`` and
-    ``$VARS``) and accepted if the file simply exists, even without the
-    executable bit, so a configured-but-not-``chmod +x`` script still shows as
-    present in the checklist.
-    """
-    name = tool.name
-    if tool.env:
-        override = os.environ.get(tool.env)
-        if override:
-            name = os.path.expanduser(os.path.expandvars(override))
-    found = shutil.which(name)
-    if found:
-        return found
-    if (os.sep in name or name.startswith("~")) and os.path.isfile(
-            os.path.expanduser(name)):
-        return os.path.expanduser(name)
-    return None
+    """Absolute path to the tool on PATH, or None."""
+    return shutil.which(tool.name)
 
 
 def _line(name: str, width: int, present: bool, required: bool, note: str = "") -> None:

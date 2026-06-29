@@ -26,7 +26,6 @@
     <div class="topbar-actions">
       <button class="btn ghost icon-btn" id="settings-btn" title="Appearance settings" aria-label="Appearance settings">⚙</button>
       <button class="btn ghost" id="clear-btn" title="Remove the loaded capture">Clear</button>
-      <label class="btn primary" for="file-input">Import capture</label>
       <input id="file-input" type="file" accept=".csv,.txt" hidden/>
     </div>
   </header>
@@ -61,13 +60,13 @@
                 <option value="both" selected>both</option>
               </select>
             </label>
+            <label class="filter-row">Channel
+              <input id="live-channel" class="mini-input" type="number" min="1" max="196" placeholder="e.g. 6"/>
+            </label>
             <label class="filter"><input type="checkbox" id="live-save"/> Save capture file</label>
             <details class="subpanel">
               <summary>More options</summary>
               <div class="panel-body">
-                <label class="filter-row">Channel
-                  <input id="live-channel" class="mini-input" type="number" min="1" max="196" placeholder="e.g. 6"/>
-                </label>
                 <label class="filter-row">Protocol
                   <select id="live-encrypt">
                     <option value="">any</option>
@@ -162,9 +161,17 @@
         <p class="legend-hint">Click an item to filter · click a node for details</p>
       </div>
       <div id="empty-state" class="empty-state">
-        <img src="/static/img/cat_logo.png" alt="" class="empty-logo"/>
+        <div class="empty-cat">
+          <svg class="wifi-z" viewBox="0 0 44 38" aria-hidden="true">
+            <circle class="wz wz1" cx="22" cy="30" r="2.4"/>
+            <path class="wz wz2" d="M14 23 a11 11 0 0 1 16 0"/>
+            <path class="wz wz3" d="M8.5 16 a18.5 18.5 0 0 1 27 0"/>
+          </svg>
+          <img src="/static/img/cat_logo.png" alt="" class="empty-logo"/>
+        </div>
         <h3>No capture loaded</h3>
         <p>Import an airodump-ng CSV to map the WiFi landscape.</p>
+        <label class="btn primary empty-import" for="file-input">Import capture</label>
       </div>
     </section>
 

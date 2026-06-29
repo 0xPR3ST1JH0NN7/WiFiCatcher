@@ -301,8 +301,21 @@ code { background: var(--panel); padding: 1px 5px; border-radius: 4px; font-size
   gap: 10px; text-align: center; color: var(--muted);
 }
 .empty-logo { width: 160px; height: 160px; border-radius: 18px; opacity: .95;
-  margin-bottom: 8px; box-shadow: var(--shadow); }
+  box-shadow: var(--shadow); }
 .empty-state h3 { margin: 0; color: var(--text); }
+.empty-import { margin-top: 4px; }
+/* Sleepy Wi-Fi waves drifting up off the cat while the app sits idle. */
+.empty-cat { position: relative; display: inline-block; margin-bottom: 8px; }
+.wifi-z { position: absolute; top: -16px; left: 50%; margin-left: -8px;
+  width: 58px; height: 46px; color: var(--accent);
+  animation: wifi-bob 3s ease-in-out infinite; }
+.wifi-z .wz { fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round;
+  opacity: .12; animation: wifi-pulse 1.9s ease-in-out infinite; }
+.wifi-z .wz1 { fill: currentColor; stroke: none; }
+.wifi-z .wz2 { animation-delay: .28s; }
+.wifi-z .wz3 { animation-delay: .56s; }
+@keyframes wifi-pulse { 0%, 100% { opacity: .12; } 45% { opacity: 1; } }
+@keyframes wifi-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 
 /* ---------------------------------------------------------------- details */
 .details {
