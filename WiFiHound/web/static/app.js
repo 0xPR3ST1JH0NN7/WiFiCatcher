@@ -141,6 +141,16 @@ const cy = cytoscape({
       selector: "node:selected",
       style: { "border-color": "#22d3ee", "border-width": 4 },
     },
+    // Pulsing red halo while a deauth runs against this node / edge.
+    {
+      selector: "node.deauthing",
+      style: { "overlay-color": "#ff3b3b", "overlay-opacity": 0.28,
+               "overlay-padding": 8 },
+    },
+    {
+      selector: "edge.deauthing",
+      style: { "line-color": "#ff3b3b", width: 5 },
+    },
   ],
 });
 
@@ -530,10 +540,52 @@ document.getElementById("op-confirm").onclick = () => {
   return pendingOp.type === "eap" ? confirmEap() : confirmDeauth();
 };
 
+// Pulse a red halo on the deauth target (and the edge to its AP) while the
+// operation runs server-side, so it is clear something is happening. Returns a
+// stop function that ends the animation and clears the effect.
+function startDeauthFx(op) {
+  let targets = cy.collection();
+  const ap = op.bssid ? cy.getElementById(op.bssid) : cy.collection();
+  if (op.client) {
+    const client = cy.getElementById(op.client);
+    if (client.nonempty()) targets = targets.union(client);
+    if (ap.nonempty()) {
+      targets = targets.union(ap);
+      if (client.nonempty()) targets = targets.union(client.edgesWith(ap));
+    }
+  } else if (ap.nonempty()) {
+    targets = targets.union(ap).union(ap.connectedEdges());
+  }
+  if (targets.empty()) return () => {};
+
+  targets.addClass("deauthing");
+  const nodes = targets.nodes();
+  let stopped = false;
+  (function pulse() {
+    if (stopped) return;
+    nodes.animate(
+      { style: { "overlay-opacity": 0.6, "overlay-padding": 18 } },
+      { duration: 420, easing: "ease-out-sine", complete() {
+        if (stopped) return;
+        nodes.animate(
+          { style: { "overlay-opacity": 0.28, "overlay-padding": 8 } },
+          { duration: 420, easing: "ease-in-sine", complete: pulse });
+      } });
+  })();
+
+  return () => {
+    stopped = true;
+    nodes.stop();
+    targets.removeClass("deauthing");
+    nodes.removeStyle("overlay-opacity overlay-padding");
+  };
+}
+
 async function confirmDeauth() {
+  const op = pendingOp;
   const payload = {
-    bssid: pendingOp.bssid,
-    client: pendingOp.client || null,
+    bssid: op.bssid,
+    client: op.client || null,
     count: Number(document.getElementById("op-count").value) || 5,
     acknowledged: true,
     dry_run: false,
@@ -543,11 +595,14 @@ async function confirmDeauth() {
   document.getElementById("op-modal").classList.add("hidden");
   pendingOp = null;
   toast("Sending deauth…");
+  const stopFx = startDeauthFx(op);   // pulse the target until the deauth ends
   try {
     const res = await API.deauth(payload);
     toast(`Deauth ${res.status}`, res.status === "ok" ? "ok" : "error");
   } catch (e) {
     toast(e.message, "error");
+  } finally {
+    stopFx();
   }
 }
 
