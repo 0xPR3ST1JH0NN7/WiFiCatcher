@@ -1,14 +1,15 @@
 """Startup preflight: verify the Python packages and external tools are present.
 
-WiFiHound shells out to the aircrack-ng suite, ``tshark`` and a couple of helper
-scripts. This module resolves each dependency, prints a checklist to the
-terminal, and reports whether the required ones are all present so the CLI can
-refuse to start when something mandatory is missing.
+WiFiHound shells out to the aircrack-ng suite and ``tshark``. This module
+resolves each dependency, prints a checklist to the terminal, and reports
+whether they are all present so the CLI can refuse to start when something
+mandatory is missing.
 
-Required tools block startup; optional ones are shown but only warned about
-(they back specific extras: ``pcapFilter.sh`` is a faster cert extractor that
-falls back to ``tshark``, ``EAP_buster.sh`` / ``wpa_supplicant`` power EAP
-enumeration). Run with ``--skip-checks`` to bypass the gate entirely.
+Every tool in the checklist is required and blocks startup when missing. A few
+extras are resolved at runtime instead of here: ``wpa_supplicant`` (EAP
+enumeration) and ``pcapFilter.sh`` (a faster RADIUS cert extractor that falls
+back to ``tshark``); ``EAP_buster`` is bundled with WiFiHound. Run with
+``--skip-checks`` to bypass the gate entirely.
 """
 
 from __future__ import annotations
@@ -61,9 +62,6 @@ TOOLS: list[Tool] = [
          install="apt install aircrack-ng"),
     Tool("tshark", "handshake detection + RADIUS cert extraction", required=True,
          install="apt install tshark"),
-    Tool("EAP_buster.sh", "EAP method enumeration script", required=False,
-         install="https://github.com/blackarrowsec/EAP_buster",
-         env="WIFIHOUND_EAP_BUSTER"),
 ]
 
 

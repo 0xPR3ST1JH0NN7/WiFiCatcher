@@ -37,7 +37,6 @@ missing**:
 | --- | --- | --- |
 | `aircrack-ng`, `airmon-ng`, `airodump-ng`, `aireplay-ng` | the aircrack-ng suite (live capture, monitor mode, deauth) | ✅ |
 | `tshark` | handshake detection + RADIUS certificate extraction | ✅ |
-| `EAP_buster.sh` | EAP method enumeration (path via `WIFIHOUND_EAP_BUSTER`) | optional |
 
 ```bash
 sudo apt install aircrack-ng tshark
@@ -100,29 +99,15 @@ a PNG** image. During a live capture you can also inspect the certificate of a
 selected enterprise AP directly.
 
 **EAP method enumeration.** During a live capture, an enterprise AP's details
-panel offers **Enumerate EAP methods…**. It runs the external
-[`EAP_buster.sh`](https://github.com/blackarrowsec/EAP_buster), which performs
-*real* 802.1X authentication attempts to find which EAP methods (EAP-TLS,
-PEAP-MSCHAPv2, TTLS-PAP, …) the network accepts. It needs root, a legitimate EAP
-identity (e.g. `DOMAIN\user`) and a free interface (the script switches it to
-managed mode itself), and runs for several minutes.
+panel offers **Enumerate EAP methods…**. It performs *real* 802.1X
+authentication attempts to find which EAP methods (EAP-TLS, PEAP-MSCHAPv2,
+TTLS-PAP, and so on) the network accepts. It needs root, a legitimate EAP
+identity (e.g. `DOMAIN\user`) and a free interface (it is switched to managed
+mode automatically), and runs for several minutes.
 
-`EAP_buster.sh` is not bundled. Put it on your `PATH`, or point WiFiHound at it
-with the `WIFIHOUND_EAP_BUSTER` environment variable:
-
-```bash
-export WIFIHOUND_EAP_BUSTER=/opt/EAP_buster/EAP_buster.sh
-```
-
-Because EAP enumeration needs root, remember that `sudo` does not pass your shell
-environment through by default. Either preserve it with `sudo -E`, or set the
-variable inline:
-
-```bash
-sudo -E python3 -m WiFiHound
-# or
-sudo WIFIHOUND_EAP_BUSTER=/opt/EAP_buster/EAP_buster.sh python3 -m WiFiHound
-```
+This uses [EAP_buster](https://github.com/blackarrowsec/EAP_buster) by BlackArrow
+(MIT), which is bundled under `WiFiHound/vendor/EAP_buster`, so no extra setup is
+needed. It does require `wpa_supplicant` on the host (`apt install wpasupplicant`).
 
 ## Authors
 

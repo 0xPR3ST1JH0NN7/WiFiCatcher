@@ -30,6 +30,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 
 from WiFiHound.models import normalize_mac
 from WiFiHound.operations.base import (
@@ -49,8 +50,12 @@ except ImportError:  # pragma: no cover - exercised only without the dep
     _serialization = None
     _HAVE_CRYPTO = False
 
-# Where EAP_buster.sh lives; it is not a system package, so allow overriding.
-EAP_BUSTER = os.environ.get("WIFIHOUND_EAP_BUSTER", "EAP_buster.sh")
+# EAP_buster is vendored under the package (operations/../vendor/EAP_buster) so
+# enumeration works out of the box; WIFIHOUND_EAP_BUSTER can still override it.
+_BUNDLED_EAP_BUSTER = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "vendor", "EAP_buster", "EAP_buster.sh")
+EAP_BUSTER = os.environ.get("WIFIHOUND_EAP_BUSTER") or _BUNDLED_EAP_BUSTER
 CERT_TIMEOUT = 120              # tshark TLS reassembly over a big cap is slow
 EAP_BUSTER_TIMEOUT = 15 * 60    # ~20s/method x ~18 methods; hung well past this
 
@@ -276,8 +281,10 @@ def enumerate_eap_methods(interface: str, essid: str, identity: str,
     :func:`parse_eap_buster`.
     """
     require_authorization(acknowledged)            # root + acknowledged
-    require_tools(script_path, "wpa_supplicant",
-                  hint="Install EAP_buster.sh (and wpa_supplicant).")
+    require_tools("wpa_supplicant",
+                  hint="Install wpa_supplicant (apt install wpasupplicant).")
+    if not os.path.isfile(script_path):
+        raise OperationError(f"EAP_buster.sh was not found at {script_path}.")
 
     if not interface or not interface.strip():
         raise OperationError("A wireless interface is required.")
@@ -296,15 +303,29 @@ def enumerate_eap_methods(interface: str, essid: str, identity: str,
     if dry_run:
         return {"status": "dry-run", "command": cmd}
 
+    # EAP_buster generates certs, per-ESSID logs and edits its config files in
+    # place, so run it from a private copy. The bundled tool stays pristine and
+    # nothing is left behind in the package directory.
+    src_dir = os.path.dirname(os.path.abspath(script_path))
+    workdir = tempfile.mkdtemp(prefix="wifihound-eap-")
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True,
-                              timeout=EAP_BUSTER_TIMEOUT, check=False)
-    except FileNotFoundError as exc:
-        raise OperationError(str(exc)) from exc
-    except subprocess.TimeoutExpired as exc:
-        raise OperationError(
-            "EAP_buster timed out; the AP/RADIUS may be rate-limiting or the "
-            "interface is stuck.") from exc
+        run_dir = os.path.join(workdir, "EAP_buster")
+        shutil.copytree(src_dir, run_dir)
+        run_script = os.path.join(run_dir, os.path.basename(script_path))
+        os.chmod(run_script, 0o755)
+        try:
+            proc = subprocess.run(
+                [run_script, essid, identity, interface],
+                capture_output=True, text=True,
+                timeout=EAP_BUSTER_TIMEOUT, check=False)
+        except FileNotFoundError as exc:
+            raise OperationError(str(exc)) from exc
+        except subprocess.TimeoutExpired as exc:
+            raise OperationError(
+                "EAP_buster timed out; the AP/RADIUS may be rate-limiting or "
+                "the interface is stuck.") from exc
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
 
     methods = parse_eap_buster(proc.stdout, mark_untested_as_maybe=True)
     return {
