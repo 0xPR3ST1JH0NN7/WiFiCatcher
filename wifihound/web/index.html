@@ -43,12 +43,9 @@
         </div>
       </section>
 
-      <details class="panel">
+      <details class="panel" id="live-panel">
         <summary><h2>Live capture <span id="live-dot" class="live-dot"></span></h2></summary>
         <div class="panel-body">
-          <p class="hint" id="live-locked" style="display:none">
-            Live capture needs root. Start WiFiHound with <code>sudo</code>.
-          </p>
           <div id="live-airodump-opts">
             <label class="filter-row">Interface
               <span class="iface-pick">
@@ -123,6 +120,11 @@
           <input id="cert-file" type="file" accept=".cap,.pcap,.pcapng" hidden/>
         </div>
       </details>
+
+      <p class="hint root-note hidden" id="root-note">
+        Live capture &amp; deauth need root — start WiFiHound with
+        <code>sudo</code> to enable them.
+      </p>
 
     </aside>
 

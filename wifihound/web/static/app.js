@@ -1280,10 +1280,11 @@ document.getElementById("settings-reset").onclick = () => {
     // Real radio capture is unlocked only when the server enables offensive ops.
     loadInterfaces();
   } else {
-    // No root: lock the live-capture controls and explain why.
-    document.getElementById("live-locked").style.display = "";
-    document.getElementById("live-airodump-opts").style.display = "none";
-    document.getElementById("live-toggle").disabled = true;
+    // Not root: live capture (and the deauth / EAP actions it unlocks) can't
+    // run, so hide that panel entirely instead of showing dead controls. The
+    // offline tools (import, replay, RADIUS cert upload) stay available.
+    document.getElementById("live-panel").classList.add("hidden");
+    document.getElementById("root-note").classList.remove("hidden");
   }
 
   // A live/replay session that is still running should survive a reload — rejoin
