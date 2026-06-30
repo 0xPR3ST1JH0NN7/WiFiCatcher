@@ -306,8 +306,10 @@ code { background: var(--panel); padding: 1px 5px; border-radius: 4px; font-size
 .empty-import { margin-top: 4px; }
 /* Sleepy Wi-Fi waves drifting up off the cat while the app sits idle. */
 .empty-cat { position: relative; display: inline-block; margin-bottom: 8px; }
-.wifi-z { position: absolute; top: -16px; left: 50%; margin-left: -8px;
-  width: 58px; height: 46px; color: var(--accent);
+/* Sit entirely above the cat (bottom at its top edge) so the waves are never
+   hidden behind it. */
+.wifi-z { position: absolute; bottom: calc(100% + 4px); left: 50%; margin-left: -31px;
+  width: 62px; height: 50px; color: var(--accent); z-index: 2; pointer-events: none;
   animation: wifi-bob 3s ease-in-out infinite; }
 .wifi-z .wz { fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round;
   opacity: .12; animation: wifi-pulse 1.9s ease-in-out infinite; }
