@@ -48,7 +48,13 @@ def create_app() -> FastAPI:
 
     @app.get("/")
     def index():
-        return FileResponse(str(WEB_DIR / "index.html"))
+        # no-cache so the browser always revalidates the page — and picks up the
+        # versioned app.js / style.css links it carries — instead of showing a
+        # stale build from cache after an update.
+        return FileResponse(
+            str(WEB_DIR / "index.html"),
+            headers={"Cache-Control": "no-cache"},
+        )
 
     @app.get("/favicon.ico", include_in_schema=False)
     def favicon():
