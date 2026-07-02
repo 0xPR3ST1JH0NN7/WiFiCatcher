@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32.png?v=2"/>
   <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon-16.png?v=2"/>
   <link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png?v=2"/>
-  <link rel="stylesheet" href="/static/style.css?v=4"/>
+  <link rel="stylesheet" href="/static/style.css?v=5"/>
   <script src="/static/vendor/cytoscape.min.js"></script>
   <script src="/static/vendor/layout-base.js"></script>
   <script src="/static/vendor/cose-base.js"></script>
@@ -23,6 +23,68 @@
       <input id="search-input" type="search" placeholder="Search ESSID, BSSID, MAC, vendor…" autocomplete="off"/>
       <ul id="search-results" class="search-results hidden"></ul>
     </div>
+
+    <!-- Endless-runner mascot: a pixel cat chasing a password key across the
+         toolbar, Chrome-dino style. Pure CSS/SVG, decorative (pointer-events
+         off), and it stretches to fill the gap so the cat gets a long road. -->
+    <div class="cat-runner" id="cat-runner" aria-hidden="true" title="catch the password!">
+      <span class="cat-dust"></span>
+      <svg class="cat-run" viewBox="0 0 54 34">
+        <g fill="currentColor">
+          <!-- tail (curls up at the back) -->
+          <rect x="2" y="8" width="4" height="2"/>
+          <rect x="2" y="10" width="2" height="6"/>
+          <rect x="4" y="14" width="2" height="4"/>
+          <!-- rear haunch -->
+          <rect x="8" y="12" width="8" height="2"/>
+          <rect x="6" y="14" width="10" height="10"/>
+          <!-- body -->
+          <rect x="14" y="16" width="24" height="8"/>
+          <!-- chest / shoulder -->
+          <rect x="32" y="16" width="8" height="8"/>
+          <!-- neck -->
+          <rect x="36" y="12" width="6" height="6"/>
+          <!-- head -->
+          <rect x="40" y="10" width="10" height="10"/>
+          <!-- snout -->
+          <rect x="50" y="14" width="2" height="4"/>
+          <!-- ears -->
+          <rect x="40" y="6" width="2" height="4"/>
+          <rect x="42" y="8" width="2" height="2"/>
+          <rect x="46" y="6" width="2" height="4"/>
+          <rect x="44" y="8" width="2" height="2"/>
+          <!-- eye (punched out with the background colour) -->
+          <rect x="46" y="13" width="2" height="2" fill="var(--bg)"/>
+          <!-- legs, frame A -->
+          <g class="cat-legs-a">
+            <rect x="6"  y="24" width="2" height="6"/>
+            <rect x="12" y="24" width="2" height="4"/>
+            <rect x="34" y="24" width="2" height="4"/>
+            <rect x="40" y="24" width="2" height="6"/>
+          </g>
+          <!-- legs, frame B -->
+          <g class="cat-legs-b">
+            <rect x="6"  y="24" width="2" height="4"/>
+            <rect x="12" y="24" width="2" height="6"/>
+            <rect x="34" y="24" width="2" height="6"/>
+            <rect x="40" y="24" width="2" height="4"/>
+          </g>
+        </g>
+      </svg>
+      <span class="cat-key">
+        <svg viewBox="0 0 20 12" width="20" height="12">
+          <g fill="currentColor">
+            <rect x="0" y="2" width="8" height="8"/>
+            <rect x="2" y="4" width="4" height="4" fill="var(--panel)"/>
+            <rect x="8" y="5" width="9" height="2"/>
+            <rect x="14" y="7" width="2" height="3"/>
+            <rect x="17" y="7" width="2" height="3"/>
+          </g>
+        </svg>
+      </span>
+      <span class="cat-ground"></span>
+    </div>
+
     <div class="topbar-actions">
       <button class="btn ghost icon-btn" id="settings-btn" title="Appearance settings" aria-label="Appearance settings">⚙</button>
       <button class="btn ghost" id="clear-btn" title="Remove the loaded capture">Clear</button>

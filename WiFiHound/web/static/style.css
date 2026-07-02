@@ -128,6 +128,82 @@ body { font-size: 14px; }   /* design baseline; the size setting zooms the whole
 .topbar-actions .btn + .btn { margin-top: 0; }   /* keep them inline, not stacked */
 .icon-btn { padding: 8px 11px; font-size: 16px; line-height: 1; }
 
+/* ---------------------------------------------------------- runner mascot */
+/* A Chrome-dino-style endless runner in the toolbar: a pixel cat chasing a
+   password key. Pure CSS/SVG (no assets), tinted from the palette. It lives in
+   the gap between the search box and the actions and grows to fill it, so the
+   cat gets a long road; the cat pins left (near search), the key pins right.
+   Decorative — hidden on narrow screens and when reduced motion is preferred. */
+.cat-runner {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 40px;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;   /* cat pinned left, key pinned right */
+  gap: 12px;
+  padding: 0 8px 5px;
+  overflow: hidden;
+  user-select: none;
+  pointer-events: none;             /* purely decorative; never eats clicks */
+}
+.cat-run {
+  height: 30px; width: auto; flex-shrink: 0;
+  color: var(--accent);
+  shape-rendering: crispedges;
+  animation: cat-bob .24s steps(2) infinite;
+}
+/* 2-frame leg swap = the classic dino gait */
+.cat-run .cat-legs-b { opacity: 0; }
+.cat-run .cat-legs-a { animation: cat-frame-a .24s steps(1) infinite; }
+.cat-run .cat-legs-b { animation: cat-frame-b .24s steps(1) infinite; }
+@keyframes cat-frame-a { 0%, 49.9% { opacity: 1; } 50%, 100% { opacity: 0; } }
+@keyframes cat-frame-b { 0%, 49.9% { opacity: 0; } 50%, 100% { opacity: 1; } }
+@keyframes cat-bob { 0% { transform: translateY(0); } 50% { transform: translateY(-1px); } }
+
+.cat-key {
+  flex-shrink: 0; color: var(--accent);
+  display: flex; align-items: center; padding-bottom: 3px;
+  animation: cat-flee .5s ease-in-out infinite;
+}
+.cat-key svg { display: block; shape-rendering: crispedges; }
+@keyframes cat-flee {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  30% { transform: translate(2px, -4px) rotate(6deg); }
+  60% { transform: translate(0, 0) rotate(0); }
+}
+
+/* the dino-style scrolling dashed ground = the road */
+.cat-ground {
+  position: absolute; left: 0; right: 0; bottom: 3px; height: 2px; opacity: .55;
+  background-image: repeating-linear-gradient(90deg, var(--muted) 0 6px, transparent 6px 14px);
+  background-size: 14px 2px;
+  animation: cat-scroll .5s linear infinite;
+}
+@keyframes cat-scroll { to { background-position-x: -14px; } }
+
+/* little speed puffs trailing the cat */
+.cat-dust {
+  position: absolute; left: 6px; bottom: 8px; width: 8px; height: 2px; color: var(--accent);
+}
+.cat-dust::before, .cat-dust::after {
+  content: ""; position: absolute; height: 2px; background: currentColor; opacity: 0;
+}
+.cat-dust::before { width: 6px; bottom: 0; animation: cat-puff .48s linear infinite; }
+.cat-dust::after { width: 4px; bottom: 5px; animation: cat-puff .48s linear .24s infinite; }
+@keyframes cat-puff {
+  0% { opacity: .5; transform: translateX(0); }
+  100% { opacity: 0; transform: translateX(-10px); }
+}
+
+/* keep the toolbar usable where a running mascot would crowd it */
+@media (max-width: 720px) { .cat-runner { display: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .cat-run, .cat-run .cat-legs-a, .cat-run .cat-legs-b,
+  .cat-key, .cat-ground, .cat-dust::before, .cat-dust::after { animation: none; }
+}
+
 /* ---------------------------------------------------------------- buttons */
 .btn {
   display: inline-block;
