@@ -436,6 +436,13 @@ code { background: var(--panel); padding: 1px 5px; border-radius: 4px; font-size
 .vt-btn:hover { color: var(--text); }
 .vt-btn.active { background: var(--accent); color: var(--btn-primary-text); font-weight: 600; }
 
+/* Node search overlay, docked on the canvas beside the view toggle (graph mode
+   only). Reuses the .search input / .search-results dropdown styles. */
+.graph-search {
+  position: absolute; top: 12px; left: 174px; z-index: 6;
+  flex: none; width: min(360px, calc(100% - 470px));
+}
+
 /* The table overlay fills the graph area and sits above the canvas + legend. */
 .table-view {
   position: absolute; inset: 0; z-index: 5;

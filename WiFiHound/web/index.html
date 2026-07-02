@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32.png?v=2"/>
   <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon-16.png?v=2"/>
   <link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png?v=2"/>
-  <link rel="stylesheet" href="/static/style.css?v=10"/>
+  <link rel="stylesheet" href="/static/style.css?v=11"/>
   <script src="/static/vendor/cytoscape.min.js"></script>
   <script src="/static/vendor/layout-base.js"></script>
   <script src="/static/vendor/cose-base.js"></script>
@@ -19,15 +19,11 @@
     <div class="brand">
       <img class="logo-mark" src="/static/img/logo-wordmark.png" alt="WiFiHound"/>
     </div>
-    <div class="search">
-      <input id="search-input" type="search" placeholder="Search ESSID, BSSID, MAC, vendor…" autocomplete="off"/>
-      <ul id="search-results" class="search-results hidden"></ul>
-    </div>
 
     <!-- Endless-runner mascot: a pixel cat chasing a password key, Chrome-dino
-         style. Pure CSS/SVG, decorative (pointer-events:none). The lane fills
-         the gap between the search box and the actions and centres the compact
-         track, so the cat sits midway between search and the settings gear. -->
+         style. Pure CSS/SVG, decorative (pointer-events:none). With no search
+         box in the toolbar, the lane's auto margins split the free space evenly
+         so the cat stays centred between the logo and the actions in both views. -->
     <div class="cat-runner" id="cat-runner" aria-hidden="true" title="catch the password!">
       <div class="cat-track">
         <span class="cat-dust"></span>
@@ -206,6 +202,13 @@
         <button type="button" class="vt-btn" data-view="table" role="tab">Table</button>
       </div>
 
+      <!-- Node search lives on the canvas (graph mode only); the table view has
+           its own row filter. Kept out of the toolbar so the cat stays centred. -->
+      <div class="search graph-search hidden" id="graph-search">
+        <input id="search-input" type="search" placeholder="Search ESSID, BSSID, MAC, vendor…" autocomplete="off"/>
+        <ul id="search-results" class="search-results hidden"></ul>
+      </div>
+
       <div class="table-view hidden" id="table-view">
         <div class="table-toolbar">
           <input id="table-search" type="search" placeholder="Filter table rows…" autocomplete="off"/>
@@ -358,6 +361,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="/static/app.js?v=5"></script>
+  <script src="/static/app.js?v=6"></script>
 </body>
 </html>

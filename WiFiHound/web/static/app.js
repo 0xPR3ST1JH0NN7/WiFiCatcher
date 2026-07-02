@@ -197,6 +197,9 @@ function setEmptyState(empty) {
   if (toggle) toggle.classList.toggle("hidden", empty);
   // No table without data — fall back to the graph so the empty splash shows.
   if (empty && currentView === "table") setView("graph");
+  // The node search overlay is graph-only chrome, same visibility as the legend.
+  const graphSearch = document.getElementById("graph-search");
+  if (graphSearch) graphSearch.classList.toggle("hidden", empty || currentView === "table");
   const legend = document.getElementById("graph-legend");
   if (legend) {
     const wasHidden = legend.classList.contains("hidden");
@@ -458,14 +461,14 @@ function setView(view) {
   document.getElementById("table-view").classList.toggle("hidden", !isTable);
   document.querySelectorAll(".vt-btn").forEach((b) =>
     b.classList.toggle("active", b.dataset.view === currentView));
-  // The top search box navigates graph nodes (it focuses / zooms the canvas), so
+  // The node search overlay navigates the canvas (it focuses / zooms a node), so
   // it only makes sense in graph mode; the table has its own row filter. Hide it
-  // in table view and close any open results dropdown.
-  const search = document.querySelector(".search");
-  if (search) search.classList.toggle("hidden", isTable);
+  // in table view (and when empty) and close any open results dropdown.
+  const empty = cy.nodes().length === 0;
+  const graphSearch = document.getElementById("graph-search");
+  if (graphSearch) graphSearch.classList.toggle("hidden", empty || isTable);
   if (isTable) hideSearch();
   // The legend is graph-only chrome; hide it while the table is up.
-  const empty = cy.nodes().length === 0;
   const legend = document.getElementById("graph-legend");
   if (legend) {
     legend.classList.toggle("hidden", empty || isTable);
