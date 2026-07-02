@@ -134,12 +134,14 @@ body { font-size: 14px; }   /* design baseline; the size setting zooms the whole
    the gap between the search box and the actions and grows to fill it, so the
    cat gets a long road; the cat pins left (near search), the key pins right.
    Decorative — hidden on narrow screens and when reduced motion is preferred. */
-/* The lane is a content-sized flex item; its auto left margin (paired with the
-   actions' own auto margin) splits the leftover toolbar space evenly, so the
-   cat sits centred midway between the search box and the settings gear. */
+/* The lane is a content-sized flex item. Its auto left margin plus a fixed
+   right margin (against the actions' own auto margin) place the cat a little
+   left of centre in the gap between the search box and the settings gear —
+   the fixed margin biases it ~half its value toward the search side. */
 .cat-runner {
   flex: 0 0 auto;
   margin-left: auto;
+  margin-right: 150px;              /* bias the cat left of centre */
   height: 40px;
   display: flex;
   align-items: center;
@@ -147,17 +149,16 @@ body { font-size: 14px; }   /* design baseline; the size setting zooms the whole
   user-select: none;
   pointer-events: none;             /* purely decorative; never eats clicks */
 }
-/* the compact unit: cat + short road + key, all at half the original scale */
+/* the compact unit: cat + a short run-up of road + key */
 .cat-track {
   position: relative;
   display: flex;
   align-items: flex-end;
-  gap: 5px;                         /* keep the cat right on the key's tail */
-  height: 20px;
-  padding: 0 3px 3px 28px;          /* short run-up of road behind the cat */
+  gap: 9px;                         /* keep the cat right on the key's tail */
+  padding: 0 6px 5px 56px;          /* ~4 dashes of road behind the cat */
 }
 .cat-run {
-  height: 15px; width: auto; flex-shrink: 0;
+  height: 30px; width: auto; flex-shrink: 0;
   color: var(--accent);
   shape-rendering: crispedges;
   animation: cat-bob .24s steps(2) infinite;
@@ -172,37 +173,37 @@ body { font-size: 14px; }   /* design baseline; the size setting zooms the whole
 
 .cat-key {
   flex-shrink: 0; color: var(--accent);
-  display: flex; align-items: center; padding-bottom: 1px;
+  display: flex; align-items: center; padding-bottom: 3px;
   animation: cat-flee .5s ease-in-out infinite;
 }
-.cat-key svg { display: block; width: 10px; height: 6px; shape-rendering: crispedges; }
+.cat-key svg { display: block; width: 20px; height: 12px; shape-rendering: crispedges; }
 @keyframes cat-flee {
   0%, 100% { transform: translate(0, 0) rotate(0); }
-  30% { transform: translate(1px, -2px) rotate(6deg); }
+  30% { transform: translate(2px, -4px) rotate(6deg); }
   60% { transform: translate(0, 0) rotate(0); }
 }
 
-/* the dino-style scrolling dashed ground = the road (half-scale dashes) */
+/* the dino-style scrolling dashed ground = the road */
 .cat-ground {
-  position: absolute; left: 0; right: 0; bottom: 2px; height: 2px; opacity: .55;
-  background-image: repeating-linear-gradient(90deg, var(--muted) 0 3px, transparent 3px 7px);
-  background-size: 7px 2px;
+  position: absolute; left: 0; right: 0; bottom: 3px; height: 2px; opacity: .55;
+  background-image: repeating-linear-gradient(90deg, var(--muted) 0 6px, transparent 6px 14px);
+  background-size: 14px 2px;
   animation: cat-scroll .5s linear infinite;
 }
-@keyframes cat-scroll { to { background-position-x: -7px; } }
+@keyframes cat-scroll { to { background-position-x: -14px; } }
 
 /* little speed puffs trailing the cat */
 .cat-dust {
-  position: absolute; left: 24px; bottom: 4px; width: 4px; height: 1px; color: var(--accent);
+  position: absolute; left: 48px; bottom: 8px; width: 8px; height: 2px; color: var(--accent);
 }
 .cat-dust::before, .cat-dust::after {
-  content: ""; position: absolute; height: 1px; background: currentColor; opacity: 0;
+  content: ""; position: absolute; height: 2px; background: currentColor; opacity: 0;
 }
-.cat-dust::before { width: 3px; bottom: 0; animation: cat-puff .48s linear infinite; }
-.cat-dust::after { width: 2px; bottom: 3px; animation: cat-puff .48s linear .24s infinite; }
+.cat-dust::before { width: 6px; bottom: 0; animation: cat-puff .48s linear infinite; }
+.cat-dust::after { width: 4px; bottom: 5px; animation: cat-puff .48s linear .24s infinite; }
 @keyframes cat-puff {
   0% { opacity: .5; transform: translateX(0); }
-  100% { opacity: 0; transform: translateX(-5px); }
+  100% { opacity: 0; transform: translateX(-10px); }
 }
 
 /* keep the toolbar usable where a running mascot would crowd it */
