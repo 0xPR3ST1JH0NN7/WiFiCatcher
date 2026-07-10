@@ -1,0 +1,78 @@
+"""WPS detection over a live pcap.
+
+WPS-enabled access points advertise a WPS information element in their beacons
+and probe responses. airodump-ng's CSV does not carry it, but the pcap it writes
+alongside does, so we read the WPS version and AP-setup-locked state per BSSID
+with ``tshark`` (already used for handshake detection).
+
+:func:`parse_wps` is pure and unit-tested; the ``tshark`` call is best-effort and
+degrades to "no detection" when tshark is absent or the capture has no WPS APs.
+"""
+
+from __future__ import annotations
+
+import shutil
+import subprocess
+from typing import Optional
+
+from WiFiCatcher.models import normalize_mac
+
+# tshark fields, joined by this separator so values with commas stay intact.
+_SEP = "|"
+_FIELDS = ["wlan.bssid", "wps.version", "wps.version2", "wps.ap_setup_locked"]
+
+
+def parse_wps(tshark_output: str) -> dict[str, dict]:
+    """Parse ``tshark`` WPS field rows into ``{bssid: {version, locked}}``.
+
+    Each row is ``bssid|version|version2|ap_setup_locked`` (see ``_FIELDS``).
+    A non-empty ``wps.version2`` means WPS 2.0, otherwise 1.0; ap_setup_locked is
+    truthy when tshark prints ``1`` / ``True``.
+    """
+    found: dict[str, dict] = {}
+    for line in tshark_output.splitlines():
+        cols = line.split(_SEP)
+        bssid = normalize_mac(cols[0]) if cols else ""
+        if not bssid:
+            continue
+        version1 = cols[1].strip() if len(cols) > 1 else ""
+        version2 = cols[2].strip() if len(cols) > 2 else ""
+        locked = cols[3].strip().lower() if len(cols) > 3 else ""
+        found[bssid] = {
+            "version": "2.0" if version2 else ("1.0" if version1 else None),
+            "locked": locked in ("1", "true", "0x01"),
+        }
+    return found
+
+
+class WpsWatcher:
+    """Poll a source's pcap for WPS info; accumulate the latest per BSSID."""
+
+    def __init__(self, source):
+        self._source = source
+        self._wps: dict[str, dict] = {}
+
+    @staticmethod
+    def available() -> bool:
+        return shutil.which("tshark") is not None
+
+    def _cap_path(self) -> Optional[str]:
+        getter = getattr(self._source, "latest_cap", None)
+        return getter() if callable(getter) else None
+
+    def poll(self) -> dict[str, dict]:
+        """Return the cumulative ``{bssid: {version, locked}}`` seen so far."""
+        cap = self._cap_path()
+        if not cap or not self.available():
+            return dict(self._wps)
+        try:
+            out = subprocess.run(
+                ["tshark", "-r", cap, "-n", "-Y", "wps.version", "-T", "fields"]
+                + [arg for field in _FIELDS for arg in ("-e", field)]
+                + ["-E", f"separator={_SEP}"],
+                capture_output=True, text=True, timeout=25, check=False,
+            ).stdout
+        except (OSError, subprocess.SubprocessError):
+            return dict(self._wps)
+        self._wps.update(parse_wps(out))
+        return dict(self._wps)

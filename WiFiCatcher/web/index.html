@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>WiFiCatcher</title>
+  <link rel="icon" href="/static/img/favicon.ico?v=2" sizes="any"/>
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32.png?v=2"/>
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon-16.png?v=2"/>
+  <link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png?v=2"/>
+  <link rel="stylesheet" href="/static/style.css?v=12"/>
+  <script src="/static/vendor/cytoscape.min.js"></script>
+  <script src="/static/vendor/layout-base.js"></script>
+  <script src="/static/vendor/cose-base.js"></script>
+  <script src="/static/vendor/cytoscape-fcose.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img class="logo-mark" src="/static/img/logo-wordmark.png" alt="WiFiCatcher"/>
+    </div>
+
+    <!-- Endless-runner mascot: a pixel cat chasing a password key, Chrome-dino
+         style. Pure CSS/SVG, decorative (pointer-events:none). With no search
+         box in the toolbar, the lane's auto margins split the free space evenly
+         so the cat stays centred between the logo and the actions in both views. -->
+    <div class="cat-runner" id="cat-runner" aria-hidden="true" title="catch the password!">
+      <div class="cat-track">
+        <span class="cat-dust"></span>
+        <svg class="cat-run" viewBox="0 0 54 34">
+          <g fill="currentColor">
+            <!-- tail (curls up at the back) -->
+            <rect x="2" y="8" width="4" height="2"/>
+            <rect x="2" y="10" width="2" height="6"/>
+            <rect x="4" y="14" width="2" height="4"/>
+            <!-- rear haunch -->
+            <rect x="8" y="12" width="8" height="2"/>
+            <rect x="6" y="14" width="10" height="10"/>
+            <!-- body -->
+            <rect x="14" y="16" width="24" height="8"/>
+            <!-- chest / shoulder -->
+            <rect x="32" y="16" width="8" height="8"/>
+            <!-- neck -->
+            <rect x="36" y="12" width="6" height="6"/>
+            <!-- head -->
+            <rect x="40" y="10" width="10" height="10"/>
+            <!-- snout -->
+            <rect x="50" y="14" width="2" height="4"/>
+            <!-- ears -->
+            <rect x="40" y="6" width="2" height="4"/>
+            <rect x="42" y="8" width="2" height="2"/>
+            <rect x="46" y="6" width="2" height="4"/>
+            <rect x="44" y="8" width="2" height="2"/>
+            <!-- eye (punched out with the background colour) -->
+            <rect x="46" y="13" width="2" height="2" fill="var(--bg)"/>
+            <!-- legs, frame A -->
+            <g class="cat-legs-a">
+              <rect x="6"  y="24" width="2" height="6"/>
+              <rect x="12" y="24" width="2" height="4"/>
+              <rect x="34" y="24" width="2" height="4"/>
+              <rect x="40" y="24" width="2" height="6"/>
+            </g>
+            <!-- legs, frame B -->
+            <g class="cat-legs-b">
+              <rect x="6"  y="24" width="2" height="4"/>
+              <rect x="12" y="24" width="2" height="6"/>
+              <rect x="34" y="24" width="2" height="6"/>
+              <rect x="40" y="24" width="2" height="4"/>
+            </g>
+          </g>
+        </svg>
+        <span class="cat-key">
+          <svg viewBox="0 0 20 12">
+            <g fill="currentColor">
+              <rect x="0" y="2" width="8" height="8"/>
+              <rect x="2" y="4" width="4" height="4" fill="var(--panel)"/>
+              <rect x="8" y="5" width="9" height="2"/>
+              <rect x="14" y="7" width="2" height="3"/>
+              <rect x="17" y="7" width="2" height="3"/>
+            </g>
+          </svg>
+        </span>
+        <span class="cat-ground"></span>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <button class="btn ghost icon-btn" id="settings-btn" title="Appearance settings" aria-label="Appearance settings">⚙</button>
+      <button class="btn ghost" id="clear-btn" title="Remove the loaded capture">Clear</button>
+      <input id="file-input" type="file" accept=".csv,.txt" hidden/>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar" id="sidebar">
+      <section class="panel">
+        <h2>Overview</h2>
+        <div id="stats" class="stats">
+          <div class="stat"><span class="stat-num" id="stat-aps">0</span><span class="stat-label">Access Points</span></div>
+          <div class="stat"><span class="stat-num" id="stat-clients">0</span><span class="stat-label">Clients</span></div>
+          <div class="stat"><span class="stat-num" id="stat-assoc">0</span><span class="stat-label">Associated</span></div>
+          <div class="stat"><span class="stat-num" id="stat-hidden">0</span><span class="stat-label">Hidden APs</span></div>
+        </div>
+      </section>
+
+      <details class="panel" id="live-panel">
+        <summary><h2>Live capture <span id="live-dot" class="live-dot"></span></h2></summary>
+        <div class="panel-body">
+          <div id="live-airodump-opts">
+            <label class="filter-row">Interface
+              <span class="iface-pick">
+                <select id="live-iface"><option value="">scanning…</option></select>
+                <button class="btn ghost mini-btn" id="live-iface-refresh" type="button"
+                        title="Rescan interfaces">↻</button>
+              </span>
+            </label>
+            <label class="filter-row">Band
+              <select id="live-band">
+                <option value="2.4" selected>2.4 GHz</option>
+                <option value="5">5 GHz</option>
+                <option value="both">both</option>
+              </select>
+            </label>
+            <label class="filter-row">Channel
+              <select id="live-channel" class="mini-input">
+                <option value="">any</option>
+              </select>
+            </label>
+            <label class="filter"><input type="checkbox" id="live-save"/> Save capture file</label>
+            <details class="subpanel">
+              <summary>More options</summary>
+              <div class="panel-body">
+                <label class="filter-row">Protocol
+                  <select id="live-encrypt">
+                    <option value="">any</option>
+                    <option value="WEP">WEP</option>
+                    <option value="WPA2">WPA2</option>
+                    <option value="WPA3">WPA3</option>
+                    <option value="OPN">Open</option>
+                  </select>
+                </label>
+                <label class="filter"><input type="checkbox" id="live-wps"/> Show WPS info</label>
+                <label class="filter-row">ESSID
+                  <input id="live-essid" class="mini-input" placeholder="optional"/>
+                </label>
+                <label class="filter-row">BSSID
+                  <input id="live-bssid" class="mini-input" placeholder="optional"/>
+                </label>
+                <label class="filter-row">Interval (s)
+                  <input id="live-interval" class="mini-input" type="number" min="0.2" max="10"
+                         step="0.1" value="1.2"/>
+                </label>
+              </div>
+            </details>
+            <button class="btn" id="live-toggle">Start live capture</button>
+          </div>
+        </div>
+      </details>
+
+      <details class="panel">
+        <summary><h2>Replay <span id="replay-dot" class="live-dot"></span></h2></summary>
+        <div class="panel-body">
+          <label class="filter-row">Interval (s)
+            <input id="replay-interval" class="mini-input" type="number" min="0.2" max="10"
+                   step="0.1" value="1.2"/>
+          </label>
+          <p class="hint" id="replay-hint">Import an airodump CSV to enable replay.</p>
+          <button class="btn primary" id="replay-toggle">Import capture</button>
+        </div>
+      </details>
+
+      <details class="panel">
+        <summary><h2><svg class="cert-ico" viewBox="0 0 24 24" width="14" height="14"
+            aria-hidden="true" focusable="false"><circle cx="12" cy="9" r="6" fill="none"
+            stroke="currentColor" stroke-width="2"/><path d="M8.5 14l-1.5 7 5-3 5 3-1.5-7"
+            fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle
+            cx="12" cy="9" r="2.2" fill="currentColor"/></svg>RADIUS certificate</h2></summary>
+        <div class="panel-body">
+          <p class="hint">Read the RADIUS server certificate from an enterprise
+            <code>.cap</code> / <code>.pcap</code>. Offline, no root.</p>
+          <label class="btn" for="cert-file">Upload .cap / .pcap</label>
+          <input id="cert-file" type="file" accept=".cap,.pcap,.pcapng" hidden/>
+        </div>
+      </details>
+
+      <p class="hint root-note hidden" id="root-note">
+        Live capture &amp; deauth need root — start WiFiCatcher with
+        <code>sudo</code> to enable them.
+      </p>
+
+    </aside>
+
+    <div class="resizer" id="resizer-left" title="Drag to resize"></div>
+
+    <section class="graph-wrap">
+      <div id="cy"></div>
+
+      <!-- Switch the graph area between the node graph and a sortable table.
+           The table stays readable when a capture grows too dense to follow. -->
+      <div class="view-toggle hidden" id="view-toggle" role="tablist" aria-label="View mode">
+        <button type="button" class="vt-btn active" data-view="graph" role="tab">Graph</button>
+        <button type="button" class="vt-btn" data-view="table" role="tab">Table</button>
+      </div>
+
+      <!-- Node search lives on the canvas (graph mode only); the table view has
+           its own row filter. Kept out of the toolbar so the cat stays centred. -->
+      <div class="search graph-search hidden" id="graph-search">
+        <input id="search-input" type="search" placeholder="Search…" autocomplete="off"/>
+        <ul id="search-results" class="search-results hidden"></ul>
+      </div>
+
+      <div class="table-view hidden" id="table-view">
+        <div class="table-toolbar">
+          <input id="table-search" type="search" placeholder="Search…" autocomplete="off"/>
+          <span class="table-hint">Click a column to sort · click a row for details</span>
+        </div>
+        <div class="table-scroll">
+          <section class="table-section">
+            <h3><img class="legend-ico" src="/static/img/node-ap.svg?v=1" alt=""/>
+              Access Points <span class="table-badge" id="tbl-ap-count">0</span></h3>
+            <table class="data-table" id="ap-table"><thead></thead><tbody></tbody></table>
+            <p class="table-empty hidden" id="ap-empty">No access points to show.</p>
+          </section>
+          <section class="table-section">
+            <h3><img class="legend-ico" src="/static/img/node-client.svg?v=1" alt=""/>
+              Clients <span class="table-badge" id="tbl-client-count">0</span></h3>
+            <table class="data-table" id="client-table"><thead></thead><tbody></tbody></table>
+            <p class="table-empty hidden" id="client-empty">No clients to show.</p>
+          </section>
+        </div>
+      </div>
+
+      <div class="graph-legend hidden" id="graph-legend">
+        <div class="legend-header">
+          <span class="legend-title">Filters &amp; view</span>
+          <button type="button" class="legend-collapse" id="legend-collapse"
+                  title="Hide filters" aria-label="Hide filters" aria-expanded="true"></button>
+        </div>
+        <div class="legend-content" id="legend-content">
+          <button type="button" class="legend-toggle" id="lt-aps" data-filter="aps">
+            <img class="legend-ico" src="/static/img/node-ap.svg?v=1" alt=""/> Access Points</button>
+          <button type="button" class="legend-toggle" id="lt-clients" data-filter="clients">
+            <img class="legend-ico" src="/static/img/node-client.svg?v=1" alt=""/> Clients</button>
+          <button type="button" class="legend-toggle" id="lt-unassoc" data-filter="unassoc">
+            <img class="legend-ico faded-ico" src="/static/img/node-client.svg?v=1" alt=""/> Unassociated</button>
+          <div class="legend-filters">
+            <div id="replay-filters">
+              <label class="filter-row">Encryption
+                <select id="filter-enc"><option value="">all</option></select>
+              </label>
+              <label class="filter-row">Channel
+                <select id="filter-chan"><option value="">all</option></select>
+              </label>
+            </div>
+            <label class="filter-row">Layout
+              <select id="layout-select">
+                <option value="fcose">force (fcose)</option>
+                <option value="concentric">concentric</option>
+                <option value="breadthfirst">hierarchical</option>
+                <option value="circle">circle</option>
+                <option value="grid">grid</option>
+              </select>
+            </label>
+          </div>
+          <p class="legend-hint">Click an item to filter · click a node for details</p>
+        </div>
+      </div>
+      <div id="empty-state" class="empty-state">
+        <div class="empty-cat">
+          <svg class="wifi-z" viewBox="0 0 44 38" aria-hidden="true">
+            <circle class="wz wz1" cx="22" cy="30" r="2.4"/>
+            <path class="wz wz2" d="M14 23 a11 11 0 0 1 16 0"/>
+            <path class="wz wz3" d="M8.5 16 a18.5 18.5 0 0 1 27 0"/>
+          </svg>
+          <img src="/static/img/cat_logo.png" alt="" class="empty-logo"/>
+        </div>
+        <h3>No capture loaded</h3>
+        <p>Import an airodump-ng CSV to map the WiFi landscape.</p>
+        <label class="btn primary empty-import" for="file-input">Import capture</label>
+      </div>
+    </section>
+
+    <div class="resizer hidden" id="resizer-right" title="Drag to resize"></div>
+
+    <aside id="details" class="details hidden">
+      <button class="details-close" id="details-close" aria-label="Close">&times;</button>
+      <div id="details-body"></div>
+    </aside>
+  </main>
+
+  <!-- Offensive operation modal (only used when the server enables it) -->
+  <div id="op-modal" class="modal hidden">
+    <div class="modal-card">
+      <h3 id="op-title">Operation</h3>
+      <div id="op-body"></div>
+      <div class="op-warn">
+        Authorized testing only. Use exclusively on networks you own or are
+        explicitly permitted to assess.
+      </div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="op-cancel">Cancel</button>
+        <button class="btn danger" id="op-confirm">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Appearance settings -->
+  <div id="settings-modal" class="modal hidden">
+    <div class="modal-card">
+      <h3>Appearance</h3>
+      <label for="set-theme">Color palette</label>
+      <select id="set-theme">
+        <option value="hacker">Hacker (red on black)</option>
+        <option value="cyber">Cyber (teal on navy)</option>
+        <option value="amber">Amber (gold on black)</option>
+        <option value="matrix">Matrix (green on black)</option>
+      </select>
+      <label for="set-font">Font</label>
+      <select id="set-font">
+        <option value="system">System UI</option>
+        <option value="mono">Monospace</option>
+        <option value="jetbrains">JetBrains Mono</option>
+        <option value="fira">Fira Code</option>
+        <option value="source">Source Code Pro</option>
+        <option value="cascadia">Cascadia Code</option>
+        <option value="ibmplex">IBM Plex Mono</option>
+        <option value="ubuntumono">Ubuntu Mono</option>
+        <option value="dejavumono">DejaVu Sans Mono</option>
+        <option value="consolas">Consolas</option>
+        <option value="menlo">Menlo / Monaco</option>
+        <option value="courier">Courier New</option>
+        <option value="roboto">Roboto</option>
+        <option value="ubuntu">Ubuntu</option>
+        <option value="verdana">Verdana</option>
+        <option value="tahoma">Tahoma</option>
+        <option value="trebuchet">Trebuchet MS</option>
+        <option value="georgia">Georgia</option>
+        <option value="times">Times New Roman</option>
+      </select>
+      <label for="set-size">Font size (<span id="set-size-val">14</span> px)</label>
+      <input id="set-size" class="range-input" type="range" min="10" max="28" step="1" value="14"/>
+      <div class="modal-actions">
+        <button class="btn ghost" id="settings-reset">Reset</button>
+        <button class="btn primary" id="settings-done">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RADIUS certificate result, shown centered for readability -->
+  <div id="cert-modal" class="modal hidden">
+    <div class="modal-card cert-card">
+      <button class="details-close" id="cert-modal-close" aria-label="Close">&times;</button>
+      <h3><svg class="cert-ico" viewBox="0 0 24 24" width="16" height="16"
+          aria-hidden="true" focusable="false"><circle cx="12" cy="9" r="6" fill="none"
+          stroke="currentColor" stroke-width="2"/><path d="M8.5 14l-1.5 7 5-3 5 3-1.5-7"
+          fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle
+          cx="12" cy="9" r="2.2" fill="currentColor"/></svg>RADIUS certificate</h3>
+      <div id="cert-modal-body"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/static/app.js?v=7"></script>
+</body>
+</html>

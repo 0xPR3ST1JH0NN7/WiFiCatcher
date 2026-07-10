@@ -1,8 +1,8 @@
 <div align="center">
-  <img src="WiFiHound/web/static/img/logo-wordmark.png" alt="WiFiHound" width="440"/>
+  <img src="WiFiCatcher/web/static/img/logo-wordmark.png" alt="WiFiCatcher" width="440"/>
 </div>
 
-WiFiHound turns `airodump-ng` output into an explorable graph of access points,
+WiFiCatcher turns `airodump-ng` output into an explorable graph of access points,
 clients and their associations. Import a past scan and replay it, or run a live
 capture and watch the map build in real time.
 
@@ -18,18 +18,18 @@ capture and watch the map build in real time.
 
 ## Install
 
-WiFiHound needs Python 3.8 or newer, so use `python3` and `pip3` (a bare `pip`
+WiFiCatcher needs Python 3.8 or newer, so use `python3` and `pip3` (a bare `pip`
 on an old system can still point at Python 2).
 
 ```bash
-git clone https://github.com/0xPR3ST1JH0NN7/WiFiHound
-cd WiFiHound
+git clone https://github.com/0xPR3ST1JH0NN7/WiFiCatcher
+cd WiFiCatcher
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-WiFiHound also needs a few command-line tools on your `PATH`. On startup it
+WiFiCatcher also needs a few command-line tools on your `PATH`. On startup it
 prints a dependency checklist and **refuses to start if a required tool is
 missing**:
 
@@ -48,8 +48,8 @@ replaying captures needs no external tools).
 ## Run
 
 ```bash
-python3 -m WiFiHound        # opens http://127.0.0.1:8000
-sudo python3 -m WiFiHound   # also enables live radio capture
+python3 -m WiFiCatcher        # opens http://127.0.0.1:8000
+sudo python3 -m WiFiCatcher   # also enables live radio capture
 ```
 
 To stop the server, press **Enter** (or Ctrl+C) in the terminal where it runs.
@@ -84,7 +84,7 @@ channel, protocol, WPS and an ESSID or BSSID filter.
 Once a capture starts its options lock (interface, band, channel, filters…),
 since changing them mid-run is meaningless; they unlock again when you stop.
 
-> Use WiFiHound only on networks you own or are authorized to test.
+> Use WiFiCatcher only on networks you own or are authorized to test.
 
 ## WPA2-Enterprise (802.1X)
 
@@ -106,7 +106,7 @@ identity (e.g. `DOMAIN\user`) and a free interface (it is switched to managed
 mode automatically), and runs for several minutes.
 
 This uses [EAP_buster](https://github.com/blackarrowsec/EAP_buster) by BlackArrow
-(MIT), which is bundled under `WiFiHound/vendor/EAP_buster`, so no extra setup is
+(MIT), which is bundled under `WiFiCatcher/vendor/EAP_buster`, so no extra setup is
 needed. It does require `wpa_supplicant` on the host (`apt install wpasupplicant`).
 
 ## Authors
