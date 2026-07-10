@@ -28,6 +28,12 @@ Press **Enter** (or Ctrl+C) in the terminal to stop.
 - **WPA2-Enterprise:** flags 802.1X APs, inspects/exports the RADIUS certificate, and enumerates accepted EAP methods.
 - Offline vendor lookup from the OUI database.
 
+## Replay
+
+Import a saved capture, then hit **Replay** to watch the whole scan rebuild node by node, as if it were being discovered live. Fully offline — no radio, no root.
+
+![Replay](docs/replay.gif)
+
 ## Live capture
 
 Needs root (`sudo`). Pick a wireless adapter — a managed one is switched to monitor mode automatically and restored when you stop. Set a channel, band or filters, then **Start live capture**.
