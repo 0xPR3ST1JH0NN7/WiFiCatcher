@@ -37,7 +37,6 @@ Press **Enter** (or Ctrl+C) in the terminal to stop.
 - **Import & replay** a saved `airodump-ng` CSV.
 - **Live capture** a real `airodump-ng` stream and watch the map build in real time.
 - **WPA2-Enterprise:** flags 802.1X APs, inspects/exports the RADIUS certificate, and enumerates accepted EAP methods.
-- Offline vendor lookup from the OUI database.
 
 ## Replay
 
@@ -55,7 +54,6 @@ WiFiCatcher checks its dependencies on startup and won't start if a required too
 
 > ⚠️ Use WiFiCatcher only on networks you own or are authorized to test.
 
-## Credits
+## Authors
 
-- EAP method enumeration bundles [EAP_buster](https://github.com/blackarrowsec/EAP_buster) by BlackArrow (MIT).
-- Authors: [@0xPR3ST1JH0NN7](https://github.com/0xPR3ST1JH0NN7), [@tvasari](https://github.com/tvasari)
+[@0xPR3ST1JH0NN7](https://github.com/0xPR3ST1JH0NN7), [@tvasari](https://github.com/tvasari)
