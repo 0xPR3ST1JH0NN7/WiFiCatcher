@@ -33,10 +33,11 @@ Press **Enter** (or Ctrl+C) in the terminal to stop.
 
 ## What it does
 
-- **Graph & table views** of APs, clients and associations. Search, sort and filter by type, encryption or channel.
-- **Import & replay** a saved `airodump-ng` CSV.
-- **Live capture** a real `airodump-ng` stream and watch the map build in real time.
-- **WPA2-Enterprise:** flags 802.1X APs, inspects/exports the RADIUS certificate, and enumerates accepted EAP methods.
+- **Graph & table views.** Every access point, client and association is laid out as an interactive map, or a sortable, searchable table when the scan gets crowded. Filter by type, encryption or channel.
+- **Import & replay.** Load a saved `airodump-ng` CSV to explore a past scan, or replay it node by node as if it were being discovered live. Offline, no root.
+- **Live capture.** Stream a real `airodump-ng` capture and watch the map build in real time, with per-AP detail like signal, channel, vendor and WPS.
+- **Deauth & handshake capture.** Fire targeted deauthentication frames at a client or AP (shown as a pulse on the graph); any WPA handshake that follows is detected and flagged automatically.
+- **WPA2-Enterprise.** Spots 802.1X networks, inspects and exports the RADIUS server certificate, and enumerates which EAP methods a network accepts.
 
 ## Replay
 
