@@ -3,8 +3,6 @@
   <p><em>A simplified tool for fast Wi-Fi penetration testing, and an easy starting point for beginners.</em></p>
 </div>
 
-![Demo](docs/demo.gif)
-
 ## Quick start
 
 ```bash
