@@ -43,7 +43,7 @@ Press **Enter** (or Ctrl+C) in the terminal to stop.
 
 Import a saved capture, then hit **Replay** to watch the whole scan rebuild node by node, as if it were being discovered live. Fully offline: no radio, no root.
 
-https://github.com/user-attachments/assets/dcbf4236-f0a7-4152-bcee-e0fb67b134c7
+<video src="docs/wificatcher.mp4" width="320" height="240" controls></video>
 
 ## Live capture
 
