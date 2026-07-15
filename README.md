@@ -43,7 +43,7 @@ Press **Enter** (or Ctrl+C) in the terminal to stop.
 
 Import a saved capture, then hit **Replay** to watch the whole scan rebuild node by node, as if it were being discovered live. Fully offline: no radio, no root.
 
-![Replay](docs/replay.gif)
+https://github.com/user-attachments/assets/dcbf4236-f0a7-4152-bcee-e0fb67b134c7
 
 ## Live capture
 
