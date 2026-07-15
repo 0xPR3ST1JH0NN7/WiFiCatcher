@@ -43,6 +43,8 @@ Press **Enter** (or Ctrl+C) in the terminal to stop.
 
 Import a saved capture, then hit **Replay** to watch the whole scan rebuild node by node, as if it were being discovered live. Fully offline: no radio, no root.
 
+![Replay](docs/replay.gif)
+
 ## Live capture
 
 Needs root (`sudo`). Pick a wireless adapter; a managed one is switched to monitor mode automatically and restored when you stop. Set a channel, band or filters, then **Start live capture**.
