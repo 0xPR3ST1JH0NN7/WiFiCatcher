@@ -43,13 +43,13 @@ Press **Enter** (or Ctrl+C) in the terminal to stop.
 
 Import a saved capture, then hit **Replay** to watch the whole scan rebuild node by node, as if it were being discovered live. Fully offline: no radio, no root.
 
-https://github.com/user-attachments/assets/3636fbe7-4cf0-4536-90a3-d620ca44d777
+https://github.com/user-attachments/assets/7aba55f7-ad56-42dd-82a5-8492b734425f
 
 ## Live capture
 
 Needs root (`sudo`). Pick a wireless adapter; a managed one is switched to monitor mode automatically and restored when you stop. Set a channel, band or filters, then **Start live capture**.
 
-![Live capture](docs/live-capture.gif)
+https://github.com/user-attachments/assets/d780571b-aa86-4b80-aa67-9d963e6e6c24
 
 WiFiCatcher checks its dependencies on startup and won't start if a required tool is missing (bypass with `--skip-checks` for offline-only use).
 
