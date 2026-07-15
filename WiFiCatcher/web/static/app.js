@@ -26,6 +26,7 @@ const API = {
     }),
   liveStop: () => fetchJSON("/api/live/stop", { method: "POST" }),
   interfaces: () => fetchJSON("/api/live/interfaces"),
+  chooseDir: () => fetchJSON("/api/live/choose-dir", { method: "POST" }),
   enterpriseCert: (payload) =>
     fetchJSON("/api/operations/enterprise/cert", {
       method: "POST",
@@ -1221,8 +1222,8 @@ function recomputeUnassoc() {
 // The airodump option controls — locked while a capture is running, since
 // changing them mid-capture is meaningless.
 const AIRODUMP_OPT_IDS = ["live-iface", "live-iface-refresh", "live-band",
-  "live-save", "live-channel", "live-encrypt", "live-wps", "live-essid",
-  "live-bssid", "live-interval"];
+  "live-save", "live-save-dir", "live-save-browse", "live-channel", "live-encrypt",
+  "live-wps", "live-essid", "live-bssid", "live-interval"];
 
 function setDisabled(ids, disabled) {
   ids.forEach((id) => {
@@ -1439,6 +1440,7 @@ async function startLive() {
     essid: document.getElementById("live-essid").value.trim() || null,
     bssid: document.getElementById("live-bssid").value.trim() || null,
     save: document.getElementById("live-save").checked,
+    save_dir: document.getElementById("live-save-dir").value.trim() || null,
     acknowledged: true,
   };
   closeDetails();   // a fresh scan: drop any stale node details from the last one
@@ -1527,6 +1529,33 @@ document.getElementById("live-band").addEventListener("change", populateChannelO
 populateChannelOptions();   // seed the channel picker for the default band
 
 document.getElementById("live-iface-refresh").onclick = () => loadInterfaces();
+
+// Show the save-folder picker only while "Save capture file" is ticked.
+const liveSaveChk = document.getElementById("live-save");
+if (liveSaveChk) liveSaveChk.addEventListener("change", () =>
+  document.getElementById("save-dir-row").classList.toggle("hidden", !liveSaveChk.checked));
+
+// "Browse…" asks the server to open a native folder dialog. WiFiCatcher runs
+// locally, so the dialog appears on this machine's desktop and its absolute path
+// comes back here (a browser can't read a real folder path on its own). Empty
+// path means cancelled or no desktop dialog available -> falls back to ./captures.
+const saveBrowseBtn = document.getElementById("live-save-browse");
+if (saveBrowseBtn) saveBrowseBtn.addEventListener("click", async () => {
+  saveBrowseBtn.disabled = true;
+  try {
+    const { path } = await API.chooseDir();
+    if (path) {
+      document.getElementById("live-save-dir").value = path;
+      toast("Save folder set", "ok");
+    } else {
+      toast("No folder chosen (or no desktop dialog available); using ./captures");
+    }
+  } catch (e) {
+    toast(e.message, "error");
+  } finally {
+    saveBrowseBtn.disabled = false;
+  }
+});
 
 /* -------------------------------------------------------------- resizing */
 // Drag a handle to resize the panel it sits beside. The sidebar (left) grows

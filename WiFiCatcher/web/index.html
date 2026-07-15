@@ -127,6 +127,13 @@
               </select>
             </label>
             <label class="filter"><input type="checkbox" id="live-save"/> Save capture file</label>
+            <div class="iface-pick hidden" id="save-dir-row" style="margin-top:8px">
+              <input id="live-save-dir" class="mini-input" type="text" readonly
+                     placeholder="./captures (default)" title="Folder for saved captures"
+                     style="flex:1; min-width:0"/>
+              <button class="btn ghost mini-btn" id="live-save-browse" type="button"
+                      title="Choose a folder">Browse…</button>
+            </div>
             <details class="subpanel">
               <summary>More options</summary>
               <div class="panel-body">

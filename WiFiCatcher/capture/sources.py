@@ -99,7 +99,8 @@ class AirodumpSource(Source):
                  band: Optional[str] = None, encrypt: Optional[str] = None,
                  essid: Optional[str] = None,
                  bssid: Optional[str] = None,
-                 monitor: Optional[MonitorHandle] = None, save: bool = False):
+                 monitor: Optional[MonitorHandle] = None, save: bool = False,
+                 save_dir: Optional[str] = None):
         self.interface = interface
         self.channel = channel
         self.band = band             # "2.4" | "5" | "both"
@@ -107,6 +108,8 @@ class AirodumpSource(Source):
         self.essid = essid
         self.bssid = bssid
         self.save = save
+        # Folder to keep the capture in when ``save`` is on; ``None`` -> ./captures.
+        self.save_dir = save_dir
         # Directory holding the kept capture once stop() runs (None if discarded).
         self.saved_path: Optional[str] = None
         # When we enabled monitor mode for this capture, this handle lets stop()
@@ -135,8 +138,9 @@ class AirodumpSource(Source):
 
     async def start(self) -> None:
         if self.save:
-            # Keep the capture in a readable, git-ignored ./captures subfolder.
-            base = os.path.join(os.getcwd(), "captures")
+            # Keep the capture in a readable folder: the one the user chose, or a
+            # git-ignored ./captures subfolder by default.
+            base = self.save_dir or os.path.join(os.getcwd(), "captures")
             os.makedirs(base, exist_ok=True)
             self._dir = tempfile.mkdtemp(
                 prefix="capture-" + time.strftime("%Y%m%d-%H%M%S") + "-", dir=base)

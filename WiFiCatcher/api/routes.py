@@ -288,6 +288,54 @@ def live_interfaces():
     return {"interfaces": list_wireless_interfaces()}
 
 
+def _pick_directory() -> str:
+    """Open a native "choose folder" dialog on the host and return the selected
+    absolute path (``""`` if cancelled, or if no dialog / desktop is available).
+
+    A browser can't hand a real filesystem path to the server, but WiFiCatcher
+    runs locally, so we pop the OS folder picker on the user's own desktop. Tries
+    GTK (``zenity``), then KDE (``kdialog``), then a Tk fallback in its own
+    process so it owns the main thread. Blocking, so callers run it in a thread.
+    """
+    import shutil
+    import subprocess
+    import sys
+
+    for cmd in (["zenity", "--file-selection", "--directory",
+                 "--title=Choose where to save captures"],
+                ["kdialog", "--getexistingdirectory", os.path.expanduser("~")]):
+        if not shutil.which(cmd[0]):
+            continue
+        try:
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        return res.stdout.strip() if res.returncode == 0 else ""
+
+    tk = ("import tkinter as tk\n"
+          "from tkinter import filedialog\n"
+          "r = tk.Tk(); r.withdraw(); r.attributes('-topmost', True)\n"
+          "print(filedialog.askdirectory(title='Choose where to save captures') or '')\n")
+    try:
+        res = subprocess.run([sys.executable, "-c", tk],
+                             capture_output=True, text=True, timeout=180)
+        if res.returncode == 0:
+            return res.stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return ""
+
+
+@router.post("/live/choose-dir")
+async def live_choose_dir():
+    """Open a native folder picker on the host; return ``{"path": <dir or "">}``."""
+    path = await asyncio.get_event_loop().run_in_executor(None, _pick_directory)
+    if path and not os.path.isdir(path):
+        raise HTTPException(status_code=400,
+                            detail="The selected path is not a directory.")
+    return {"path": path}
+
+
 class LiveStartRequest(BaseModel):
     mode: str = "replay"            # "replay" | "airodump"
     interface: str | None = None
@@ -298,7 +346,8 @@ class LiveStartRequest(BaseModel):
     essid: str | None = None        # capture one ESSID only
     bssid: str | None = None        # capture one BSSID only
     interval: float | None = None
-    save: bool = False              # keep the capture files under ./captures
+    save: bool = False              # keep the capture files (default ./captures)
+    save_dir: str | None = None     # folder chosen for the saved capture
     acknowledged: bool = False
 
 
@@ -351,7 +400,7 @@ async def live_start(req: LiveStartRequest):
         source = AirodumpSource(
             monitor.interface, channel=req.channel, band=req.band,
             encrypt=req.encrypt, essid=req.essid, bssid=req.bssid,
-            monitor=monitor, save=req.save,
+            monitor=monitor, save=req.save, save_dir=req.save_dir,
         )
         # Watch the live pcap for WPA handshakes (e.g. captured during a deauth).
         handshakes = HandshakeWatcher(source)
