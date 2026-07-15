@@ -43,7 +43,7 @@ Press **Enter** (or Ctrl+C) in the terminal to stop.
 
 Import a saved capture, then hit **Replay** to watch the whole scan rebuild node by node, as if it were being discovered live. Fully offline: no radio, no root.
 
-![Replay](docs/replay.gif)
+<video src="https://github.com/0xPR3ST1JH0NN7/WiFiCatcher/raw/main/docs/replay.mp4" controls muted loop></video>
 
 ## Live capture
 
