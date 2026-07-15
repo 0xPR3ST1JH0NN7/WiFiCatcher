@@ -164,7 +164,7 @@ body { font-size: 14px; }   /* design baseline; the size setting zooms the whole
 }
 /* Click the cat and it hops: a one-shot jump that overrides the running bob,
    then reverts to the gait when the .jump class is removed on animationend. */
-.cat-run.jump { animation: cat-jump .5s ease-out; }
+.cat-run.jump { animation: cat-jump .5s ease-out; animation-play-state: running; }
 @keyframes cat-jump {
   0% { transform: translateY(0); }
   35%, 55% { transform: translateY(-15px); }
@@ -211,6 +211,24 @@ body { font-size: 14px; }   /* design baseline; the size setting zooms the whole
 @keyframes cat-puff {
   0% { opacity: .5; transform: translateX(0); }
   100% { opacity: 0; transform: translateX(-10px); }
+}
+
+/* Idle-friendly: the runner is paused at rest, so it costs no CPU (no per-frame
+   repaints of the scrolling road etc.), and only springs to life while the
+   pointer is over it. This is what stops the tab from pegging a core when open. */
+.cat-track { pointer-events: auto; }
+.cat-run, .cat-run .cat-legs-a, .cat-run .cat-legs-b,
+.cat-key, .cat-ground, .cat-dust::before, .cat-dust::after {
+  animation-play-state: paused;
+}
+.cat-track:hover .cat-run,
+.cat-track:hover .cat-run .cat-legs-a,
+.cat-track:hover .cat-run .cat-legs-b,
+.cat-track:hover .cat-key,
+.cat-track:hover .cat-ground,
+.cat-track:hover .cat-dust::before,
+.cat-track:hover .cat-dust::after {
+  animation-play-state: running;
 }
 
 /* keep the toolbar usable where a running mascot would crowd it */
