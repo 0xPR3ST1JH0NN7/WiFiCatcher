@@ -22,7 +22,7 @@ pip install -r requirements.txt
 Run without `sudo` for offline use, or with `sudo` to unlock live capture:
 
 ```bash
-python3 -m WiFiCatcher                    # http://127.0.0.1:8000  (offline: import & replay)
+.venv/bin/python -m WiFiCatcher                    # http://127.0.0.1:8000  (offline: import & replay)
          OR
 sudo .venv/bin/python -m WiFiCatcher      # also enables live capture + deauth
 ```
