@@ -9,7 +9,7 @@
 git clone https://github.com/0xPR3ST1JH0NN7/WiFiCatcher
 cd WiFiCatcher
 
-# system tools used for live capture + deauth (skip if you only import/replay)
+# system tools used for live capture + deauth
 sudo apt install aircrack-ng tshark
 
 # python dependencies
