@@ -29,13 +29,6 @@ sudo .venv/bin/python -m WiFiCatcher      # also enables live capture + deauth
 
 Press **Enter** (or Ctrl+C) in the terminal to stop.
 
-> **Using `sudo` with a virtualenv?** `sudo` resets `PATH` and runs the *system*
-> Python, so a plain `sudo python3 -m WiFiCatcher` won't see packages you
-> installed into `.venv` (you'll get `missing required: python-multipart` even
-> though `pip install` succeeded). Point `sudo` at the venv's own interpreter —
-> `sudo .venv/bin/python -m WiFiCatcher` — or preserve your environment with
-> `sudo -E env "PATH=$PATH" python3 -m WiFiCatcher`.
-
 ## What it does
 
 - **Graph & table views.** Every access point, client and association is laid out as an interactive map, or a sortable, searchable table when the scan gets crowded. Futhermore, you can filter by type, encryption or channel.
@@ -46,13 +39,13 @@ Press **Enter** (or Ctrl+C) in the terminal to stop.
 
 ## Replay
 
-Import a saved capture, then hit **Replay** to watch the whole scan rebuild node by node, as if it were being discovered live. Fully offline: no radio, no root.
+Already captured a scan? Import it and hit **Replay** to watch the whole thing rebuild itself node by node — access points, clients and their associations popping into place one after another, exactly as they appeared when the scan first ran. It's an easy way to revisit a past session, or to get a feel for how WiFiCatcher lays things out before you ever take it into the field. Everything runs locally from the saved file, so it stays fully offline: no wireless adapter, no root, nothing to set up.
 
 https://github.com/user-attachments/assets/7aba55f7-ad56-42dd-82a5-8492b734425f
 
 ## Live capture
 
-Needs root (`sudo`). Pick a wireless adapter; a managed one is switched to monitor mode automatically and restored when you stop. Set a channel, band or filters, then **Start live capture**.
+This mode talks to the radio, so it needs root — start it with `sudo`. Pick a wireless adapter and, if it's a managed one, WiFiCatcher switches it into monitor mode for you automatically, then quietly restores it when you stop, so you're never left resetting the interface by hand. From there you can narrow the scan to a specific channel or band, add a few filters if you want, and hit **Start live capture** to watch the map fill in live as frames come in.
 
 https://github.com/user-attachments/assets/d780571b-aa86-4b80-aa67-9d963e6e6c24
 

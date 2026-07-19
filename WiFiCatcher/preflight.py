@@ -8,8 +8,7 @@ mandatory is missing.
 Every tool in the checklist is required and blocks startup when missing. A few
 extras are resolved at runtime instead of here: ``wpa_supplicant`` (EAP
 enumeration) and ``pcapFilter.sh`` (a faster RADIUS cert extractor that falls
-back to ``tshark``); ``EAP_buster`` is bundled with WiFiCatcher. Run with
-``--skip-checks`` to bypass the gate entirely.
+back to ``tshark``); ``EAP_buster`` is bundled with WiFiCatcher.
 """
 
 from __future__ import annotations
@@ -198,7 +197,6 @@ def run() -> bool:
             hints.insert(0, "pip install -r requirements.txt")
         for hint in hints:
             print(_c(f"    → {hint}", _DIM))
-        print(_c("    bypass with: --skip-checks  (offline-only use)", _DIM))
         return False
 
     print(_c("[*] all required dependencies present.", _DIM))

@@ -104,10 +104,9 @@ def _serve(args: argparse.Namespace) -> int:
     print_banner()
 
     # Verify every required tool and library is present before doing anything.
-    # A missing requirement aborts the launch unless explicitly skipped.
-    if args.skip_checks:
-        print(_paint("[*] dependency check skipped (--skip-checks).", _DIM))
-    elif not preflight.run():
+    # The check always runs: a missing dependency aborts the launch here with a
+    # clear message rather than letting the app start and crash later.
+    if not preflight.run():
         return 1
 
     try:
@@ -180,8 +179,6 @@ def _add_serve_flags(p: argparse.ArgumentParser) -> None:
                    help="Auto-reload on code changes (development).")
     p.add_argument("--debug", action="store_true",
                    help="Verbose logging: framework and per-request logs.")
-    p.add_argument("--skip-checks", action="store_true",
-                   help="Skip the startup dependency check (offline-only use).")
 
 
 def build_parser() -> argparse.ArgumentParser:
