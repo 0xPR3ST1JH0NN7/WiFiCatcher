@@ -14,10 +14,12 @@ back to ``tshark``); ``EAP_buster`` is bundled with WiFiCatcher. Run with
 
 from __future__ import annotations
 
+import os
 import shutil
 import sys
 from dataclasses import dataclass
 from importlib import metadata
+from pathlib import Path
 
 # ANSI colors, used only when writing to a real terminal.
 _GREEN = "\033[92m"
@@ -69,6 +71,47 @@ def _dist_present(dist: str) -> bool:
         return True
     except metadata.PackageNotFoundError:
         return False
+
+
+def _find_project_venv() -> Path | None:
+    """Locate a project virtualenv interpreter next to the app, if any."""
+    for base in (Path.cwd(), Path(__file__).resolve().parent.parent):
+        for name in (".venv", "venv"):
+            py = base / name / "bin" / "python"
+            if py.exists():
+                return py
+    return None
+
+
+def _sudo_venv_hint() -> list[str] | None:
+    """Explain a missing Python package when ``sudo`` has hidden a virtualenv.
+
+    ``sudo python3`` resets ``PATH`` to a safe default and runs the *system*
+    interpreter, so packages installed into a project ``.venv`` are invisible
+    even though ``pip install`` succeeded there. This is by far the most common
+    reason a dependency reads as missing right after a successful install. Detect
+    that exact shape — launched via sudo, but not inside a venv — and point at
+    the venv's own interpreter. Returns display lines, or None when it doesn't
+    apply.
+    """
+    if not os.environ.get("SUDO_USER"):
+        return None  # not launched via sudo
+    if sys.prefix != sys.base_prefix:
+        return None  # already inside a venv — sudo preserved it
+    venv_py = _find_project_venv()
+    if venv_py is not None:
+        return [
+            "running under sudo with the system Python — your virtualenv's "
+            "packages are not visible.",
+            "re-run it with the venv's own interpreter:",
+            f"  → sudo {venv_py} -m WiFiCatcher",
+        ]
+    return [
+        "running under sudo with the system Python — a virtualenv's packages "
+        "would not be visible here.",
+        "if you installed the requirements in a venv, use its interpreter:",
+        "  → sudo /path/to/.venv/bin/python -m WiFiCatcher",
+    ]
 
 
 def _resolve(tool: Tool) -> str | None:
@@ -129,9 +172,18 @@ def run() -> bool:
     if missing_required:
         print(_c(f"[!] cannot start — missing required: {', '.join(missing_required)}",
                  _RED))
+
+        py_missing = [d for d, _ in PYTHON_DEPS if not _dist_present(d)]
+        # A package missing under sudo is almost always the virtualenv being
+        # dropped, not a genuine install gap — lead with that when it fits.
+        venv_hint = _sudo_venv_hint() if py_missing else None
+        if venv_hint:
+            for line in venv_hint:
+                print(_c(f"    {line}", _DIM))
+
         hints = sorted({t.install for t in TOOLS
                         if t.required and _resolve(t) is None and t.install})
-        if not all(_dist_present(d) for d, _ in PYTHON_DEPS):
+        if py_missing:
             hints.insert(0, "pip install -r requirements.txt")
         for hint in hints:
             print(_c(f"    → {hint}", _DIM))
