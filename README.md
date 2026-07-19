@@ -22,12 +22,19 @@ pip install -r requirements.txt
 Run without `sudo` for offline use, or with `sudo` to unlock live capture:
 
 ```bash
-python3 -m WiFiCatcher          # http://127.0.0.1:8000  (offline: import & replay)
+python3 -m WiFiCatcher                    # http://127.0.0.1:8000  (offline: import & replay)
          OR
-sudo python3 -m WiFiCatcher     # also enables live capture + deauth
+sudo .venv/bin/python -m WiFiCatcher      # also enables live capture + deauth
 ```
 
 Press **Enter** (or Ctrl+C) in the terminal to stop.
+
+> **Using `sudo` with a virtualenv?** `sudo` resets `PATH` and runs the *system*
+> Python, so a plain `sudo python3 -m WiFiCatcher` won't see packages you
+> installed into `.venv` (you'll get `missing required: python-multipart` even
+> though `pip install` succeeded). Point `sudo` at the venv's own interpreter —
+> `sudo .venv/bin/python -m WiFiCatcher` — or preserve your environment with
+> `sudo -E env "PATH=$PATH" python3 -m WiFiCatcher`.
 
 ## What it does
 
