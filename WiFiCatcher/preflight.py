@@ -74,8 +74,19 @@ def _dist_present(dist: str) -> bool:
 
 
 def _find_project_venv() -> Path | None:
-    """Locate a project virtualenv interpreter next to the app, if any."""
-    for base in (Path.cwd(), Path(__file__).resolve().parent.parent):
+    """Locate a project virtualenv interpreter, preferring the app's own dir.
+
+    The app directory (the documented ``git clone`` + ``.venv`` layout) is
+    checked before the working directory, so an unrelated ``.venv`` in some other
+    cwd can't be mistaken for the project's. ``Path.cwd()`` is probed defensively:
+    a deleted working directory must not turn the error hint into a traceback.
+    """
+    bases: list[Path] = [Path(__file__).resolve().parent.parent]
+    try:
+        bases.append(Path.cwd())
+    except OSError:
+        pass
+    for base in bases:
         for name in (".venv", "venv"):
             py = base / name / "bin" / "python"
             if py.exists():

@@ -67,3 +67,38 @@ def test_find_project_venv_discovers_dot_venv(
     py.write_text("")  # stand-in interpreter
     monkeypatch.chdir(tmp_path)
     assert preflight._find_project_venv() == py
+
+
+def test_find_project_venv_prefers_app_dir_over_cwd(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Both the app directory and an unrelated cwd have a .venv; the app's wins.
+    pkg = tmp_path / "app" / "WiFiCatcher"
+    pkg.mkdir(parents=True)
+    monkeypatch.setattr(preflight, "__file__", str(pkg / "preflight.py"))
+    app_py = tmp_path / "app" / ".venv" / "bin" / "python"
+    app_py.parent.mkdir(parents=True)
+    app_py.write_text("")
+
+    cwd = tmp_path / "elsewhere"
+    cwd_py = cwd / ".venv" / "bin" / "python"
+    cwd_py.parent.mkdir(parents=True)
+    cwd_py.write_text("")
+    monkeypatch.chdir(cwd)
+
+    assert preflight._find_project_venv() == app_py
+
+
+def test_find_project_venv_survives_unreadable_cwd(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # A deleted / inaccessible cwd must not turn the error hint into a traceback.
+    pkg = tmp_path / "app" / "WiFiCatcher"
+    pkg.mkdir(parents=True)
+    monkeypatch.setattr(preflight, "__file__", str(pkg / "preflight.py"))
+
+    def _boom() -> Path:
+        raise FileNotFoundError("cwd was removed")
+
+    monkeypatch.setattr(preflight.Path, "cwd", staticmethod(_boom))
+    assert preflight._find_project_venv() is None  # no exception

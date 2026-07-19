@@ -2,8 +2,12 @@
 
 Run WiFiCatcher:
 
-    python -m WiFiCatcher            # or: python -m WiFiCatcher serve
-    sudo python -m WiFiCatcher       # unlocks live radio capture + deauth
+    python -m WiFiCatcher                  # or: python -m WiFiCatcher serve
+    sudo .venv/bin/python -m WiFiCatcher   # unlocks live radio capture + deauth
+
+Inside a virtualenv, point ``sudo`` at the venv's interpreter as shown above:
+plain ``sudo python -m WiFiCatcher`` runs the *system* Python and won't see the
+packages you installed into ``.venv``.
 
 Stop a running server gracefully from another terminal (no Ctrl+C needed):
 
