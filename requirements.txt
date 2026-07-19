@@ -3,7 +3,7 @@ fastapi>=0.110
 uvicorn[standard]>=0.27
 python-multipart>=0.0.9
 networkx>=3.0
-cryptography>=41        # decode RADIUS/EAP X.509 certs (WPA2-Enterprise)
+cryptography>=41
 
 # Tests
 pytest>=8.0
