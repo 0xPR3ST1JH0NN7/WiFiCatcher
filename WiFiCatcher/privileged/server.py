@@ -7,7 +7,7 @@ validated operations, and exits after an idle period so systemd can re-launch it
 on the next connection.
 
 Run it:
-    python -m WiFiCatcher.privileged --socket /run/wificatcher/priv.sock   # dev
+    python -m WiFiCatcher.privileged --socket /tmp/wc-priv.sock   # dev
     (systemd sets $LISTEN_FDS and passes the socket as fd 3 in production)
 """
 

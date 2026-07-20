@@ -3,14 +3,13 @@ Description=WiFiCatcher privileged helper socket
 Documentation=https://github.com/0xPR3ST1JH0NN7/WiFiCatcher
 
 [Socket]
-# systemd owns and listens on this socket. The helper service is started on the
-# first connection and stopped again when it goes idle (socket stays listening).
-ListenStream=/run/wificatcher/priv.sock
-SocketMode=0660
-SocketUser=root
-# Only members of this group may connect. Add the user that runs the web app:
-#   sudo groupadd -f wificatcher && sudo usermod -aG wificatcher <user>
-SocketGroup=wificatcher
+# systemd owns this socket and starts the helper on demand when the app
+# connects, then stops it again when it goes idle. The socket is owned by the
+# app user with mode 0600, so only that user can reach the root helper.
+# install-helper.sh fills in the real user in place of APP_USER.
+ListenStream=/run/wc-privhelper.sock
+SocketUser=APP_USER
+SocketMode=0600
 RemoveOnStop=true
 
 [Install]

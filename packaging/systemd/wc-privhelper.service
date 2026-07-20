@@ -6,29 +6,22 @@ After=wc-privhelper.socket
 
 [Service]
 Type=simple
-# Started on demand by wc-privhelper.socket, which passes the listening socket as
-# fd 3. Adjust the path to where WiFiCatcher is installed (its venv python).
-ExecStart=/opt/wificatcher/.venv/bin/python -m WiFiCatcher.privileged --idle 300
+# Started on demand by wc-privhelper.socket, which passes the listening socket
+# as fd 3. install-helper.sh fills in the venv python, install dir and app uid.
+ExecStart=/opt/wificatcher/.venv/bin/python -m WiFiCatcher.privileged --idle 300 --peer-uid APP_UID
 WorkingDirectory=/opt/wificatcher
 
 # Runs as root: airmon-ng/airodump-ng/aireplay-ng and the NetworkManager restart
-# need it. The blast radius is bounded by the tiny, validated request surface —
-# not by dropping to a normal user.
+# need it. The blast radius is bounded by the tiny, validated request surface,
+# and by --peer-uid (only the app user's connections are accepted).
 User=root
 
-# Hardening. NB: capability-bounding to CAP_NET_RAW/CAP_NET_ADMIN is desirable
-# but 'airmon-ng check kill' and 'systemctl restart NetworkManager' need more, so
-# it is left commented until that path is reworked.
-NoNewPrivileges=false
-ProtectHome=true
-ProtectSystem=strict
-ReadWritePaths=/run /run/wificatcher
+# Light hardening. Kept conservative on purpose: the radio tools touch the
+# network stack and system services, so stricter sandboxing (ProtectSystem,
+# capability bounding) should be added only after testing on real hardware.
 PrivateTmp=true
+ProtectHome=true
 RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_PACKET
-RestrictNamespaces=true
 LockPersonality=true
-ProtectControlGroups=true
-# AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
-# CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN CAP_KILL CAP_SYS_ADMIN
 
 # No [Install]: this unit is socket-activated, not enabled at boot.

@@ -13,7 +13,7 @@ from typing import Any, Iterator
 
 from WiFiCatcher.privileged.protocol import ProtocolError, recv_message, send_message
 
-DEFAULT_SOCKET = "/run/wificatcher/priv.sock"
+DEFAULT_SOCKET = "/run/wc-privhelper.sock"
 
 
 def socket_path() -> str:

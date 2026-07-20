@@ -7,6 +7,7 @@
 #
 # INSTALL_DIR defaults to the current checkout; APP_USER to the invoking user.
 # After this, the app runs unprivileged and the helper is started on demand.
+# The socket is owned by APP_USER (mode 0600), so only that user can reach it.
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -21,30 +22,30 @@ fi
 
 VENV_PY="$INSTALL_DIR/.venv/bin/python"
 if [[ ! -x "$VENV_PY" ]]; then
-  echo "No venv python at $VENV_PY — create it first:" >&2
+  echo "No venv python at $VENV_PY. Create it first:" >&2
   echo "  cd $INSTALL_DIR && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt" >&2
   exit 1
 fi
 
+APP_UID="$(id -u "$APP_USER")"
 echo "[*] install dir : $INSTALL_DIR"
-echo "[*] app user    : $APP_USER"
+echo "[*] app user    : $APP_USER (uid $APP_UID)"
 
-# 1) group that is allowed to talk to the helper socket
-groupadd -f wificatcher
-usermod -aG wificatcher "$APP_USER"
+# Socket owned by the app user only (no shared group).
+sed -e "s#APP_USER#$APP_USER#g" \
+    "$REPO_DIR/packaging/systemd/wc-privhelper.socket" > "$UNIT_DIR/wc-privhelper.socket"
 
-# 2) install the units, pointing ExecStart at the real install dir
-install -m 0644 "$REPO_DIR/packaging/systemd/wc-privhelper.socket" "$UNIT_DIR/"
+# Service: real venv python + install dir, and pin the app uid as a second gate.
 sed -e "s#/opt/wificatcher/.venv/bin/python#$VENV_PY#g" \
     -e "s#/opt/wificatcher#$INSTALL_DIR#g" \
+    -e "s#APP_UID#$APP_UID#g" \
     "$REPO_DIR/packaging/systemd/wc-privhelper.service" > "$UNIT_DIR/wc-privhelper.service"
-chmod 0644 "$UNIT_DIR/wc-privhelper.service"
 
-# 3) enable the socket (starts listening now + at every boot; the service is
-#    started on demand, not at boot)
+chmod 0644 "$UNIT_DIR/wc-privhelper.socket" "$UNIT_DIR/wc-privhelper.service"
+
+# Start listening now and at every boot; the helper itself starts on demand.
 systemctl daemon-reload
 systemctl enable --now wc-privhelper.socket
 
-echo "[*] done. Helper socket is listening; the service starts on first use."
-echo "    Log out/in so '$APP_USER' picks up the 'wificatcher' group, then run:"
+echo "[*] done. Just run the app:"
 echo "      cd $INSTALL_DIR && .venv/bin/python -m WiFiCatcher"
