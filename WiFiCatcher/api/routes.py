@@ -159,7 +159,7 @@ def operations_deauth(req: DeauthRequest):
     # 3) The privileged helper runs aireplay-ng (as root); the app never does.
     try:
         return PrivClient().call(
-            "deauth", interface=CAPTURE.interface, bssid=req.bssid,
+            "deauth", iface=CAPTURE.interface, bssid=req.bssid,
             client=req.client, count=req.count,
             acknowledged=req.acknowledged, dry_run=req.dry_run)
     except PrivUnavailable as exc:
@@ -251,7 +251,7 @@ def operations_enterprise_eap(req: EapMethodsRequest):
         # The privileged helper runs EAP_buster.sh / wpa_supplicant (as root).
         try:
             return PrivClient(timeout=max(60.0, enterprise.EAP_BUSTER_TIMEOUT)).call(
-                "eap.enumerate", interface=interface, essid=req.essid,
+                "eap.enumerate", iface=interface, essid=req.essid,
                 identity=req.identity, acknowledged=req.acknowledged,
                 dry_run=req.dry_run)
         except PrivUnavailable as exc:

@@ -87,6 +87,9 @@ def test_deauth_routes_to_helper(daemon, monkeypatch) -> None:
     body = r.json()
     assert body["status"] == "ok"
     assert body["echo"]["bssid"] == "AA:BB:CC:DD:EE:FF"
+    # The helper op reads the interface under 'iface'; the route must send it by
+    # that name (a mismatch caused a real "iface required" 400).
+    assert body["echo"]["iface"] == "wlan0mon"
 
 
 def test_deauth_helper_unavailable(monkeypatch) -> None:
