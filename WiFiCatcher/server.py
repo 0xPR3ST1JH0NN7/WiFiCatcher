@@ -28,10 +28,13 @@ async def _lifespan(app: FastAPI):
         await CAPTURE.stop()
     except Exception:
         pass
+    # The app is unprivileged, so the actual restart runs in the root helper.
+    # The helper only (re)starts NetworkManager if it is currently down, so a
+    # session that never captured leaves a working connection untouched.
     try:
-        from WiFiCatcher.capture.interfaces import restart_network_services
+        from WiFiCatcher.privileged.client import PrivClient
         await asyncio.get_event_loop().run_in_executor(
-            None, restart_network_services)
+            None, lambda: PrivClient().call("network.restart"))
     except Exception:
         pass
 

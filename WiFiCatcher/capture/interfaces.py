@@ -25,10 +25,6 @@ from WiFiCatcher.operations.base import (
 
 SYSFS_NET = "/sys/class/net"
 
-# Tracks whether we ran `airmon-ng check kill` this session, so shutdown can
-# restart NetworkManager only when we are the ones who stopped it.
-_killed_services = {"value": False}
-
 # Values reported by /sys/class/net/<iface>/type (Linux ARPHRD_* constants).
 ARPHRD_ETHER = 1                  # managed-mode Wi-Fi presents as ethernet
 ARPHRD_IEEE80211_RADIOTAP = 803   # monitor mode (radiotap headers)
@@ -168,7 +164,6 @@ def ensure_monitor_mode(iface: str, acknowledged: bool = True,
     if kill_interferers:
         try:
             run(["airmon-ng", "check", "kill"])
-            _killed_services["value"] = True
         except Exception:
             pass
 
@@ -226,18 +221,25 @@ def restore_managed_mode(handle: Optional[MonitorHandle], run: Runner = _run) ->
 
 
 def restart_network_services(run: Runner = _run) -> None:
-    """Restart NetworkManager after a monitor-mode session, on shutdown.
+    """(Re)start NetworkManager on shutdown if it is not currently running.
 
-    ``airmon-ng check kill`` stops NetworkManager (and wpa_supplicant) so monitor
-    mode sticks; without bringing it back, normal Wi-Fi stays down after the app
-    exits. Best-effort: only runs when we actually killed the services and we are
-    root, tries ``systemctl`` then the SysV ``service`` fallback, and never
-    raises (it sits on a shutdown path).
+    A capture stops NetworkManager (``airmon-ng check kill``) so monitor mode
+    sticks; without bringing it back, normal Wi-Fi stays down after the app
+    exits. This runs (via the privileged helper) on every clean shutdown. It
+    checks the live service state rather than in-memory bookkeeping, so it works
+    no matter which helper process stopped the service, and it leaves an
+    already-running NetworkManager alone, so an import/replay session that never
+    touched the radio does not bounce the user's connection. Best-effort: needs
+    root, tries ``systemctl`` then the SysV ``service`` fallback, never raises.
     """
-    if not _killed_services["value"]:
-        return
     if not (hasattr(os, "geteuid") and os.geteuid() == 0):
         return
+    try:
+        active = run(["systemctl", "is-active", "NetworkManager"])
+        if (getattr(active, "stdout", "") or "").strip() == "active":
+            return  # already up: don't bounce a working connection
+    except Exception:
+        pass  # can't tell (no systemctl?): fall through and try to (re)start it
     for cmd in (["systemctl", "restart", "NetworkManager"],
                 ["service", "NetworkManager", "restart"]):
         try:
@@ -246,4 +248,3 @@ def restart_network_services(run: Runner = _run) -> None:
                 break
         except Exception:
             continue
-    _killed_services["value"] = False
