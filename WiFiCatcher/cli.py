@@ -1,20 +1,19 @@
 """Command-line entry point.
 
-Run WiFiCatcher:
+Run WiFiCatcher (always unprivileged, never as root):
 
-    python -m WiFiCatcher                  # or: python -m WiFiCatcher serve
-    sudo .venv/bin/python -m WiFiCatcher   # unlocks live radio capture + deauth
+    python -m WiFiCatcher
+    .venv/bin/python -m WiFiCatcher
 
-Inside a virtualenv, point ``sudo`` at the venv's interpreter as shown above:
-plain ``sudo python -m WiFiCatcher`` runs the *system* Python and won't see the
-packages you installed into ``.venv``.
+Live radio capture and deauth run through a privileged helper that you install
+once with ``sudo ./packaging/install-helper.sh``. systemd starts the helper on
+demand and stops it when idle, so the app itself never needs root. The helper is
+required: if it is not reachable, WiFiCatcher refuses to start and tells you how
+to install it.
 
 Stop a running server gracefully from another terminal (no Ctrl+C needed):
 
     python -m WiFiCatcher stop       # add --port if you changed it
-
-Offensive / live-radio features are enabled automatically when the process runs
-as root, so just use ``sudo`` when you need them. No special flags.
 
 By default the server runs quietly (no per-request logging). Pass ``--debug``
 to see verbose request and framework logs.
@@ -115,16 +114,18 @@ def _serve(args: argparse.Namespace) -> int:
               file=sys.stderr)
         return 1
 
+    # The privileged helper is required: WiFiCatcher runs as one mode, the full
+    # app. If the helper is not reachable, don't start a crippled session.
     from WiFiCatcher.privileged import helper_available
-    if helper_available():
-        print(_paint("[*] privileged helper reachable: live radio capture and "
-                     "deauth are available.", _DIM))
-        print(_paint("    Use only on networks you own or are authorized to test.", _DIM))
-    else:
-        print(_paint("[*] privileged helper not running: offline analysis and "
-                     "replay only.", _DIM))
-        print(_paint("    Enable live capture by installing the helper "
-                     "(packaging/install-helper.sh).", _DIM))
+    if not helper_available():
+        print(_paint("[!] cannot start: the privileged helper is not reachable.",
+                     _RED))
+        print(_paint("    Install it once, then launch again:", _DIM))
+        print(_paint("      sudo ./packaging/install-helper.sh", _DIM))
+        return 1
+    print(_paint("[*] privileged helper reachable: live radio capture and deauth "
+                 "are available.", _DIM))
+    print(_paint("    Use only on networks you own or are authorized to test.", _DIM))
 
     url = f"http://{args.host}:{args.port}"
     print(_paint(f"[*] listening on {url}", _DIM))

@@ -16,7 +16,7 @@ sudo apt install aircrack-ng tshark zenity
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# one-time: install the privileged helper (enables live capture + deauth)
+# one-time: install the privileged helper (required to run WiFiCatcher; powers live capture + deauth)
 sudo ./packaging/install-helper.sh
 ```
 
@@ -30,11 +30,12 @@ Start the app. It always runs unprivileged, never as root:
 .venv/bin/python -m WiFiCatcher stop            # stop a running server from another terminal
 ```
 
-Press Enter (or Ctrl+C) in the terminal to stop. Import and replay work with no
-setup. Live capture and deauth use the helper you installed above: systemd starts
-it on demand when the app needs the radio and stops it when idle, with no
-password prompt. You will see `privileged helper reachable` at startup when it is
-available.
+Press Enter (or Ctrl+C) in the terminal to stop. WiFiCatcher checks for the
+helper at startup and prints `privileged helper reachable` when it is ready; if
+it is missing, it refuses to start and points you at the installer above. Live
+capture and deauth go through the helper: systemd starts it on demand when the
+app needs the radio and stops it when idle, with no password prompt. Import and
+replay run entirely inside the unprivileged app.
 
 ## What it does
 

@@ -1235,8 +1235,8 @@ function recomputeUnassoc() {
 }
 
 // Two ways to drive the live graph share one capture session: airodump (real
-// radio, needs root) and replay (offline reveal of an imported capture). Only
-// one runs at a time; reflect that on both panels' buttons.
+// radio, via the privileged helper) and replay (offline reveal of an imported
+// capture). Only one runs at a time; reflect that on both panels' buttons.
 // The airodump option controls — locked while a capture is running, since
 // changing them mid-capture is meaningless.
 const AIRODUMP_OPT_IDS = ["live-iface", "live-iface-refresh", "live-band",
@@ -1761,18 +1761,13 @@ document.getElementById("settings-reset").onclick = () => {
     const cfg = await API.config();
     OFFENSIVE = !!cfg.offensive_available;
   } catch (e) {
-    /* default OFFENSIVE = false */
+    // The privileged helper is required to launch, so live capture is available;
+    // a transient config hiccup shouldn't hide it.
+    OFFENSIVE = true;
   }
-  if (OFFENSIVE) {
-    // Real radio capture is unlocked only when the server enables offensive ops.
-    loadInterfaces();
-  } else {
-    // Not root: live capture (and the deauth / EAP actions it unlocks) can't
-    // run, so hide that panel entirely instead of showing dead controls. The
-    // offline tools (import, replay, RADIUS cert upload) stay available.
-    document.getElementById("live-panel").classList.add("hidden");
-    document.getElementById("root-note").classList.remove("hidden");
-  }
+  // WiFiCatcher runs as a single mode: the privileged helper is always present,
+  // so the live-capture panel is shown and the interface list is loaded.
+  loadInterfaces();
 
   // A live/replay session that is still running should survive a reload — rejoin
   // it. Otherwise a reload starts fresh: stale imported data is discarded so the

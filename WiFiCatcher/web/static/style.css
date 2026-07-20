@@ -396,8 +396,6 @@ code { background: var(--panel); padding: 1px 5px; border-radius: 4px; font-size
 .legend-ico { width: 24px; height: 24px; flex-shrink: 0; object-fit: contain; }
 .legend-ico.faded-ico { opacity: .4; }
 .hint { color: var(--muted); font-size: 13px; line-height: 1.5; margin-top: 12px; }
-/* Footnote shown only on unprivileged runs, where live capture is hidden. */
-.root-note { border-top: 1px solid var(--border); padding-top: 12px; }
 
 /* ------------------------------------------------------------------ graph */
 .graph-wrap { position: relative; flex: 1; min-width: 0; overflow: hidden;
