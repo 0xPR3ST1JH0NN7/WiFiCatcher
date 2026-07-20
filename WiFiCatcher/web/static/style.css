@@ -549,16 +549,26 @@ code { background: var(--panel); padding: 1px 5px; border-radius: 4px; font-size
 .empty-cat { position: relative; display: inline-block; margin-bottom: 8px; }
 /* Sit entirely above the cat (bottom at its top edge) so the waves are never
    hidden behind it. */
+/* The waves breathe for a few seconds when the empty screen appears, then stop.
+   An infinite animation would repaint every frame forever and, on a browser
+   rendering in software (hardware acceleration off), keep a CPU core busy the
+   whole time the app sits idle. A finite count settles to a static icon. */
 .wifi-z { position: absolute; bottom: calc(100% + 4px); left: 50%; margin-left: -31px;
   width: 62px; height: 50px; color: var(--accent); z-index: 2; pointer-events: none;
-  animation: wifi-bob 3s ease-in-out infinite; }
+  animation: wifi-bob 3s ease-in-out 4; }
 .wifi-z .wz { fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round;
-  opacity: .12; animation: wifi-pulse 1.9s ease-in-out infinite; }
+  opacity: .12; animation: wifi-pulse 1.9s ease-in-out 6; }
 .wifi-z .wz1 { fill: currentColor; stroke: none; }
 .wifi-z .wz2 { animation-delay: .28s; }
 .wifi-z .wz3 { animation-delay: .56s; }
 @keyframes wifi-pulse { 0%, 100% { opacity: .12; } 45% { opacity: 1; } }
 @keyframes wifi-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+
+/* Freeze every looping animation while the tab is hidden, so a backgrounded
+   window costs no CPU. Toggled from JS on visibilitychange. */
+.anim-paused *, .anim-paused *::before, .anim-paused *::after {
+  animation-play-state: paused !important;
+}
 
 /* ---------------------------------------------------------------- details */
 .details {

@@ -516,6 +516,12 @@ if (catRun) {
   });
 }
 
+// Pause every CSS animation while the tab is in the background: a hidden window
+// should cost no CPU (no per-frame repaints of the live pulse, spinners, etc.).
+document.addEventListener("visibilitychange", () => {
+  document.documentElement.classList.toggle("anim-paused", document.hidden);
+});
+
 /* ----------------------------------------------------------------- details */
 function showDetails(info) {
   const body = document.getElementById("details-body");
