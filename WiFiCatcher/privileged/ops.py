@@ -134,20 +134,6 @@ def dispatch(op: str, params: dict[str, Any] | None) -> dict:
 _BAND_FLAGS = {"2.4": "bg", "5": "a", "both": "abg"}
 
 
-def _chown_tree(path: str, uid: int) -> None:
-    """Give ``path`` and everything under it to ``uid`` (best effort)."""
-    try:
-        os.chown(path, uid, -1)
-    except OSError:
-        return
-    for root, dirs, files in os.walk(path):
-        for name in dirs + files:
-            try:
-                os.chown(os.path.join(root, name), uid, -1)
-            except OSError:
-                pass
-
-
 def _build_airodump(params: dict, iface: str, prefix: str) -> list[str]:
     # pcap alongside csv so handshakes can be detected and the capture saved.
     cmd = ["airodump-ng", "--output-format", "pcap,csv", "-w", prefix]
@@ -201,11 +187,15 @@ def _capture_stream(params: dict):
     save_dir = params.get("save_dir")
     peer_uid = params.get("_peer_uid")
     if save and save_dir and os.path.isdir(save_dir):
-        workdir = tempfile.mkdtemp(
-            prefix="wificatcher-" + time.strftime("%Y%m%d-%H%M%S") + "-", dir=save_dir)
-        save_path = workdir
+        # Write straight into the folder the user chose (no subfolder). airodump
+        # uses this as the filename prefix, so files land as
+        # <folder>/wificatcher-<ts>-01.cap / -01.csv.
+        workdir = None
+        prefix = os.path.join(save_dir, "wificatcher-" + time.strftime("%Y%m%d-%H%M%S"))
+        save_path = save_dir
     else:
         workdir = tempfile.mkdtemp(prefix="wc-cap-")
+        prefix = os.path.join(workdir, "cap")
         save, save_path = False, None
 
     first = {"monitor_interface": handle.interface, "enabled": handle.enabled}
@@ -213,7 +203,6 @@ def _capture_stream(params: dict):
         first["save_path"] = save_path
     yield first
 
-    prefix = os.path.join(workdir, "cap")
     proc = subprocess.Popen(
         _build_airodump(params, handle.interface, prefix),
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -270,9 +259,14 @@ def _capture_stream(params: dict):
             proc.wait(timeout=5)
         except Exception:
             proc.kill()
-        if save and save_path and peer_uid is not None:
-            _chown_tree(save_path, int(peer_uid))     # hand the files to the user
-        elif not save:
+        if save and peer_uid is not None:
+            # Hand the capture files (prefix-*.cap/.csv) to the user.
+            for f in glob.glob(prefix + "*"):
+                try:
+                    os.chown(f, int(peer_uid), -1)
+                except OSError:
+                    pass
+        elif workdir:
             shutil.rmtree(workdir, ignore_errors=True)
         try:
             restore_managed_mode(handle)

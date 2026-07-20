@@ -14,6 +14,7 @@ import os
 from typing import Optional
 
 from WiFiCatcher.capture.sources import Source
+from WiFiCatcher.enrichment import oui
 from WiFiCatcher.graph import WifiGraph
 from WiFiCatcher.models import Scan
 
@@ -157,6 +158,8 @@ class CaptureController:
                 # client that disconnected leaves the graph. Replay keeps all.
                 if self.mode == "airodump":
                     scan = prune_stale(scan, STALE_AFTER)
+                # Resolve vendors (live capture parses raw CSV, which has none).
+                oui.enrich_scan(scan)
                 self._apply_wps(scan)
                 self._graph.load(scan)
                 cyto = self._graph.to_cytoscape()

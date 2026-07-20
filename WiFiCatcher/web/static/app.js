@@ -1336,11 +1336,11 @@ function applyPatch(p) {
       const added = cy.add(el);
       if (el.group === "nodes") {
         added.addClass("fresh");
-        // Scatter each new node over a wide ring (random angle + radius) around
-        // the graph centre, so a burst of discoveries reads as a spread-out
-        // graph instead of a clump stacked on one spot.
+        // Drop each new node a moderate distance from the graph centre (random
+        // angle, modest radius): spread enough not to stack on one spot, close
+        // enough not to fling nodes far away.
         const ang = Math.random() * Math.PI * 2;
-        const rad = 260 + Math.random() * 480;
+        const rad = 120 + Math.random() * 180;
         added.position({
           x: spawn.x + Math.cos(ang) * rad,
           y: spawn.y + Math.sin(ang) * rad,
@@ -1534,7 +1534,14 @@ async function stopLive(opts = {}) {
     if (saved) toast(`Capture saved to ${saved}`, "ok");
     else toast(wasReplay ? "Replay stopped" : "Live capture stopped", "ok");
   }
-  if (OFFENSIVE && !wasReplay) loadInterfaces(); // adapter is back to managed mode now
+  if (OFFENSIVE && !wasReplay) {
+    // The helper restores managed mode + restarts NetworkManager asynchronously
+    // after we disconnect, so auto-refresh the interface list now and a few times
+    // shortly after: the adapter shows back in managed mode without the user
+    // having to hit "rescan" manually.
+    loadInterfaces();
+    [1500, 3000, 5000].forEach((ms) => setTimeout(loadInterfaces, ms));
+  }
   return saved;
 }
 
