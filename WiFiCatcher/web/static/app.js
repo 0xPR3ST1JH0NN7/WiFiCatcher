@@ -175,7 +175,7 @@ function runLayout(name) {
   const opts =
     currentLayout === "fcose"
       ? { name: "fcose", animate: true, animationDuration: 500, randomize: true,
-          packComponents: true, nodeRepulsion: 16000, idealEdgeLength: 130,
+          packComponents: false, nodeRepulsion: 16000, idealEdgeLength: 130,
           nodeSeparation: 150, gravity: 0.15, gravityRange: 3.8, fit: false,
           padding: 60 }
       : currentLayout === "concentric"
@@ -1318,11 +1318,14 @@ function applyPatch(p) {
       const added = cy.add(el);
       if (el.group === "nodes") {
         added.addClass("fresh");
-        // Seed a spread-out position so new nodes read as a graph straight away
-        // instead of stacking on one spot until fcose runs a moment later.
+        // Scatter each new node over a wide ring (random angle + radius) around
+        // the graph centre, so a burst of discoveries reads as a spread-out
+        // graph instead of a clump stacked on one spot.
+        const ang = Math.random() * Math.PI * 2;
+        const rad = 260 + Math.random() * 480;
         added.position({
-          x: spawn.x + (Math.random() - 0.5) * 460,
-          y: spawn.y + (Math.random() - 0.5) * 340,
+          x: spawn.x + Math.cos(ang) * rad,
+          y: spawn.y + Math.sin(ang) * rad,
         });
       }
     });
@@ -1346,16 +1349,18 @@ function applyPatch(p) {
 function scheduleLiveLayout() {
   clearTimeout(live.layoutTimer);
   live.layoutTimer = setTimeout(() => {
-    // Pin every node the user has dragged at its current spot so the force
-    // layout arranges only the rest around them, rather than dragging the whole
-    // graph back to its computed positions each time a node is discovered.
-    const pinned = cy.nodes(".user-moved").map((n) => ({
+    // Keep the existing graph where it is: pin every node that is not brand-new
+    // (".fresh"), so the layout only places the just-discovered nodes around the
+    // stable graph instead of reshuffling everything into a tight cluster each
+    // scan. Pinning almost all nodes also keeps the layout cheap (few free
+    // nodes) and, with animation off, stops it pegging the CPU during a capture.
+    const pinned = cy.nodes().not(".fresh").map((n) => ({
       nodeId: n.id(), position: { x: n.position("x"), y: n.position("y") },
     }));
     const l = cy.layout({
-      name: "fcose", animate: true, animationDuration: 500, randomize: false,
-      packComponents: true, nodeRepulsion: 16000, idealEdgeLength: 130,
-      nodeSeparation: 150, gravity: 0.15, gravityRange: 3.8, fit: false, padding: 60,
+      name: "fcose", animate: false, randomize: false,
+      packComponents: false, nodeRepulsion: 16000, idealEdgeLength: 130,
+      nodeSeparation: 150, gravity: 0.1, gravityRange: 3.8, fit: false, padding: 60,
       fixedNodeConstraint: pinned,
     });
     // Fit once, after the first real layout, then leave the view to the user.
