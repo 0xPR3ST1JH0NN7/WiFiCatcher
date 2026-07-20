@@ -20,9 +20,9 @@ from WiFiCatcher.models import Scan
 # A live station not heard within this many seconds of the newest sighting is
 # dropped from the graph, so clients that leave disappear instead of lingering.
 try:
-    STALE_AFTER = float(os.environ.get("WIFICATCHER_STALE_SECONDS", "60"))
+    STALE_AFTER = float(os.environ.get("WIFICATCHER_STALE_SECONDS", "30"))
 except ValueError:
-    STALE_AFTER = 60.0
+    STALE_AFTER = 30.0
 
 
 def _parse_ts(value: Optional[str]) -> Optional[datetime.datetime]:
