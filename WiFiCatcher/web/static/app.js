@@ -442,8 +442,23 @@ function renderOneTable(kind, cols, state, tableId, countId, emptyId) {
       if (node.nonempty()) node.select();
       document.querySelectorAll("#table-view tr.selected").forEach((r) => r.classList.remove("selected"));
       tr.classList.add("selected");
+      highlightAssociations(id);
       openNode(id);
     };
+  });
+}
+
+// In table view, light up the rows associated with a clicked node: an AP lights
+// its connected clients, a client lights its AP (association = a graph edge).
+function highlightAssociations(nodeId) {
+  document.querySelectorAll("#table-view tr.associated")
+    .forEach((r) => r.classList.remove("associated"));
+  if (!nodeId) return;
+  const node = cy.getElementById(nodeId);
+  if (node.empty()) return;
+  const ids = new Set(node.neighborhood().nodes().map((n) => n.id()));
+  document.querySelectorAll("#table-view tr[data-id]").forEach((tr) => {
+    if (ids.has(tr.getAttribute("data-id"))) tr.classList.add("associated");
   });
 }
 
@@ -454,6 +469,9 @@ function renderTable() {
   renderOneTable("ap", AP_COLUMNS, tableSort.ap, "ap-table", "tbl-ap-count", "ap-empty");
   renderOneTable("client", CLIENT_COLUMNS, tableSort.client, "client-table", "tbl-client-count", "client-empty");
   if (scroll) scroll.scrollTop = top;   // preserve scroll across live re-renders
+  // Re-apply the association highlight after a re-render (e.g. a live patch).
+  const sel = cy.nodes(":selected");
+  if (sel.nonempty()) highlightAssociations(sel.first().id());
 }
 
 function setView(view) {

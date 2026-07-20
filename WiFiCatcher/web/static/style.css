@@ -523,6 +523,9 @@ code { background: var(--panel); padding: 1px 5px; border-radius: 4px; font-size
 .data-table tbody tr { cursor: pointer; }
 .data-table tbody tr:hover td { background: var(--panel); }
 .data-table tbody tr.selected td { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+/* Rows associated with the clicked node (an AP's clients, or a client's AP). */
+.data-table tbody tr.associated td { background: color-mix(in srgb, var(--accent-2) 14%, transparent); }
+.data-table tbody tr.associated td:first-child { box-shadow: inset 3px 0 0 var(--accent-2); }
 .tbl-badge {
   display: inline-block; font-size: 10px; text-transform: uppercase; letter-spacing: .5px;
   padding: 1px 7px; border-radius: 12px; vertical-align: 1px;
