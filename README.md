@@ -9,8 +9,8 @@
 git clone https://github.com/0xPR3ST1JH0NN7/WiFiCatcher
 cd WiFiCatcher
 
-# system tools used for live capture + deauth
-sudo apt install aircrack-ng tshark
+# system tools used for live capture + deauth (zenity powers the save-folder picker)
+sudo apt install aircrack-ng tshark zenity
 
 # python dependencies (the app runs from this venv)
 python3 -m venv .venv && source .venv/bin/activate

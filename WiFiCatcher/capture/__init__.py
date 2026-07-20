@@ -14,6 +14,7 @@ from WiFiCatcher.capture.interfaces import (
 from WiFiCatcher.capture.sources import (
     AirodumpSource,
     HelperAirodumpSource,
+    HelperHandshakeWatcher,
     ReplaySource,
     Source,
 )
@@ -26,6 +27,7 @@ __all__ = [
     "ReplaySource",
     "AirodumpSource",
     "HelperAirodumpSource",
+    "HelperHandshakeWatcher",
     "HandshakeWatcher",
     "parse_handshakes",
     "WpsWatcher",

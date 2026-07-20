@@ -24,6 +24,7 @@ from WiFiCatcher.api import uploads
 from WiFiCatcher.capture import (
     CaptureController,
     HelperAirodumpSource,
+    HelperHandshakeWatcher,
     ReplaySource,
     interface_exists,
     list_wireless_interfaces,
@@ -374,23 +375,35 @@ async def live_start(req: LiveStartRequest):
                 detail=f"Interface '{req.interface}' was not found. "
                        f"Available: {available or 'none detected'}.",
             )
-        # The helper enables monitor mode, runs airodump-ng and streams CSV back;
-        # source.interface is filled in from its first event (the monitor iface).
+        # When saving, require a folder that exists and this user can write to, so
+        # the capture is not silently lost after the run.
+        if req.save:
+            folder = (req.save_dir or "").strip()
+            if not folder or not os.path.isdir(folder) or not os.access(folder, os.W_OK):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Choose an existing, writable folder to save the "
+                           "capture into before starting.")
+        # The helper enables monitor mode, runs airodump-ng and streams CSV +
+        # handshake events back; source.interface / saved_path come from its
+        # first event.
         source = HelperAirodumpSource(
             req.interface, channel=req.channel, band=req.band,
             encrypt=req.encrypt, essid=req.essid, bssid=req.bssid,
+            save=req.save, save_dir=(req.save_dir or None),
             acknowledged=req.acknowledged)
+        handshakes = HelperHandshakeWatcher(source)
         try:
-            await CAPTURE.start(source, mode=req.mode, interval=interval)
+            await CAPTURE.start(source, mode=req.mode, interval=interval,
+                                handshakes=handshakes)
         except PrivUnavailable as exc:
             raise HTTPException(status_code=503,
                                 detail=f"Privileged helper unavailable: {exc}") from exc
         except PrivError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        # NOTE: handshake / WPS detection needs the pcap, which lives on the
-        # helper; streaming those events is a follow-up.
         return {"status": "running", "mode": req.mode,
-                "channel": req.channel, "interface": source.interface}
+                "channel": req.channel, "interface": source.interface,
+                "save_path": source.saved_path}
     else:
         raise HTTPException(status_code=400, detail=f"Unknown mode '{req.mode}'.")
 

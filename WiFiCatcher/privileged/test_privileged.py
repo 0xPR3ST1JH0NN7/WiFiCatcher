@@ -72,7 +72,10 @@ def helper(tmp_path, monkeypatch):
 
 
 def test_unary_call(helper: PrivClient) -> None:
-    assert helper.call("test.echo", a=1, b="x") == {"echo": {"a": 1, "b": "x"}}
+    echoed = helper.call("test.echo", a=1, b="x")["echo"]
+    assert echoed["a"] == 1 and echoed["b"] == "x"
+    # The server injects the authenticated peer uid into every op's params.
+    assert echoed["_peer_uid"] == os.getuid()
 
 
 def test_unknown_op_returns_error(helper: PrivClient) -> None:

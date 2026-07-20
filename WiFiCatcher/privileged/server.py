@@ -89,18 +89,19 @@ def _peer_uid(conn: socket.socket) -> int:
 def _handle(conn: socket.socket, allowed_uids: set[int], idle: _Idle) -> None:
     idle.enter()
     try:
-        if allowed_uids:
-            uid = _peer_uid(conn)
-            if uid not in allowed_uids:
-                logger.warning("rejected peer uid %s", uid)
-                send_message(conn, {"ok": False, "error": "peer not authorized"})
-                return
+        peer = _peer_uid(conn)
+        if allowed_uids and peer not in allowed_uids:
+            logger.warning("rejected peer uid %s", peer)
+            send_message(conn, {"ok": False, "error": "peer not authorized"})
+            return
         req = recv_message(conn)
         if not isinstance(req, dict):
             send_message(conn, {"ok": False, "error": "malformed request"})
             return
         op = req.get("op")
-        params = req.get("params") or {}
+        # Carry the *authenticated* peer uid to the op (e.g. to chown saved
+        # captures to the caller); overwrite any client-supplied value.
+        params = {**(req.get("params") or {}), "_peer_uid": peer}
         logger.info("op %s", op)
 
         if op in ops.STREAMERS:

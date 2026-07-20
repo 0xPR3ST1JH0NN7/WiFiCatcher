@@ -46,7 +46,12 @@ def daemon(tmp_path, monkeypatch):
                         lambda p: {"status": "ok", "echo": p})
 
     def _cap(params):
-        yield {"monitor_interface": "wlan0mon", "enabled": True}
+        first = {"monitor_interface": "wlan0mon", "enabled": True}
+        if params.get("save") and params.get("save_dir"):
+            first["save_path"] = params["save_dir"] + "/wificatcher-test"
+        yield first
+        yield {"csv": AIRODUMP_CSV}
+        yield {"handshake": {"bssid": "AA:BB:CC:DD:EE:FF"}}
         while True:
             yield {"csv": AIRODUMP_CSV}
             time.sleep(0.05)
@@ -133,3 +138,46 @@ def test_helper_source_streams_csv(daemon) -> None:
     scan = asyncio.run(drive())
     assert scan is not None
     assert any(ap.bssid == "AA:BB:CC:DD:EE:FF" for ap in scan.access_points)
+
+
+def test_helper_source_captures_handshakes(daemon) -> None:
+    from WiFiCatcher.capture import HelperAirodumpSource
+
+    src = HelperAirodumpSource("wlan0", channel="6")
+
+    async def drive():
+        await src.start()
+        for _ in range(100):
+            if src.handshake_bssids():
+                break
+            await asyncio.sleep(0.02)
+        hs = src.handshake_bssids()
+        await src.stop()
+        return hs
+
+    assert "AA:BB:CC:DD:EE:FF" in asyncio.run(drive())
+
+
+def test_helper_source_reports_save_path(daemon, tmp_path) -> None:
+    from WiFiCatcher.capture import HelperAirodumpSource
+
+    src = HelperAirodumpSource("wlan0", channel="6", save=True,
+                               save_dir=str(tmp_path))
+
+    async def drive():
+        await src.start()
+        path = src.saved_path
+        await src.stop()
+        return path
+
+    assert asyncio.run(drive()) == str(tmp_path) + "/wificatcher-test"
+
+
+def test_live_start_rejects_save_without_writable_path(monkeypatch) -> None:
+    # #7: saving requires an existing, writable folder before the capture starts.
+    monkeypatch.setattr(routes, "interface_exists", lambda *a, **k: True)
+    r = TestClient(app).post("/api/live/start", json={
+        "mode": "airodump", "interface": "wlan0", "channel": "6",
+        "acknowledged": True, "save": True, "save_dir": "/no/such/dir/xyz"})
+    assert r.status_code == 400
+    assert "folder" in r.json()["detail"].lower()

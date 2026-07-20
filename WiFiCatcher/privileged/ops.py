@@ -11,6 +11,7 @@ and is handled in :mod:`WiFiCatcher.privileged.server`.
 
 from __future__ import annotations
 
+import os
 import re
 import time
 from typing import Any, Callable
@@ -133,8 +134,23 @@ def dispatch(op: str, params: dict[str, Any] | None) -> dict:
 _BAND_FLAGS = {"2.4": "bg", "5": "a", "both": "abg"}
 
 
+def _chown_tree(path: str, uid: int) -> None:
+    """Give ``path`` and everything under it to ``uid`` (best effort)."""
+    try:
+        os.chown(path, uid, -1)
+    except OSError:
+        return
+    for root, dirs, files in os.walk(path):
+        for name in dirs + files:
+            try:
+                os.chown(os.path.join(root, name), uid, -1)
+            except OSError:
+                pass
+
+
 def _build_airodump(params: dict, iface: str, prefix: str) -> list[str]:
-    cmd = ["airodump-ng", "--output-format", "csv", "-w", prefix]
+    # pcap alongside csv so handshakes can be detected and the capture saved.
+    cmd = ["airodump-ng", "--output-format", "pcap,csv", "-w", prefix]
     channel = params.get("channel")
     if channel:
         try:
@@ -156,34 +172,53 @@ def _build_airodump(params: dict, iface: str, prefix: str) -> list[str]:
 
 
 def _capture_stream(params: dict):
-    """Own a live capture end-to-end (as root) and stream CSV snapshots.
+    """Own a live capture end-to-end (as root) and stream it back.
 
-    Ensures monitor mode, emits a first ``{"monitor_interface": ...}`` event so
-    the app knows which interface to deauth on, then yields ``{"csv": ...}`` each
-    time airodump rewrites its CSV. When the caller closes the generator (client
-    disconnect / stop), airodump is killed and the interface is restored to
-    managed mode — so cleanup happens even if the app crashes.
+    Ensures monitor mode, emits a first event with the monitor interface (and the
+    save path when saving), then yields ``{"csv": ...}`` as airodump rewrites its
+    CSV and ``{"handshake": {"bssid": ...}}`` when a WPA handshake is detected in
+    the pcap. When the caller closes the generator (stop / disconnect), airodump
+    is killed and the interface restored to managed mode; a requested capture is
+    kept and chowned to the caller, otherwise it is deleted. Cleanup happens even
+    if the app crashes.
 
     NOTE: radio-dependent path; needs real hardware + aircrack-ng to run for
-    real. The streaming/cleanup plumbing is covered by tests with a fake.
+    real. The streaming/save/cleanup plumbing is covered by tests with a fake.
     """
     import glob
     import shutil
     import subprocess
     import tempfile
 
+    from WiFiCatcher.capture.handshake import parse_handshakes
     from WiFiCatcher.capture.interfaces import ensure_monitor_mode, restore_managed_mode
 
     handle = ensure_monitor_mode(
         _iface(params), acknowledged=bool(params.get("acknowledged", True)))
-    yield {"monitor_interface": handle.interface, "enabled": handle.enabled}
 
-    workdir = tempfile.mkdtemp(prefix="wc-cap-")
-    prefix = f"{workdir}/cap"
+    save = bool(params.get("save"))
+    save_dir = params.get("save_dir")
+    peer_uid = params.get("_peer_uid")
+    if save and save_dir and os.path.isdir(save_dir):
+        workdir = tempfile.mkdtemp(
+            prefix="wificatcher-" + time.strftime("%Y%m%d-%H%M%S") + "-", dir=save_dir)
+        save_path = workdir
+    else:
+        workdir = tempfile.mkdtemp(prefix="wc-cap-")
+        save, save_path = False, None
+
+    first = {"monitor_interface": handle.interface, "enabled": handle.enabled}
+    if save_path:
+        first["save_path"] = save_path
+    yield first
+
+    prefix = os.path.join(workdir, "cap")
     proc = subprocess.Popen(
         _build_airodump(params, handle.interface, prefix),
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     last = ""
+    seen_hs: set[str] = set()
+    tick = 0
     try:
         while True:
             csvs = sorted(glob.glob(f"{prefix}-*.csv"))
@@ -195,6 +230,21 @@ def _capture_stream(params: dict):
                 if text and text != last:
                     last = text
                     yield {"csv": text}
+            tick += 1
+            if tick % 4 == 0 and shutil.which("tshark"):
+                caps = sorted(glob.glob(f"{prefix}-*.cap"))
+                if caps:
+                    try:
+                        out = subprocess.run(
+                            ["tshark", "-r", caps[-1], "-Y", "eapol",
+                             "-T", "fields", "-e", "wlan.bssid"],
+                            capture_output=True, text=True, timeout=15,
+                            check=False).stdout
+                        for bssid in parse_handshakes(out) - seen_hs:
+                            seen_hs.add(bssid)
+                            yield {"handshake": {"bssid": bssid}}
+                    except (OSError, subprocess.SubprocessError):
+                        pass
             time.sleep(1.0)
     finally:
         try:
@@ -202,7 +252,10 @@ def _capture_stream(params: dict):
             proc.wait(timeout=5)
         except Exception:
             proc.kill()
-        shutil.rmtree(workdir, ignore_errors=True)
+        if save and save_path and peer_uid is not None:
+            _chown_tree(save_path, int(peer_uid))     # hand the files to the user
+        elif not save:
+            shutil.rmtree(workdir, ignore_errors=True)
         try:
             restore_managed_mode(handle)
         except Exception:

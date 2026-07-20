@@ -222,19 +222,23 @@ class HelperAirodumpSource(Source):
     def __init__(self, interface: str, channel: Optional[str] = None,
                  band: Optional[str] = None, encrypt: Optional[str] = None,
                  essid: Optional[str] = None, bssid: Optional[str] = None,
+                 save: bool = False, save_dir: Optional[str] = None,
                  acknowledged: bool = True):
         # The interface the user picked; becomes the monitor interface once the
         # helper reports it back (that is what the controller/deauth read).
         self.interface: Optional[str] = interface
         self.channel = channel
+        # Where the helper kept the capture, reported in its first event.
+        self.saved_path: Optional[str] = None
         self._params = {
             "iface": interface, "channel": channel, "band": band,
             "encrypt": encrypt, "essid": essid, "bssid": bssid,
-            "acknowledged": acknowledged,
+            "save": save, "save_dir": save_dir, "acknowledged": acknowledged,
         }
         self._sock: Optional[socket.socket] = None
         self._thread: Optional[threading.Thread] = None
         self._latest = ""
+        self._handshakes: set[str] = set()
         self._lock = threading.Lock()
         self._parser = AirodumpCsvParser()
 
@@ -251,9 +255,11 @@ class HelperAirodumpSource(Source):
         send_message(sock, {"op": "capture.stream", "params": self._params})
         first = recv_message(sock)
         if isinstance(first, dict) and "event" in first:
-            iface = first["event"].get("monitor_interface")
-            if iface:
-                self.interface = iface
+            ev = first["event"]
+            if ev.get("monitor_interface"):
+                self.interface = ev["monitor_interface"]
+            if ev.get("save_path"):
+                self.saved_path = ev["save_path"]
         elif isinstance(first, dict) and not first.get("ok", True):
             sock.close()
             raise PrivUnavailable(first.get("error", "capture refused"))
@@ -273,6 +279,11 @@ class HelperAirodumpSource(Source):
             if event and "csv" in event:
                 with self._lock:
                     self._latest = event["csv"]
+            elif event and "handshake" in event:
+                bssid = (event["handshake"] or {}).get("bssid")
+                if bssid:
+                    with self._lock:
+                        self._handshakes.add(bssid)
             elif "ok" in msg or msg.get("done"):
                 break
 
@@ -292,6 +303,11 @@ class HelperAirodumpSource(Source):
     def latest_cap(self) -> Optional[str]:
         return None                      # the pcap lives on the helper
 
+    def handshake_bssids(self) -> set[str]:
+        """BSSIDs the helper has reported a captured handshake for so far."""
+        with self._lock:
+            return set(self._handshakes)
+
     async def stop(self) -> None:
         sock, self._sock = self._sock, None
         if sock is not None:
@@ -305,3 +321,14 @@ class HelperAirodumpSource(Source):
                 sock.close()
             except OSError:
                 pass
+
+
+class HelperHandshakeWatcher:
+    """Adapts a :class:`HelperAirodumpSource`'s streamed handshake events to the
+    controller's ``poll()`` interface (the helper does the tshark detection)."""
+
+    def __init__(self, source: "HelperAirodumpSource") -> None:
+        self._source = source
+
+    def poll(self) -> set[str]:
+        return self._source.handshake_bssids()
