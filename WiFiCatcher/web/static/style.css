@@ -195,7 +195,10 @@ body { font-size: 14px; }   /* design baseline; the size setting zooms the whole
   position: absolute; left: 0; right: 0; bottom: 3px; height: 2px; opacity: .55;
   background-image: repeating-linear-gradient(90deg, var(--muted) 0 6px, transparent 6px 14px);
   background-size: 14px 2px;
-  animation: cat-scroll .5s linear infinite;
+  /* steps() instead of linear: the road jumps in a few discrete frames per loop
+     (fitting the pixel/dino look) rather than repainting every frame, so the
+     running cat stays cheap on a software renderer. */
+  animation: cat-scroll .5s steps(7) infinite;
 }
 @keyframes cat-scroll { to { background-position-x: -14px; } }
 
@@ -206,8 +209,8 @@ body { font-size: 14px; }   /* design baseline; the size setting zooms the whole
 .cat-dust::before, .cat-dust::after {
   content: ""; position: absolute; height: 2px; background: currentColor; opacity: 0;
 }
-.cat-dust::before { width: 6px; bottom: 0; animation: cat-puff .48s linear infinite; }
-.cat-dust::after { width: 4px; bottom: 5px; animation: cat-puff .48s linear .24s infinite; }
+.cat-dust::before { width: 6px; bottom: 0; animation: cat-puff .48s steps(4) infinite; }
+.cat-dust::after { width: 4px; bottom: 5px; animation: cat-puff .48s steps(4) .24s infinite; }
 @keyframes cat-puff {
   0% { opacity: .5; transform: translateX(0); }
   100% { opacity: 0; transform: translateX(-10px); }
@@ -548,21 +551,28 @@ code { background: var(--panel); padding: 1px 5px; border-radius: 4px; font-size
 /* Sleepy Wi-Fi waves drifting up off the cat while the app sits idle. */
 .empty-cat { position: relative; display: inline-block; margin-bottom: 8px; }
 /* Sit entirely above the cat (bottom at its top edge) so the waves are never
-   hidden behind it. */
-/* The waves breathe for a few seconds when the empty screen appears, then stop.
-   An infinite animation would repaint every frame forever and, on a browser
-   rendering in software (hardware acceleration off), keep a CPU core busy the
-   whole time the app sits idle. A finite count settles to a static icon. */
+   hidden behind it.
+   `contain: paint` isolates the waves into their own repaint box, so animating
+   them only redraws these ~60x50px, not a big slice of the page. That is what
+   keeps the loop cheap on a VM / software renderer (no GPU compositing). */
 .wifi-z { position: absolute; bottom: calc(100% + 4px); left: 50%; margin-left: -31px;
   width: 62px; height: 50px; color: var(--accent); z-index: 2; pointer-events: none;
-  animation: wifi-bob 3s ease-in-out 4; }
+  contain: paint; }
 .wifi-z .wz { fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round;
-  opacity: .12; animation: wifi-pulse 1.9s ease-in-out 6; }
+  opacity: .12; animation: wifi-pulse 3.4s ease-in-out infinite; }
 .wifi-z .wz1 { fill: currentColor; stroke: none; }
-.wifi-z .wz2 { animation-delay: .28s; }
-.wifi-z .wz3 { animation-delay: .56s; }
-@keyframes wifi-pulse { 0%, 100% { opacity: .12; } 45% { opacity: 1; } }
-@keyframes wifi-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.wifi-z .wz2 { animation-delay: .22s; }
+.wifi-z .wz3 { animation-delay: .44s; }
+/* A short radar "blip" (the three arcs light up in sequence) followed by a long
+   still pause. Nothing changes during the pause, so the browser does no repaints
+   for most of the cycle: the animation only costs CPU during the brief blip.
+   That keeps it affordable even on a software renderer (a Linux VM with no GPU). */
+@keyframes wifi-pulse {
+  0%   { opacity: .12; }
+  10%  { opacity: 1; }
+  26%  { opacity: .12; }
+  100% { opacity: .12; }
+}
 
 /* Freeze every looping animation while the tab is hidden, so a backgrounded
    window costs no CPU. Toggled from JS on visibilitychange. */
