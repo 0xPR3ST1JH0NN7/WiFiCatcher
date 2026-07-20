@@ -21,8 +21,10 @@ import glob
 import math
 import os
 import shutil
+import socket
 import subprocess
 import tempfile
+import threading
 import time
 from typing import Optional
 
@@ -201,4 +203,105 @@ class AirodumpSource(Source):
                 await asyncio.get_event_loop().run_in_executor(
                     None, lambda: restore_managed_mode(monitor))
             except Exception:
+                pass
+
+
+class HelperAirodumpSource(Source):
+    """Live capture driven by the privileged helper.
+
+    The app is unprivileged, so it does not run airodump-ng itself: it opens a
+    ``capture.stream`` on the helper socket. The helper (root) enables monitor
+    mode, runs airodump-ng, and streams CSV snapshots back; closing the socket in
+    :meth:`stop` tells it to kill airodump and restore managed mode.
+
+    ``interface`` is filled in from the helper's first event (the monitor
+    interface), so deauth can target it. Handshake/WPS detection needs the pcap,
+    which lives on the helper, so :meth:`latest_cap` returns ``None`` for now.
+    """
+
+    def __init__(self, interface: str, channel: Optional[str] = None,
+                 band: Optional[str] = None, encrypt: Optional[str] = None,
+                 essid: Optional[str] = None, bssid: Optional[str] = None,
+                 acknowledged: bool = True):
+        # The interface the user picked; becomes the monitor interface once the
+        # helper reports it back (that is what the controller/deauth read).
+        self.interface: Optional[str] = interface
+        self.channel = channel
+        self._params = {
+            "iface": interface, "channel": channel, "band": band,
+            "encrypt": encrypt, "essid": essid, "bssid": bssid,
+            "acknowledged": acknowledged,
+        }
+        self._sock: Optional[socket.socket] = None
+        self._thread: Optional[threading.Thread] = None
+        self._latest = ""
+        self._lock = threading.Lock()
+        self._parser = AirodumpCsvParser()
+
+    def _connect_and_handshake(self) -> None:
+        from WiFiCatcher.privileged import PrivUnavailable, client
+        from WiFiCatcher.privileged.protocol import recv_message, send_message
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.settimeout(10.0)
+        try:
+            sock.connect(client.socket_path())
+        except OSError as exc:
+            sock.close()
+            raise PrivUnavailable(f"helper unreachable: {exc}") from exc
+        send_message(sock, {"op": "capture.stream", "params": self._params})
+        first = recv_message(sock)
+        if isinstance(first, dict) and "event" in first:
+            iface = first["event"].get("monitor_interface")
+            if iface:
+                self.interface = iface
+        elif isinstance(first, dict) and not first.get("ok", True):
+            sock.close()
+            raise PrivUnavailable(first.get("error", "capture refused"))
+        sock.settimeout(None)
+        self._sock = sock
+
+    def _reader(self) -> None:
+        from WiFiCatcher.privileged.protocol import ProtocolError, recv_message
+        while self._sock is not None:
+            try:
+                msg = recv_message(self._sock)
+            except (ProtocolError, OSError):
+                break
+            if not isinstance(msg, dict):
+                break
+            event = msg.get("event")
+            if event and "csv" in event:
+                with self._lock:
+                    self._latest = event["csv"]
+            elif "ok" in msg or msg.get("done"):
+                break
+
+    async def start(self) -> None:
+        await asyncio.get_event_loop().run_in_executor(
+            None, self._connect_and_handshake)
+        self._thread = threading.Thread(target=self._reader, daemon=True)
+        self._thread.start()
+
+    async def read(self) -> Optional[Scan]:
+        with self._lock:
+            text = self._latest
+        if not text.strip():
+            return None
+        return self._parser.parse(text, "live.csv")
+
+    def latest_cap(self) -> Optional[str]:
+        return None                      # the pcap lives on the helper
+
+    async def stop(self) -> None:
+        sock, self._sock = self._sock, None
+        if sock is not None:
+            # Closing the socket ends the helper's stream: it kills airodump and
+            # restores managed mode on its side.
+            try:
+                sock.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            try:
+                sock.close()
+            except OSError:
                 pass

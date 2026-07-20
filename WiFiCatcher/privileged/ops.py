@@ -84,6 +84,7 @@ def _deauth(params: dict) -> dict:
         client=_mac(params, "client", required=False),
         count=max(1, min(count, _MAX_COUNT)),
         acknowledged=bool(params.get("acknowledged")),
+        dry_run=bool(params.get("dry_run")),
     )
 
 
@@ -100,6 +101,7 @@ def _eap_enumerate(params: dict) -> dict:
         essid=essid,
         identity=identity,
         acknowledged=bool(params.get("acknowledged")),
+        dry_run=bool(params.get("dry_run")),
     )
 
 
@@ -128,40 +130,59 @@ def dispatch(op: str, params: dict[str, Any] | None) -> dict:
 
 
 # ----------------------------------------------------------- streaming ops
-_BAND_FLAGS = {"2.4": "bg", "5": "a", "6": "a"}
+_BAND_FLAGS = {"2.4": "bg", "5": "a", "both": "abg"}
+
+
+def _build_airodump(params: dict, iface: str, prefix: str) -> list[str]:
+    cmd = ["airodump-ng", "--output-format", "csv", "-w", prefix]
+    channel = params.get("channel")
+    if channel:
+        try:
+            cmd += ["-c", str(int(channel))]
+        except (TypeError, ValueError):
+            raise OpError("'channel' must be an integer.")
+    elif params.get("band") in _BAND_FLAGS:
+        cmd += ["--band", _BAND_FLAGS[params["band"]]]
+    if params.get("encrypt"):
+        cmd += ["--encrypt", str(params["encrypt"])[:8]]
+    bssid = _mac(params, "bssid", required=False)
+    if bssid:
+        cmd += ["--bssid", bssid]
+    essid = params.get("essid")
+    if essid:
+        cmd += ["--essid", str(essid)[:_MAX_ESSID]]
+    cmd.append(iface)
+    return cmd
 
 
 def _capture_stream(params: dict):
-    """Generator: run airodump-ng and yield CSV snapshots until the caller
-    closes the generator (client disconnect), which stops airodump and cleans up.
+    """Own a live capture end-to-end (as root) and stream CSV snapshots.
 
-    NOTE: this is the radio-dependent path — it needs real hardware + the
-    aircrack-ng suite to exercise end-to-end; the streaming plumbing around it is
-    covered by tests with a fake streamer.
+    Ensures monitor mode, emits a first ``{"monitor_interface": ...}`` event so
+    the app knows which interface to deauth on, then yields ``{"csv": ...}`` each
+    time airodump rewrites its CSV. When the caller closes the generator (client
+    disconnect / stop), airodump is killed and the interface is restored to
+    managed mode — so cleanup happens even if the app crashes.
+
+    NOTE: radio-dependent path; needs real hardware + aircrack-ng to run for
+    real. The streaming/cleanup plumbing is covered by tests with a fake.
     """
     import glob
     import shutil
     import subprocess
     import tempfile
 
-    iface = _iface(params)
-    channel = params.get("channel")
-    cmd = ["airodump-ng", "--output-format", "csv", "-w", None, iface]  # -w filled below
-    if channel:
-        try:
-            cmd[3:3] = ["-c", str(int(channel))]
-        except (TypeError, ValueError):
-            raise OpError("'channel' must be an integer.")
-    elif params.get("band") in _BAND_FLAGS:
-        cmd[3:3] = ["--band", _BAND_FLAGS[params["band"]]]
-    bssid = _mac(params, "bssid", required=False)
-    if bssid:
-        cmd[3:3] = ["--bssid", bssid]
+    from WiFiCatcher.capture.interfaces import ensure_monitor_mode, restore_managed_mode
+
+    handle = ensure_monitor_mode(
+        _iface(params), acknowledged=bool(params.get("acknowledged", True)))
+    yield {"monitor_interface": handle.interface, "enabled": handle.enabled}
 
     workdir = tempfile.mkdtemp(prefix="wc-cap-")
     prefix = f"{workdir}/cap"
-    cmd[cmd.index(None)] = prefix
-    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    proc = subprocess.Popen(
+        _build_airodump(params, handle.interface, prefix),
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     last = ""
     try:
         while True:
@@ -182,6 +203,10 @@ def _capture_stream(params: dict):
         except Exception:
             proc.kill()
         shutil.rmtree(workdir, ignore_errors=True)
+        try:
+            restore_managed_mode(handle)
+        except Exception:
+            pass
 
 
 # op name -> generator yielding event dicts.

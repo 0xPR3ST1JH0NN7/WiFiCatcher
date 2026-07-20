@@ -15,6 +15,11 @@ differs):
   (as root) and point the app at ``PATH`` via ``WIFICATCHER_PRIV_SOCKET``.
 """
 
-from WiFiCatcher.privileged.client import PrivClient, PrivError, helper_available
+from WiFiCatcher.privileged.client import (
+    PrivClient,
+    PrivError,
+    PrivUnavailable,
+    helper_available,
+)
 
-__all__ = ["PrivClient", "PrivError", "helper_available"]
+__all__ = ["PrivClient", "PrivError", "PrivUnavailable", "helper_available"]

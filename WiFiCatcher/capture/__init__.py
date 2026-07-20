@@ -11,7 +11,12 @@ from WiFiCatcher.capture.interfaces import (
     list_wireless_interfaces,
     restore_managed_mode,
 )
-from WiFiCatcher.capture.sources import AirodumpSource, ReplaySource, Source
+from WiFiCatcher.capture.sources import (
+    AirodumpSource,
+    HelperAirodumpSource,
+    ReplaySource,
+    Source,
+)
 from WiFiCatcher.capture.wps import WpsWatcher, parse_wps
 
 __all__ = [
@@ -20,6 +25,7 @@ __all__ = [
     "Source",
     "ReplaySource",
     "AirodumpSource",
+    "HelperAirodumpSource",
     "HandshakeWatcher",
     "parse_handshakes",
     "WpsWatcher",

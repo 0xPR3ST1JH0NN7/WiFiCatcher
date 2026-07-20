@@ -22,29 +22,16 @@ from pydantic import BaseModel
 from WiFiCatcher import parsers
 from WiFiCatcher.api import uploads
 from WiFiCatcher.capture import (
-    AirodumpSource,
     CaptureController,
-    HandshakeWatcher,
+    HelperAirodumpSource,
     ReplaySource,
-    WpsWatcher,
-    ensure_monitor_mode,
     interface_exists,
     list_wireless_interfaces,
 )
+from WiFiCatcher.privileged import PrivClient, PrivError, PrivUnavailable
 from WiFiCatcher.enrichment import oui
 from WiFiCatcher.graph import WifiGraph
-from WiFiCatcher.operations import (
-    OperationError,
-    deauth as deauth_op,
-    enterprise,
-    offensive_available,
-)
-from WiFiCatcher.operations.base import (
-    OperationError as _OpError,
-    OperationNotAuthorized,
-    require_authorization,
-    require_tools,
-)
+from WiFiCatcher.operations import OperationError, enterprise
 
 router = APIRouter(prefix="/api")
 
@@ -155,11 +142,10 @@ class DeauthRequest(BaseModel):
 
 @router.post("/operations/deauth")
 def operations_deauth(req: DeauthRequest):
-    # 1) Authorization gate (offensive enabled + root + acknowledgement).
-    try:
-        require_authorization(req.acknowledged)
-    except _OpError as exc:
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    # 1) Explicit per-request authorization acknowledgement.
+    if not req.acknowledged:
+        raise HTTPException(status_code=403,
+                            detail="Authorization not acknowledged for this action.")
 
     # 2) Deauth reuses the live airodump capture, which must be locked on one
     #    channel (aireplay-ng can only reach APs on the interface's channel).
@@ -170,17 +156,17 @@ def operations_deauth(req: DeauthRequest):
                    "specific channel. Start a live capture with a channel first.",
         )
 
+    # 3) The privileged helper runs aireplay-ng (as root); the app never does.
     try:
-        return deauth_op.deauth(
-            interface=CAPTURE.interface,
-            bssid=req.bssid,
-            client=req.client,
-            count=req.count,
-            acknowledged=req.acknowledged,
-            dry_run=req.dry_run,
-        )
-    except OperationError as exc:
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
+        return PrivClient().call(
+            "deauth", interface=CAPTURE.interface, bssid=req.bssid,
+            client=req.client, count=req.count,
+            acknowledged=req.acknowledged, dry_run=req.dry_run)
+    except PrivUnavailable as exc:
+        raise HTTPException(status_code=503,
+                            detail=f"Privileged helper unavailable: {exc}") from exc
+    except PrivError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 # ------------------------------------------------------------- WPA2-Enterprise
@@ -262,13 +248,16 @@ def operations_enterprise_eap(req: EapMethodsRequest):
                             detail="A wireless interface is required.")
 
     def _run():
+        # The privileged helper runs EAP_buster.sh / wpa_supplicant (as root).
         try:
-            return enterprise.enumerate_eap_methods(
-                interface=interface, essid=req.essid, identity=req.identity,
-                acknowledged=req.acknowledged, dry_run=req.dry_run)
-        except OperationNotAuthorized as exc:
-            raise HTTPException(status_code=403, detail=str(exc)) from exc
-        except OperationError as exc:
+            return PrivClient(timeout=max(60.0, enterprise.EAP_BUSTER_TIMEOUT)).call(
+                "eap.enumerate", interface=interface, essid=req.essid,
+                identity=req.identity, acknowledged=req.acknowledged,
+                dry_run=req.dry_run)
+        except PrivUnavailable as exc:
+            raise HTTPException(status_code=503,
+                                detail=f"Privileged helper unavailable: {exc}") from exc
+        except PrivError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     if req.dry_run:
@@ -369,16 +358,15 @@ async def live_start(req: LiveStartRequest):
             )
         source = ReplaySource(STATE.scan)
     elif req.mode == "airodump":
-        # Real radio capture: same guardrails as the offensive subsystem.
-        try:
-            require_authorization(req.acknowledged)
-            require_tools("airodump-ng", hint="Install the aircrack-ng suite.")
-        except _OpError as exc:
-            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        # Real radio capture runs in the privileged helper; the app is
+        # unprivileged and never touches the radio itself.
+        if not req.acknowledged:
+            raise HTTPException(status_code=403,
+                                detail="Authorization not acknowledged for this action.")
         if not req.interface:
             raise HTTPException(status_code=400,
                                 detail="Select a wireless interface to capture on.")
-        # 1) Verify the chosen interface actually exists on this host.
+        # Verify the chosen interface exists (sysfs read, unprivileged).
         if not interface_exists(req.interface):
             available = ", ".join(i["name"] for i in list_wireless_interfaces())
             raise HTTPException(
@@ -386,35 +374,23 @@ async def live_start(req: LiveStartRequest):
                 detail=f"Interface '{req.interface}' was not found. "
                        f"Available: {available or 'none detected'}.",
             )
-        # 2) Make sure it is in monitor mode, enabling it with airmon-ng if
-        #    needed (clearing interfering processes first). Capture on whatever
-        #    interface monitor mode lands on; the handle restores managed mode
-        #    automatically when the capture stops.
-        #    airmon-ng (`check kill` + `start`) shells out and blocks for a couple
-        #    of seconds; run it in a thread so the event loop stays responsive
-        #    (status polls, the WebSocket, other requests) while it works.
-        try:
-            monitor = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: ensure_monitor_mode(req.interface,
-                                            acknowledged=req.acknowledged))
-        except OperationNotAuthorized as exc:
-            raise HTTPException(status_code=403, detail=str(exc)) from exc
-        except _OpError as exc:
-            raise HTTPException(status_code=409, detail=str(exc)) from exc
-        source = AirodumpSource(
-            monitor.interface, channel=req.channel, band=req.band,
+        # The helper enables monitor mode, runs airodump-ng and streams CSV back;
+        # source.interface is filled in from its first event (the monitor iface).
+        source = HelperAirodumpSource(
+            req.interface, channel=req.channel, band=req.band,
             encrypt=req.encrypt, essid=req.essid, bssid=req.bssid,
-            monitor=monitor, save=req.save, save_dir=req.save_dir,
-        )
-        # Watch the live pcap for WPA handshakes (e.g. captured during a deauth).
-        handshakes = HandshakeWatcher(source)
-        # Optionally read WPS info (version / locked) from the same pcap.
-        wps = WpsWatcher(source) if req.wps else None
-        await CAPTURE.start(source, mode=req.mode, interval=interval,
-                            handshakes=handshakes, wps=wps)
+            acknowledged=req.acknowledged)
+        try:
+            await CAPTURE.start(source, mode=req.mode, interval=interval)
+        except PrivUnavailable as exc:
+            raise HTTPException(status_code=503,
+                                detail=f"Privileged helper unavailable: {exc}") from exc
+        except PrivError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        # NOTE: handshake / WPS detection needs the pcap, which lives on the
+        # helper; streaming those events is a follow-up.
         return {"status": "running", "mode": req.mode,
-                "channel": req.channel, "interface": monitor.interface}
+                "channel": req.channel, "interface": source.interface}
     else:
         raise HTTPException(status_code=400, detail=f"Unknown mode '{req.mode}'.")
 

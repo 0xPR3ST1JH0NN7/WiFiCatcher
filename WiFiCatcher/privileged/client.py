@@ -21,7 +21,11 @@ def socket_path() -> str:
 
 
 class PrivError(RuntimeError):
-    """The helper is unreachable, or it refused/failed the operation."""
+    """The helper refused or failed an operation."""
+
+
+class PrivUnavailable(PrivError):
+    """The helper socket could not be reached (not installed / not running)."""
 
 
 class PrivClient:
@@ -38,7 +42,8 @@ class PrivClient:
             sock.connect(self.path)
         except OSError as exc:
             sock.close()
-            raise PrivError(f"privileged helper unreachable at {self.path}: {exc}")
+            raise PrivUnavailable(
+                f"privileged helper unreachable at {self.path}: {exc}")
         return sock
 
     def available(self) -> bool:
