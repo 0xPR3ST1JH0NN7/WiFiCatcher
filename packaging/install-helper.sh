@@ -43,9 +43,14 @@ sed -e "s#/opt/wificatcher/.venv/bin/python#$VENV_PY#g" \
 
 chmod 0644 "$UNIT_DIR/wc-privhelper.socket" "$UNIT_DIR/wc-privhelper.service"
 
-# Start listening now and at every boot; the helper itself starts on demand.
+# Apply the units and (re)bind the socket. A plain "enable --now" does NOT
+# restart an already-running socket, so on a re-install it would keep a stale
+# binding (old path / no open fd) and never create the new socket file. restart
+# forces the new config to take effect; reset-failed clears any prior failure.
 systemctl daemon-reload
-systemctl enable --now wc-privhelper.socket
+systemctl reset-failed wc-privhelper.socket wc-privhelper.service 2>/dev/null || true
+systemctl enable wc-privhelper.socket
+systemctl restart wc-privhelper.socket
 
 echo "[*] done. Just run the app:"
 echo "      cd $INSTALL_DIR && .venv/bin/python -m WiFiCatcher"
