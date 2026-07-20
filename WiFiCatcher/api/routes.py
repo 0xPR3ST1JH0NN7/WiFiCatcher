@@ -86,9 +86,13 @@ def get_parsers():
 
 @router.get("/node/{node_id}")
 def get_node(node_id: str):
-    # During a live/replay capture the nodes live in the capture graph, not in
-    # the imported STATE — fall back to it so node details work mid-capture.
-    info = STATE.node(node_id) or CAPTURE.node(node_id)
+    # While a live capture runs, prefer its graph: a stale imported STATE node
+    # with the same BSSID (which carries no live WPS/handshake data) must not
+    # shadow the live one. Otherwise fall back to STATE for imported/replay data.
+    if CAPTURE.running:
+        info = CAPTURE.node(node_id) or STATE.node(node_id)
+    else:
+        info = STATE.node(node_id) or CAPTURE.node(node_id)
     if info is None:
         raise HTTPException(status_code=404, detail="Node not found")
     return info
@@ -338,7 +342,6 @@ class LiveStartRequest(BaseModel):
     channel: str | None = None      # fixed channel; required to allow deauth
     band: str | None = None         # "2.4" | "5" | "both" (ignored if channel set)
     encrypt: str | None = None      # WEP | WPA2 | WPA3 | OPN ...
-    wps: bool = False               # detect WPS info from the live pcap
     essid: str | None = None        # capture one ESSID only
     bssid: str | None = None        # capture one BSSID only
     interval: float | None = None
@@ -394,7 +397,9 @@ async def live_start(req: LiveStartRequest):
             save=req.save, save_dir=(req.save_dir or None),
             acknowledged=req.acknowledged)
         handshakes = HelperHandshakeWatcher(source)
-        wps = HelperWpsWatcher(source) if req.wps else None
+        # WPS detection is always on (cheap: one tshark pass every few seconds),
+        # like handshake detection, so the user never has to enable it.
+        wps = HelperWpsWatcher(source)
         try:
             await CAPTURE.start(source, mode=req.mode, interval=interval,
                                 handshakes=handshakes, wps=wps)

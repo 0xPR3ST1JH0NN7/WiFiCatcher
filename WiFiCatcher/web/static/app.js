@@ -344,6 +344,11 @@ const AP_COLUMNS = [
     val: (n) => (n.data("privacy") || "").toLowerCase(),
     render: (n) => cellOr(n.data("privacy")) +
       (n.data("enterprise") ? ' <span class="tbl-badge ent">802.1X</span>' : "") },
+  { key: "wps", label: "WPS",
+    val: (n) => (n.data("wps") ? 0 : 1),   // WPS-on sorts to the top
+    render: (n) => n.data("wps")
+      ? `<span class="tbl-badge wps">WPS${n.data("wps_version") ? " v" + escapeHtml(String(n.data("wps_version"))) : ""}${n.data("wps_locked") ? " 🔒" : ""}</span>`
+      : '<span class="muted-cell">—</span>' },
   { key: "power", label: "Signal", cls: "num",
     val: (n) => numOr(n.data("power")), render: (n) => sigCell(n.data("power")) },
   { key: "degree", label: "Clients", cls: "num",
@@ -505,12 +510,17 @@ document.getElementById("table-search").addEventListener("input", renderTable);
 // Easter egg: click the toolbar runner cat and it hops. Re-triggering mid-hop
 // restarts the animation; the class is cleared when the jump finishes.
 const catRun = document.querySelector(".cat-run");
+// Make the cat hop once. Re-triggering mid-hop restarts the animation; the
+// .jump class runs its own cat-jump keyframe (which plays even while the cat is
+// otherwise paused at rest), cleared on animationend.
+function jumpCat() {
+  if (!catRun) return;
+  catRun.classList.remove("jump");
+  void catRun.offsetWidth;   // force reflow so a repeat trigger restarts the hop
+  catRun.classList.add("jump");
+}
 if (catRun) {
-  catRun.addEventListener("click", () => {
-    catRun.classList.remove("jump");
-    void catRun.offsetWidth;   // force reflow so a repeat click restarts the hop
-    catRun.classList.add("jump");
-  });
+  catRun.addEventListener("click", jumpCat);   // easter egg: click to hop
   catRun.addEventListener("animationend", (e) => {
     if (e.animationName === "cat-jump") catRun.classList.remove("jump");
   });
@@ -1247,7 +1257,7 @@ function recomputeUnassoc() {
 // changing them mid-capture is meaningless.
 const AIRODUMP_OPT_IDS = ["live-iface", "live-iface-refresh", "live-band",
   "live-save", "live-save-dir", "live-save-browse", "live-channel", "live-encrypt",
-  "live-wps", "live-essid", "live-bssid", "live-interval"];
+  "live-essid", "live-bssid", "live-interval"];
 
 function setDisabled(ids, disabled) {
   ids.forEach((id) => {
@@ -1408,6 +1418,8 @@ function handleLiveMessage(msg) {
     applyPatch(msg);
   } else if (msg.type === "handshake") {
     markHandshake(msg);
+  } else if (msg.type === "wps") {
+    markWps(msg);
   } else if (msg.type === "stopped") {
     setLiveUI(false);
   }
@@ -1420,7 +1432,15 @@ function markHandshake(msg) {
     node.data("hsLabel", "🔑 " + (node.data("label") || msg.bssid));
     node.addClass("has-handshake");
   }
+  jumpCat();   // celebrate: the runner cat hops on every captured WPA handshake
   toast(`WPA handshake captured: ${name}`, "ok");
+}
+
+function markWps(msg) {
+  const name = msg.essid || msg.bssid;
+  const v = msg.version ? ` v${msg.version}` : "";
+  const lock = msg.locked ? " 🔒" : "";
+  toast(`WPS enabled: ${name}${v}${lock}`, "ok");
 }
 
 function openLiveSocket() {
@@ -1465,7 +1485,6 @@ async function startLive() {
     band: document.getElementById("live-band").value || null,
     interval,
     encrypt: document.getElementById("live-encrypt").value || null,
-    wps: document.getElementById("live-wps").checked,
     essid: document.getElementById("live-essid").value.trim() || null,
     bssid: document.getElementById("live-bssid").value.trim() || null,
     save: document.getElementById("live-save").checked,

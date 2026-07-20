@@ -11,12 +11,13 @@ from __future__ import annotations
 import asyncio
 import datetime
 import os
+import time
 from typing import Optional
 
 from WiFiCatcher.capture.sources import Source
 from WiFiCatcher.enrichment import oui
 from WiFiCatcher.graph import WifiGraph
-from WiFiCatcher.models import Scan
+from WiFiCatcher.models import Scan, normalize_mac
 
 # A live station not heard within this many seconds of the newest sighting is
 # dropped from the graph, so clients that leave disappear instead of lingering.
@@ -24,6 +25,12 @@ try:
     STALE_AFTER = float(os.environ.get("WIFICATCHER_STALE_SECONDS", "30"))
 except ValueError:
     STALE_AFTER = 30.0
+
+# A client that received a deauth/disassoc for its AP (or a broadcast deauth from
+# its AP) is forced unassociated for this many seconds, so airodump's lagging CSV
+# does not immediately re-report the association. After the window the CSV is
+# trusted again, so a client that actually re-associates reappears.
+DEAUTH_SUPPRESS = 8.0
 
 
 def _parse_ts(value: Optional[str]) -> Optional[datetime.datetime]:
@@ -99,6 +106,11 @@ class CaptureController:
         self._wps_watcher = None
         self._wps: dict = {}
         self._wps_tick = 0
+        self._seen_wps: set[str] = set()
+        # Deauth suppression: {client_mac -> (bssid, expiry)} and, for broadcast
+        # deauths, {bssid -> expiry}. A matching association is hidden until then.
+        self._deauth_suppress: dict[str, tuple[str, float]] = {}
+        self._deauth_bcast: dict[str, float] = {}
         self.running = False
         self.mode: Optional[str] = None
         # Where the most recent capture was kept, if "save" was requested.
@@ -118,6 +130,9 @@ class CaptureController:
         self._wps_watcher = wps
         self._wps = {}
         self._wps_tick = 0
+        self._seen_wps = set()
+        self._deauth_suppress = {}
+        self._deauth_bcast = {}
         self.last_saved_path = None
         if interval:
             self._interval = interval
@@ -158,6 +173,9 @@ class CaptureController:
                 # client that disconnected leaves the graph. Replay keeps all.
                 if self.mode == "airodump":
                     scan = prune_stale(scan, STALE_AFTER)
+                    # Drop associations we saw explicitly torn down by a deauth,
+                    # so a disconnect shows at once instead of at the timeout.
+                    self._apply_deauth(scan)
                 # Resolve vendors (live capture parses raw CSV, which has none).
                 oui.enrich_scan(scan)
                 self._apply_wps(scan)
@@ -185,6 +203,48 @@ class CaptureController:
                 ap.wps_version = info.get("version")
                 ap.wps_locked = info.get("locked")
 
+    def _apply_deauth(self, scan) -> None:
+        """Hide client-AP associations we saw explicitly deauthed.
+
+        Drains new deauth/disassoc events from the source and arms a suppression
+        window per client (or per BSSID for a broadcast deauth). A client whose
+        CSV association matches an active window is forced unassociated, so the
+        disconnect shows at once instead of lingering until the staleness
+        timeout; once the window expires the CSV is trusted again.
+        """
+        drain = getattr(self._source, "drain_deauth", None)
+        if callable(drain):
+            try:
+                events = drain()
+            except Exception:
+                events = []
+            if events:
+                exp = time.time() + DEAUTH_SUPPRESS
+                for ev in events:
+                    bssid = normalize_mac(ev.get("bssid") or "")
+                    if not bssid:
+                        continue
+                    if ev.get("broadcast"):
+                        self._deauth_bcast[bssid] = exp
+                    else:
+                        client = normalize_mac(ev.get("client") or "")
+                        if client:
+                            self._deauth_suppress[client] = (bssid, exp)
+        if not self._deauth_suppress and not self._deauth_bcast:
+            return
+        now = time.time()
+        self._deauth_suppress = {c: v for c, v in self._deauth_suppress.items()
+                                 if v[1] > now}
+        self._deauth_bcast = {b: e for b, e in self._deauth_bcast.items()
+                              if e > now}
+        for client in scan.clients:
+            bssid = normalize_mac(client.associated_bssid or "")
+            if not bssid:
+                continue
+            sup = self._deauth_suppress.get(normalize_mac(client.mac))
+            if (sup and sup[0] == bssid) or bssid in self._deauth_bcast:
+                client.associated_bssid = None
+
     async def _poll_wps(self) -> None:
         # tshark over the whole pcap is not free, so refresh WPS every few ticks.
         if not self._wps_watcher:
@@ -195,7 +255,18 @@ class CaptureController:
         try:
             self._wps = self._wps_watcher.poll()
         except Exception:
-            pass
+            return
+        # Announce each newly-seen WPS AP once, like handshakes, so the UI toasts.
+        for bssid, info in self._wps.items():
+            if bssid in self._seen_wps:
+                continue
+            self._seen_wps.add(bssid)
+            node = self._graph.node(bssid)
+            essid = node.get("essid") if node else None
+            await self._broadcast({
+                "type": "wps", "bssid": bssid, "essid": essid,
+                "version": info.get("version"), "locked": info.get("locked"),
+            })
 
     async def _poll_handshakes(self) -> None:
         if not self._handshakes:

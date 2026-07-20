@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32.png?v=2"/>
   <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon-16.png?v=2"/>
   <link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png?v=2"/>
-  <link rel="stylesheet" href="/static/style.css?v=17"/>
+  <link rel="stylesheet" href="/static/style.css?v=18"/>
   <script src="/static/vendor/cytoscape.min.js"></script>
   <script src="/static/vendor/layout-base.js"></script>
   <script src="/static/vendor/cose-base.js"></script>
@@ -146,7 +146,6 @@
                     <option value="OPN">Open</option>
                   </select>
                 </label>
-                <label class="filter"><input type="checkbox" id="live-wps"/> Show WPS info</label>
                 <label class="filter-row">ESSID
                   <input id="live-essid" class="mini-input" placeholder="optional"/>
                 </label>
@@ -184,7 +183,7 @@
             cx="12" cy="9" r="2.2" fill="currentColor"/></svg>RADIUS certificate</h2></summary>
         <div class="panel-body">
           <p class="hint">Read the RADIUS server certificate from an enterprise
-            <code>.cap</code> / <code>.pcap</code>. Offline, no root.</p>
+            <code>.cap</code> / <code>.pcap</code>.</p>
           <label class="btn" for="cert-file">Upload .cap / .pcap</label>
           <input id="cert-file" type="file" accept=".cap,.pcap,.pcapng" hidden/>
         </div>
@@ -363,6 +362,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="/static/app.js?v=12"></script>
+  <script src="/static/app.js?v=13"></script>
 </body>
 </html>

@@ -21,6 +21,11 @@ from WiFiCatcher.models import normalize_mac
 _SEP = "|"
 _FIELDS = ["wlan.bssid", "wps.version", "wps.version2", "wps.ap_setup_locked"]
 
+# Match any frame that carries a WPS element. Keying only on the legacy Version
+# attribute (0x104A) misses APs that advertise WPS solely via Version2 (0x1049)
+# or only expose the setup-state attribute, so include all three.
+WPS_FILTER = "wps.version || wps.version2 || wps.wifi_protected_setup_state"
+
 
 def parse_wps(tshark_output: str) -> dict[str, dict]:
     """Parse ``tshark`` WPS field rows into ``{bssid: {version, locked}}``.
@@ -67,7 +72,7 @@ class WpsWatcher:
             return dict(self._wps)
         try:
             out = subprocess.run(
-                ["tshark", "-r", cap, "-n", "-Y", "wps.version", "-T", "fields"]
+                ["tshark", "-r", cap, "-n", "-Y", WPS_FILTER, "-T", "fields"]
                 + [arg for field in _FIELDS for arg in ("-e", field)]
                 + ["-E", f"separator={_SEP}"],
                 capture_output=True, text=True, timeout=25, check=False,

@@ -532,6 +532,7 @@ code { background: var(--panel); padding: 1px 5px; border-radius: 4px; font-size
   padding: 1px 7px; border-radius: 12px; vertical-align: 1px;
 }
 .tbl-badge.ent { background: rgba(167,139,250,.15); color: #a78bfa; margin-left: 6px; }
+.tbl-badge.wps { background: rgba(245,158,11,.15); color: #f59e0b; }
 .tbl-badge.un { background: rgba(138,147,168,.18); color: var(--client-un); }
 .table-empty { color: var(--muted); font-size: 13px; padding: 10px 12px 0; }
 /* Signal-strength colouring by dBm bucket (closer to 0 = stronger). */

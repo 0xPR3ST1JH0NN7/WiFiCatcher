@@ -100,6 +100,9 @@ class WifiGraph:
                 "power": data.get("power"),
                 "degree": self.graph.degree(node_id),
                 "enterprise": kind == "ap" and _is_enterprise(data),
+                "wps": bool(data.get("wps")),
+                "wps_version": data.get("wps_version"),
+                "wps_locked": data.get("wps_locked"),
             }})
 
         edges = []
