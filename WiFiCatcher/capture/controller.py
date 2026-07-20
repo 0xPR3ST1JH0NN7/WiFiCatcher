@@ -9,10 +9,52 @@ subscribed WebSocket queue.
 from __future__ import annotations
 
 import asyncio
+import datetime
+import os
 from typing import Optional
 
 from WiFiCatcher.capture.sources import Source
 from WiFiCatcher.graph import WifiGraph
+from WiFiCatcher.models import Scan
+
+# A live station not heard within this many seconds of the newest sighting is
+# dropped from the graph, so clients that leave disappear instead of lingering.
+try:
+    STALE_AFTER = float(os.environ.get("WIFICATCHER_STALE_SECONDS", "60"))
+except ValueError:
+    STALE_AFTER = 60.0
+
+
+def _parse_ts(value: Optional[str]) -> Optional[datetime.datetime]:
+    try:
+        return datetime.datetime.strptime((value or "").strip(), "%Y-%m-%d %H:%M:%S")
+    except (ValueError, TypeError):
+        return None
+
+
+def prune_stale(scan: Scan, max_age: float) -> Scan:
+    """Drop APs/clients not seen within ``max_age`` seconds of the newest sighting.
+
+    airodump-ng's CSV keeps every station it has ever seen, so without this a
+    client that has left stays on the map forever. Entries are aged out relative
+    to the most recent ``last seen`` in the scan (robust to clock skew); an entry
+    whose timestamp cannot be parsed is kept.
+    """
+    stamps = [t for t in (_parse_ts(x.last_seen)
+                          for x in (*scan.access_points, *scan.clients)) if t]
+    if not stamps:
+        return scan
+    cutoff = max(stamps) - datetime.timedelta(seconds=max_age)
+
+    def fresh(x) -> bool:
+        ts = _parse_ts(x.last_seen)
+        return ts is None or ts >= cutoff
+
+    return Scan(
+        access_points=[a for a in scan.access_points if fresh(a)],
+        clients=[c for c in scan.clients if fresh(c)],
+        source=scan.source, format=scan.format,
+    )
 
 
 def _index(cyto: dict) -> dict:
@@ -111,6 +153,10 @@ class CaptureController:
             except Exception:
                 scan = None
             if scan is not None:
+                # Live radio: age out stations that stopped being heard, so a
+                # client that disconnected leaves the graph. Replay keeps all.
+                if self.mode == "airodump":
+                    scan = prune_stale(scan, STALE_AFTER)
                 self._apply_wps(scan)
                 self._graph.load(scan)
                 cyto = self._graph.to_cytoscape()
