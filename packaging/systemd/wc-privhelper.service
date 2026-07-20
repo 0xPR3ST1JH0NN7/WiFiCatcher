@@ -16,12 +16,11 @@ WorkingDirectory=/opt/wificatcher
 # and by --peer-uid (only the app user's connections are accepted).
 User=root
 
-# Light hardening. Kept conservative on purpose: the radio tools touch the
-# network stack and system services, so stricter sandboxing (ProtectSystem,
-# capability bounding) should be added only after testing on real hardware.
+# Isolate the capture temp files. Stronger sandboxing (ProtectSystem, capability
+# bounding, RestrictAddressFamilies) is intentionally left off: the radio tools
+# touch the network stack and system services, and the install often lives under
+# /home, so those directives (e.g. ProtectHome) break it. Add them only after
+# testing on real hardware.
 PrivateTmp=true
-ProtectHome=true
-RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_PACKET
-LockPersonality=true
 
 # No [Install]: this unit is socket-activated, not enabled at boot.
