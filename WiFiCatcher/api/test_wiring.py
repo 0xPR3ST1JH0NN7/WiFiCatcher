@@ -52,6 +52,7 @@ def daemon(tmp_path, monkeypatch):
         yield first
         yield {"csv": AIRODUMP_CSV}
         yield {"handshake": {"bssid": "AA:BB:CC:DD:EE:FF"}}
+        yield {"wps": {"AA:BB:CC:DD:EE:FF": {"version": "2.0", "locked": False}}}
         while True:
             yield {"csv": AIRODUMP_CSV}
             time.sleep(0.05)
@@ -156,6 +157,25 @@ def test_helper_source_captures_handshakes(daemon) -> None:
         return hs
 
     assert "AA:BB:CC:DD:EE:FF" in asyncio.run(drive())
+
+
+def test_helper_source_captures_wps(daemon) -> None:
+    from WiFiCatcher.capture import HelperAirodumpSource
+
+    src = HelperAirodumpSource("wlan0", channel="6")
+
+    async def drive():
+        await src.start()
+        for _ in range(100):
+            if src.wps_info():
+                break
+            await asyncio.sleep(0.02)
+        info = src.wps_info()
+        await src.stop()
+        return info
+
+    info = asyncio.run(drive())
+    assert info.get("AA:BB:CC:DD:EE:FF", {}).get("version") == "2.0"
 
 
 def test_helper_source_reports_save_path(daemon, tmp_path) -> None:

@@ -239,6 +239,7 @@ class HelperAirodumpSource(Source):
         self._thread: Optional[threading.Thread] = None
         self._latest = ""
         self._handshakes: set[str] = set()
+        self._wps: dict[str, dict] = {}
         self._lock = threading.Lock()
         self._parser = AirodumpCsvParser()
 
@@ -284,6 +285,9 @@ class HelperAirodumpSource(Source):
                 if bssid:
                     with self._lock:
                         self._handshakes.add(bssid)
+            elif event and "wps" in event:
+                with self._lock:
+                    self._wps.update(event["wps"] or {})
             elif "ok" in msg or msg.get("done"):
                 break
 
@@ -307,6 +311,11 @@ class HelperAirodumpSource(Source):
         """BSSIDs the helper has reported a captured handshake for so far."""
         with self._lock:
             return set(self._handshakes)
+
+    def wps_info(self) -> dict[str, dict]:
+        """Per-BSSID WPS info ({version, locked}) the helper has reported so far."""
+        with self._lock:
+            return dict(self._wps)
 
     async def stop(self) -> None:
         sock, self._sock = self._sock, None
@@ -332,3 +341,14 @@ class HelperHandshakeWatcher:
 
     def poll(self) -> set[str]:
         return self._source.handshake_bssids()
+
+
+class HelperWpsWatcher:
+    """Adapts a :class:`HelperAirodumpSource`'s streamed WPS events to the
+    controller's ``poll()`` interface (the helper does the tshark detection)."""
+
+    def __init__(self, source: "HelperAirodumpSource") -> None:
+        self._source = source
+
+    def poll(self) -> dict[str, dict]:
+        return self._source.wps_info()

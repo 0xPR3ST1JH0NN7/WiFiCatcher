@@ -25,6 +25,7 @@ from WiFiCatcher.capture import (
     CaptureController,
     HelperAirodumpSource,
     HelperHandshakeWatcher,
+    HelperWpsWatcher,
     ReplaySource,
     interface_exists,
     list_wireless_interfaces,
@@ -393,9 +394,10 @@ async def live_start(req: LiveStartRequest):
             save=req.save, save_dir=(req.save_dir or None),
             acknowledged=req.acknowledged)
         handshakes = HelperHandshakeWatcher(source)
+        wps = HelperWpsWatcher(source) if req.wps else None
         try:
             await CAPTURE.start(source, mode=req.mode, interval=interval,
-                                handshakes=handshakes)
+                                handshakes=handshakes, wps=wps)
         except PrivUnavailable as exc:
             raise HTTPException(status_code=503,
                                 detail=f"Privileged helper unavailable: {exc}") from exc

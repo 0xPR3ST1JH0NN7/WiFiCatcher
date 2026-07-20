@@ -192,6 +192,7 @@ def _capture_stream(params: dict):
 
     from WiFiCatcher.capture.handshake import parse_handshakes
     from WiFiCatcher.capture.interfaces import ensure_monitor_mode, restore_managed_mode
+    from WiFiCatcher.capture.wps import parse_wps
 
     handle = ensure_monitor_mode(
         _iface(params), acknowledged=bool(params.get("acknowledged", True)))
@@ -218,7 +219,9 @@ def _capture_stream(params: dict):
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     last = ""
     seen_hs: set[str] = set()
+    wps_prev: dict = {}
     tick = 0
+    have_tshark = shutil.which("tshark") is not None
     try:
         while True:
             csvs = sorted(glob.glob(f"{prefix}-*.csv"))
@@ -231,20 +234,35 @@ def _capture_stream(params: dict):
                     last = text
                     yield {"csv": text}
             tick += 1
-            if tick % 4 == 0 and shutil.which("tshark"):
-                caps = sorted(glob.glob(f"{prefix}-*.cap"))
-                if caps:
-                    try:
-                        out = subprocess.run(
-                            ["tshark", "-r", caps[-1], "-Y", "eapol",
-                             "-T", "fields", "-e", "wlan.bssid"],
-                            capture_output=True, text=True, timeout=15,
-                            check=False).stdout
-                        for bssid in parse_handshakes(out) - seen_hs:
-                            seen_hs.add(bssid)
-                            yield {"handshake": {"bssid": bssid}}
-                    except (OSError, subprocess.SubprocessError):
-                        pass
+            caps = sorted(glob.glob(f"{prefix}-*.cap")) if have_tshark else []
+            if caps and tick % 4 == 0:
+                try:
+                    out = subprocess.run(
+                        ["tshark", "-r", caps[-1], "-Y", "eapol",
+                         "-T", "fields", "-e", "wlan.bssid"],
+                        capture_output=True, text=True, timeout=15,
+                        check=False).stdout
+                    for bssid in parse_handshakes(out) - seen_hs:
+                        seen_hs.add(bssid)
+                        yield {"handshake": {"bssid": bssid}}
+                except (OSError, subprocess.SubprocessError):
+                    pass
+            if caps and tick % 6 == 0:
+                try:
+                    out = subprocess.run(
+                        ["tshark", "-r", caps[-1], "-n", "-Y", "wps.version",
+                         "-T", "fields", "-e", "wlan.bssid", "-e", "wps.version",
+                         "-e", "wps.version2", "-e", "wps.ap_setup_locked",
+                         "-E", "separator=|"],
+                        capture_output=True, text=True, timeout=20,
+                        check=False).stdout
+                    delta = {b: v for b, v in parse_wps(out).items()
+                             if wps_prev.get(b) != v}
+                    if delta:
+                        wps_prev.update(delta)
+                        yield {"wps": delta}
+                except (OSError, subprocess.SubprocessError):
+                    pass
             time.sleep(1.0)
     finally:
         try:
