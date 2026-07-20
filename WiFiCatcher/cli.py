@@ -178,8 +178,8 @@ def _add_serve_flags(p: argparse.ArgumentParser) -> None:
     p.add_argument("--port", type=int, default=8000)
     p.add_argument("--no-browser", action="store_true",
                    help="Do not auto-open the browser.")
-    p.add_argument("--reload", action="store_true",
-                   help="Auto-reload on code changes (development).")
+    # Development-only auto-reload; hidden from --help to keep it uncluttered.
+    p.add_argument("--reload", action="store_true", help=argparse.SUPPRESS)
     p.add_argument("--debug", action="store_true",
                    help="Verbose logging: framework and per-request logs.")
 
@@ -193,18 +193,16 @@ def build_parser() -> argparse.ArgumentParser:
                         version=f"WiFiCatcher {__version__}")
     _add_serve_flags(parser)
 
+    # Running the web app is the default action, so there is no explicit
+    # 'serve' subcommand. The only subcommand is 'stop'.
     sub = parser.add_subparsers(dest="command")
-    serve = sub.add_parser("serve", help="Start the local web app (default).")
-    _add_serve_flags(serve)
-    serve.set_defaults(func=_serve)
-
     stop = sub.add_parser(
         "stop", help="Tell a running server to shut down gracefully (no Ctrl+C).")
     stop.add_argument("--host", default="127.0.0.1")
     stop.add_argument("--port", type=int, default=8000)
     stop.set_defaults(func=_stop)
 
-    parser.set_defaults(func=_serve)  # serve is the default action
+    parser.set_defaults(func=_serve)  # running the app is the default action
     return parser
 
 
