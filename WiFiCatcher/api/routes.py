@@ -113,8 +113,10 @@ def search(q: str = ""):
 
 @router.get("/config")
 def config():
-    # Offensive / live-radio features are unlocked by running as root (sudo).
-    return {"offensive_available": offensive_available()}
+    # Live-radio features are available when the privileged helper is reachable
+    # (systemd starts it on demand); the app itself never runs as root.
+    from WiFiCatcher.privileged import helper_available
+    return {"offensive_available": helper_available()}
 
 
 @router.post("/clear")

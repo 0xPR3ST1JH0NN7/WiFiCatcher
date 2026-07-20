@@ -33,7 +33,6 @@ import webbrowser
 from pathlib import Path
 
 from WiFiCatcher import __version__, preflight
-from WiFiCatcher.operations.base import offensive_available
 
 # ANSI colors, used only when writing to a real terminal.
 _RED = "\033[91m"
@@ -116,12 +115,16 @@ def _serve(args: argparse.Namespace) -> int:
               file=sys.stderr)
         return 1
 
-    if offensive_available():
-        print(_paint("[*] root: live radio capture and deauth are available.", _DIM))
+    from WiFiCatcher.privileged import helper_available
+    if helper_available():
+        print(_paint("[*] privileged helper reachable: live radio capture and "
+                     "deauth are available.", _DIM))
         print(_paint("    Use only on networks you own or are authorized to test.", _DIM))
     else:
-        print(_paint("[*] unprivileged: offline analysis and replay only "
-                     "(use sudo for live capture).", _DIM))
+        print(_paint("[*] privileged helper not running: offline analysis and "
+                     "replay only.", _DIM))
+        print(_paint("    Enable live capture by installing the helper "
+                     "(packaging/install-helper.sh).", _DIM))
 
     url = f"http://{args.host}:{args.port}"
     print(_paint(f"[*] listening on {url}", _DIM))

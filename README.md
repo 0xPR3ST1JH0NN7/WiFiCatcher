@@ -12,22 +12,53 @@ cd WiFiCatcher
 # system tools used for live capture + deauth
 sudo apt install aircrack-ng tshark
 
-# python dependencies
+# python dependencies (the app runs from this venv)
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
 ## Run
 
-Run without `sudo` for offline use, or with `sudo` to unlock live capture:
+The app **always runs unprivileged** — never as root:
 
 ```bash
-.venv/bin/python -m WiFiCatcher                    # http://127.0.0.1:8000  (offline: import & replay)
-         OR
-sudo .venv/bin/python -m WiFiCatcher      # also enables live capture + deauth
+.venv/bin/python -m WiFiCatcher      # http://127.0.0.1:8000
 ```
 
-Press **Enter** (or Ctrl+C) in the terminal to stop.
+Press **Enter** (or Ctrl+C) in the terminal to stop. Import & replay work out of
+the box. **Live capture and deauth** need the privileged helper (below); the app
+itself never touches the radio.
+
+## Live capture — the privileged helper
+
+The operations that need root (monitor mode, `airodump-ng`, `aireplay-ng`, EAP)
+run in a small **helper daemon**, so the web app never runs as root. Install it
+once as a systemd **socket-activated** service:
+
+```bash
+sudo ./packaging/install-helper.sh
+# then log out/in so your user joins the 'wificatcher' group
+```
+
+systemd listens on a unix socket and starts the helper **on demand** when the app
+needs the radio, stopping it again when idle — no root process runs the rest of
+the time, and there is no password prompt. The app auto-detects it (you'll see
+`privileged helper reachable` at startup). Check it with
+`systemctl status wc-privhelper.socket` (a `.service` shown as `inactive (dead)`
+while unused is normal).
+
+### Development (no systemd)
+
+Run the helper on demand yourself and point the app at its socket:
+
+```bash
+# terminal 1 — the helper (root)
+sudo .venv/bin/python -m WiFiCatcher.privileged \
+     --socket /tmp/wc-priv.sock --peer-uid "$(id -u)"
+
+# terminal 2 — the app (your user)
+WIFICATCHER_PRIV_SOCKET=/tmp/wc-priv.sock .venv/bin/python -m WiFiCatcher
+```
 
 ## What it does
 
