@@ -9,6 +9,7 @@ setup, and allow loading a fuller IEEE/Wireshark ``manuf`` file when available
 from __future__ import annotations
 
 import os
+import re
 from typing import Optional
 
 # A compact, offline-friendly seed list. Extend via an external OUI file.
@@ -108,11 +109,19 @@ def lookup(mac: str) -> Optional[str]:
     return _OUI.get(_oui_key(mac))
 
 
-def load_oui_file(path: str) -> int:
-    """Load a Wireshark-style ``manuf`` / OUI file. Returns entries added.
+# IEEE ``oui.txt`` hex rows look like: ``D0-65-78   (hex)   Intel Corporate``.
+_IEEE_HEX_RE = re.compile(
+    r"^([0-9A-Fa-f]{2}[:-][0-9A-Fa-f]{2}[:-][0-9A-Fa-f]{2})\s+\(hex\)\s+(.+)$")
 
-    Accepts lines like ``00:11:22  Vendor`` or ``001122 Vendor``; comments and
-    blanks are ignored. Three-octet prefixes only (longer masks are skipped).
+
+def load_oui_file(path: str) -> int:
+    """Load an OUI table from a Wireshark ``manuf`` file, an IEEE ``oui.txt``
+    (the ``ieee-data`` package / aircrack-ng), or an nmap prefixes file.
+
+    Handles ``00:11:22  Vendor``, ``001122 Vendor`` and the IEEE
+    ``D0-65-78   (hex)   Intel Corporate`` form. Comments, blanks, the IEEE
+    ``(base 16)`` duplicate rows and indented address lines are ignored. Only
+    three-octet prefixes are kept. Returns the number of entries added.
     """
     added = 0
     with open(path, "r", encoding="utf-8", errors="ignore") as fh:
@@ -120,17 +129,23 @@ def load_oui_file(path: str) -> int:
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
-            parts = line.split(None, 1)
-            if len(parts) < 2:
-                continue
-            prefix, vendor = parts[0], parts[1].strip()
+            m = _IEEE_HEX_RE.match(line)
+            if m:
+                prefix, vendor = m.group(1), m.group(2).strip()
+            else:
+                if "(base 16)" in line or "(hex)" in line:
+                    continue  # IEEE duplicate row / stray marker line
+                parts = line.split(None, 1)
+                if len(parts) < 2:
+                    continue
+                prefix, vendor = parts[0], parts[1].strip()
             prefix = prefix.upper().replace("-", ":")
             if "/" in prefix:  # netmask form, skip non-/24 oddities
                 prefix = prefix.split("/")[0]
             if ":" not in prefix and len(prefix) >= 6:  # bare hex
                 prefix = ":".join(prefix[i:i + 2] for i in range(0, 6, 2))
             key = prefix[:8]
-            if len(key) == 8:
+            if len(key) == 8 and vendor:
                 _OUI[key] = vendor
                 added += 1
     return added
@@ -155,10 +170,36 @@ def enrich_scan(scan) -> int:
     return resolved
 
 
-# Auto-load an external OUI file if configured.
-_env_file = os.environ.get("WIFICATCHER_OUI_FILE")
-if _env_file and os.path.exists(_env_file):
-    try:
-        load_oui_file(_env_file)
-    except OSError:
-        pass
+# System OUI databases, in preference order. The IEEE ``oui.txt`` shipped by the
+# ``ieee-data`` package (also used by aircrack-ng) is the common one on Linux, so
+# vendors resolve out of the box without setting anything.
+_SYSTEM_OUI_PATHS = (
+    "/var/lib/ieee-data/oui.txt",
+    "/usr/share/ieee-data/oui.txt",
+    "/var/lib/misc/oui.txt",
+    "/usr/share/aircrack-ng/oui.txt",
+    "/etc/aircrack-ng/airodump-ng-oui.txt",
+    "/usr/share/wireshark/manuf",
+    "/usr/share/nmap/nmap-mac-prefixes",
+)
+
+
+def _autoload() -> None:
+    """Load a fuller OUI table so vendors resolve beyond the built-in seed list.
+
+    Priority: the ``WIFICATCHER_OUI_FILE`` env var, else the first system OUI
+    database found. Best-effort: a missing or unreadable file just leaves the
+    built-in table in place.
+    """
+    env_file = os.environ.get("WIFICATCHER_OUI_FILE")
+    candidates = ([env_file] if env_file else []) + list(_SYSTEM_OUI_PATHS)
+    for path in candidates:
+        if path and os.path.exists(path):
+            try:
+                if load_oui_file(path):
+                    return
+            except OSError:
+                continue
+
+
+_autoload()
