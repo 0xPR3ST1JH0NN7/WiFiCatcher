@@ -20,6 +20,7 @@ from fastapi import (
 from pydantic import BaseModel
 
 from WiFiCatcher import parsers
+from WiFiCatcher.api import uploads
 from WiFiCatcher.capture import (
     AirodumpSource,
     CaptureController,
@@ -57,7 +58,8 @@ CAPTURE = CaptureController()
 # --------------------------------------------------------------------- import
 @router.post("/import")
 async def import_capture(file: UploadFile = File(...)):
-    raw = await file.read()
+    raw = await file.read(uploads.MAX_UPLOAD_BYTES + 1)
+    uploads.validate_csv(raw, file.filename or "", file.content_type)
     text = raw.decode("utf-8-sig", errors="ignore")
     parser = parsers.detect_parser(text, file.filename or "")
     if parser is None:
@@ -218,8 +220,9 @@ async def operations_enterprise_cert_upload(
 
     The upload is written to a temporary file, scanned, then deleted.
     """
-    raw = await file.read()
-    suffix = os.path.splitext(file.filename or "")[1] or ".cap"
+    raw = await file.read(uploads.MAX_UPLOAD_BYTES + 1)
+    uploads.validate_capture(raw, file.filename or "", file.content_type)
+    suffix = uploads.safe_capture_suffix(file.filename or "")
     fd, path = tempfile.mkstemp(prefix="WiFiCatcher-up-", suffix=suffix)
     try:
         with os.fdopen(fd, "wb") as fh:
