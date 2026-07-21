@@ -1309,7 +1309,7 @@ function recomputeUnassoc() {
 // The airodump option controls — locked while a capture is running, since
 // changing them mid-capture is meaningless.
 const AIRODUMP_OPT_IDS = ["live-iface", "live-iface-refresh", "live-band",
-  "live-save", "live-save-dir", "live-save-name", "live-save-browse",
+  "live-save", "live-save-path", "live-save-browse",
   "live-channel", "live-encrypt", "live-essid", "live-bssid", "live-interval"];
 
 function setDisabled(ids, disabled) {
@@ -1537,8 +1537,7 @@ async function startLive() {
     essid: document.getElementById("live-essid").value.trim() || null,
     bssid: document.getElementById("live-bssid").value.trim() || null,
     save: document.getElementById("live-save").checked,
-    save_dir: document.getElementById("live-save-dir").value.trim() || null,
-    save_name: document.getElementById("live-save-name").value.trim() || null,
+    save_path: document.getElementById("live-save-path").value.trim() || null,
     acknowledged: true,
   };
   closeDetails();   // a fresh scan: drop any stale node details from the last one
@@ -1633,27 +1632,22 @@ document.getElementById("replay-toggle").onclick = () => {
 
 document.getElementById("live-iface-refresh").onclick = () => loadInterfaces();
 
-// Show the save-folder picker and file-name field only while "Save capture
-// file" is ticked.
+// Show the save path field only while "Save capture file" is ticked.
 const liveSaveChk = document.getElementById("live-save");
-if (liveSaveChk) liveSaveChk.addEventListener("change", () => {
-  const on = liveSaveChk.checked;
-  document.getElementById("save-dir-row").classList.toggle("hidden", !on);
-  document.getElementById("live-save-name").classList.toggle("hidden", !on);
-});
+if (liveSaveChk) liveSaveChk.addEventListener("change", () =>
+  document.getElementById("save-path-row").classList.toggle("hidden", !liveSaveChk.checked));
 
 // "Save as…" asks the server to open a native Save As dialog on this machine's
-// desktop (a browser can't do it), and fills both the folder and the file-name
-// fields from what the user picks. Empty means cancelled or no desktop dialog
-// available -> falls back to ./captures with a timestamped name.
+// desktop (a browser can't do it), and fills the path field from what the user
+// picks. Empty means cancelled or no desktop dialog available -> falls back to
+// ./captures with a timestamped name.
 const saveBrowseBtn = document.getElementById("live-save-browse");
 if (saveBrowseBtn) saveBrowseBtn.addEventListener("click", async () => {
   saveBrowseBtn.disabled = true;
   try {
-    const { dir, name } = await API.chooseSave();
-    if (dir) {
-      document.getElementById("live-save-dir").value = dir;
-      if (name) document.getElementById("live-save-name").value = name;
+    const { path } = await API.chooseSave();
+    if (path) {
+      document.getElementById("live-save-path").value = path;
       toast("Save location set", "ok");
     } else {
       toast("No file chosen (or no desktop dialog available); using ./captures");

@@ -344,13 +344,14 @@ async def live_choose_save():
     """
     path = await asyncio.get_event_loop().run_in_executor(None, _pick_save_path)
     if not path:
-        return {"dir": "", "name": ""}
+        return {"path": ""}
     directory = os.path.dirname(path)
     if not os.path.isdir(directory):
         raise HTTPException(status_code=400,
                             detail="The selected folder does not exist.")
-    name = os.path.splitext(os.path.basename(path))[0]
-    return {"dir": directory, "name": name}
+    # Drop the extension: airodump appends -01.cap to this base path.
+    base = os.path.splitext(os.path.basename(path))[0]
+    return {"path": os.path.join(directory, base)}
 
 
 class LiveStartRequest(BaseModel):
@@ -363,8 +364,7 @@ class LiveStartRequest(BaseModel):
     bssid: str | None = None        # capture one BSSID only
     interval: float | None = None
     save: bool = False              # keep the capture files (default ./captures)
-    save_dir: str | None = None     # folder chosen for the saved capture
-    save_name: str | None = None    # optional base name for the saved files
+    save_path: str | None = None    # folder + base name for the saved capture
     acknowledged: bool = False
 
 
@@ -399,13 +399,15 @@ async def live_start(req: LiveStartRequest):
             )
         # When saving, require a folder that exists and this user can write to, so
         # the capture is not silently lost after the run.
+        save_dir = save_name = None
         if req.save:
-            folder = (req.save_dir or "").strip()
-            if not folder or not os.path.isdir(folder) or not os.access(folder, os.W_OK):
+            path = (req.save_path or "").strip()
+            save_dir, save_name = os.path.dirname(path), os.path.basename(path)
+            if not path or not os.path.isdir(save_dir) or not os.access(save_dir, os.W_OK):
                 raise HTTPException(
                     status_code=400,
-                    detail="Choose an existing, writable folder to save the "
-                           "capture into before starting.")
+                    detail="Choose an existing, writable folder and file name "
+                           "(use Save as…) before starting.")
         # Validate the optional BSSID filter up front: an invalid one would
         # otherwise fail deep in the helper after the capture "started", leaving
         # an empty graph with no explanation.
@@ -419,8 +421,8 @@ async def live_start(req: LiveStartRequest):
         source = HelperAirodumpSource(
             req.interface, channel=req.channel, band=req.band,
             encrypt=req.encrypt, essid=req.essid, bssid=req.bssid,
-            save=req.save, save_dir=(req.save_dir or None),
-            save_name=(req.save_name or None), acknowledged=req.acknowledged)
+            save=req.save, save_dir=save_dir, save_name=save_name,
+            acknowledged=req.acknowledged)
         handshakes = HelperHandshakeWatcher(source)
         # WPS detection is always on (cheap: one tshark pass every few seconds),
         # like handshake detection, so the user never has to enable it.
