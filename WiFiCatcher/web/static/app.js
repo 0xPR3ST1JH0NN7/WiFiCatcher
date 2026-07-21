@@ -512,22 +512,27 @@ document.getElementById("table-search").addEventListener("input", renderTable);
 // restarts the animation; the class is cleared when the jump finishes.
 const catRun = document.querySelector(".cat-run");
 const catKey = document.querySelector(".cat-key");
-// Make the cat and the key hop together (5 hops, driven by the CSS iteration
-// count). Re-triggering mid-hop restarts it; the .jump class runs its own
-// cat-jump keyframe (which plays even while both are otherwise paused at rest),
-// cleared on animationend once all 5 hops finish.
-function jumpCat() {
+// Click the cat: a single hop of the cat alone.
+function hopCat() {
+  if (!catRun) return;
+  catRun.classList.remove("hop");
+  void catRun.offsetWidth;   // force reflow so a repeat trigger restarts the hop
+  catRun.classList.add("hop");
+}
+// Celebrate a capture (handshake and similar): the cat and the key hop together
+// 5 times (driven by the CSS iteration count), cleared on animationend.
+function celebrateCat() {
   for (const el of [catRun, catKey]) {
     if (!el) continue;
     el.classList.remove("jump");
-    void el.offsetWidth;   // force reflow so a repeat trigger restarts the hop
+    void el.offsetWidth;
     el.classList.add("jump");
   }
 }
-if (catRun) catRun.addEventListener("click", jumpCat);   // easter egg: click to hop
+if (catRun) catRun.addEventListener("click", hopCat);   // easter egg: click to hop once
 for (const el of [catRun, catKey]) {
   if (el) el.addEventListener("animationend", (e) => {
-    if (e.animationName === "cat-jump") el.classList.remove("jump");
+    if (e.animationName === "cat-jump") el.classList.remove("jump", "hop");
   });
 }
 
@@ -611,73 +616,228 @@ function refreshDetails(info) {
   attachCopyable(fields);
 }
 
-// Attack advisor: from the selected AP's security type, suggest which attack
-// families apply. Purely informational (no steps, no actions) — it orients the
-// operator toward the right approach for that network. Returns {family, items}
-// or null when the encryption is unknown / not one we advise on.
-function suggestAttacks(info) {
+// Attack advisor content, per WiFi security type. Each entry has a plain-language
+// list (shown in the panel), short bar-toast blurbs (one per attack type), and an
+// attack tree as flat nodes with parent pointers (rendered as a graph on demand).
+const ATTACK_DATA = {
+  "wpa-psk": {
+    family: "WPA and WPA2 PSK",
+    list: [
+      "If WPS is enabled, attack the WPS PIN to recover the passphrase: brute force it online with Reaver or Bully, or use Pixie Dust offline when the access point is vulnerable.",
+      "Capture the four way handshake (wait passively, send a deauth to force a reconnect, or lure clients with an evil twin or MANA rogue access point), then crack the PSK offline with a wordlist or brute force using aircrack ng or hashcat.",
+      "Run a PMKID attack: request the PMKID from an access point that includes it and capture it with hcxdumptool, then crack it offline with hashcat. This works even when no client is connected.",
+    ],
+    toasts: ["WPS PIN brute force", "Pixie Dust on WPS", "Handshake capture then offline crack", "PMKID offline crack"],
+    nodes: [
+      {"id": "root", "parent": null, "label": "WPA and WPA2 PSK", "kind": "root"},
+      {"id": "goal_recover", "parent": "root", "label": "Recover the passphrase", "kind": "goal"},
+      {"id": "m_wps", "parent": "goal_recover", "label": "WPS PIN attack", "kind": "method"},
+      {"id": "a_wps_online", "parent": "m_wps", "label": "Online brute force with Reaver or Bully", "kind": "action"},
+      {"id": "a_wps_pixie", "parent": "m_wps", "label": "Offline Pixie Dust on a vulnerable AP", "kind": "action"},
+      {"id": "m_hs", "parent": "goal_recover", "label": "Four way handshake", "kind": "method"},
+      {"id": "a_hs_wait", "parent": "m_hs", "label": "Wait passively for a client to join", "kind": "action"},
+      {"id": "a_hs_deauth", "parent": "m_hs", "label": "Send a deauth to force a reconnect", "kind": "action"},
+      {"id": "a_hs_twin", "parent": "m_hs", "label": "Lure clients with an evil twin", "kind": "action"},
+      {"id": "a_hs_mana", "parent": "m_hs", "label": "Lure clients with a MANA rogue AP", "kind": "action"},
+      {"id": "a_hs_crack", "parent": "m_hs", "label": "Crack the PSK offline with aircrack ng or hashcat", "kind": "action"},
+      {"id": "m_pmkid", "parent": "goal_recover", "label": "PMKID attack", "kind": "method"},
+      {"id": "a_pmkid_get", "parent": "m_pmkid", "label": "Request and capture the PMKID with hcxdumptool", "kind": "action"},
+      {"id": "a_pmkid_crack", "parent": "m_pmkid", "label": "Crack the PMKID offline with hashcat", "kind": "action"},
+    ],
+  },
+  "wep": {
+    family: "WEP (Wired Equivalent Privacy)",
+    list: [
+      "ARP request replay: captured ARP requests are reinjected so the access point answers them over and over, flooding the air with fresh initialization vectors and sharply cutting the time needed to recover the key.",
+      "Fragmentation attack: a small amount of keystream is recovered from a single captured packet, then used to forge valid packets whose injection makes the access point emit large volumes of initialization vectors.",
+      "KoreK ChopChop attack: an encrypted packet is peeled one byte at a time to reveal its plaintext and keystream without knowing the key, which then lets an attacker forge traffic to gather more initialization vectors.",
+      "Caffe Latte attack: a lone client is targeted instead of the access point and coaxed into producing usable initialization vectors, so the key can be cracked far away from the real network.",
+      "KoreK statistical cracking: once enough initialization vectors are collected, the key is derived statistically by exploiting known weaknesses in how RC4 turns the key into keystream.",
+      "Brute force cracking: candidate keys are tried exhaustively, useful only as a fallback when the key space is small or part of the key is already known.",
+    ],
+    toasts: ["ARP replay IV flood", "Fragmentation keystream attack", "ChopChop packet decrypt", "Caffe Latte client attack", "KoreK statistical crack"],
+    nodes: [
+      {"id": "root", "parent": null, "label": "WEP", "kind": "root"},
+      {"id": "g_key", "parent": "root", "label": "Recover the WEP key", "kind": "goal"},
+      {"id": "m_ivs", "parent": "g_key", "label": "Collect initialization vectors", "kind": "method"},
+      {"id": "a_capture", "parent": "m_ivs", "label": "Capture traffic with airodump ng", "kind": "action"},
+      {"id": "a_arp", "parent": "m_ivs", "label": "ARP request replay", "kind": "action"},
+      {"id": "a_frag", "parent": "m_ivs", "label": "Fragmentation attack for keystream", "kind": "action"},
+      {"id": "a_chop", "parent": "m_ivs", "label": "ChopChop packet decryption", "kind": "action"},
+      {"id": "m_crack", "parent": "g_key", "label": "Crack the collected data", "kind": "method"},
+      {"id": "a_korek", "parent": "m_crack", "label": "KoreK statistical attack", "kind": "action"},
+      {"id": "a_brute", "parent": "m_crack", "label": "Brute force key search", "kind": "action"},
+      {"id": "g_client", "parent": "root", "label": "Attack an isolated client", "kind": "goal"},
+      {"id": "m_caffe", "parent": "g_client", "label": "Caffe Latte attack", "kind": "method"},
+      {"id": "a_lure", "parent": "m_caffe", "label": "Generate IVs from the client", "kind": "action"},
+      {"id": "a_offline", "parent": "m_caffe", "label": "Crack key from client traffic", "kind": "action"},
+    ],
+  },
+  "wpa-enterprise": {
+    family: "WPA2 Enterprise (802.1X)",
+    list: [
+      "Password spray and brute force the 802.1X login, trying a few common passwords across many domain users or many passwords against a single account, to guess valid credentials against the RADIUS server.",
+      "Stand up an evil twin access point backed by a rogue RADIUS server, using tools such as eaphammer or hostapd wpe, so clients authenticate to you and reveal their EAP identity along with their MSCHAPv2 challenge and response.",
+      "Steer the client onto a weaker EAP method during authentication, for example downgrading it to EAP GTC so the password arrives in the clear instead of as an MSCHAPv2 hash, which makes it far easier to capture and reuse.",
+      "Crack a captured MSCHAPv2 challenge and response offline with asleap or hashcat to recover the user password, or run a PEAP relay that forwards the victim inner authentication to the real RADIUS in real time to log in as them.",
+      "Capture a legacy EAP MD5 challenge and response off the air and crack the password offline, since EAP MD5 offers no server authentication and no protective tunnel.",
+      "Attack EAP TLS client certificate authentication by abusing a stolen or exported client certificate together with its private key to impersonate a legitimate user.",
+    ],
+    toasts: ["Password spray the login", "Rogue RADIUS evil twin", "EAP downgrade attack", "MSCHAPv2 offline crack", "EAP MD5 capture and crack"],
+    nodes: [
+      {"id": "root", "parent": null, "label": "WPA2 Enterprise (802.1X)", "kind": "root"},
+      {"id": "g1", "parent": "root", "label": "Recover domain credentials", "kind": "goal"},
+      {"id": "m1", "parent": "g1", "label": "Online login guessing", "kind": "method"},
+      {"id": "a1", "parent": "m1", "label": "Password spray and brute force", "kind": "action"},
+      {"id": "g2", "parent": "root", "label": "Capture EAP secrets", "kind": "goal"},
+      {"id": "m2", "parent": "g2", "label": "Rogue RADIUS evil twin", "kind": "method"},
+      {"id": "a2", "parent": "m2", "label": "Capture EAP identity and MSCHAPv2", "kind": "action"},
+      {"id": "a3", "parent": "m2", "label": "Downgrade to a weaker EAP method", "kind": "action"},
+      {"id": "a4", "parent": "m2", "label": "Crack MSCHAPv2 with asleap or hashcat", "kind": "action"},
+      {"id": "m3", "parent": "g2", "label": "PEAP relay", "kind": "method"},
+      {"id": "a5", "parent": "m3", "label": "Relay auth to the real RADIUS", "kind": "action"},
+      {"id": "g3", "parent": "root", "label": "Defeat certificate and legacy EAP", "kind": "goal"},
+      {"id": "m4", "parent": "g3", "label": "EAP TLS certificate attack", "kind": "method"},
+      {"id": "a6", "parent": "m4", "label": "Abuse a stolen client certificate", "kind": "action"},
+      {"id": "m5", "parent": "g3", "label": "EAP MD5 capture", "kind": "method"},
+      {"id": "a7", "parent": "m5", "label": "Crack EAP MD5 offline", "kind": "action"},
+    ],
+  },
+  "open": {
+    family: "Open network",
+    list: [
+      "Passively capture traffic on the open network, reading unencrypted packets to recover sessions, cookies and browsing activity.",
+      "Stand up an evil twin that clones the network name, then deauthenticate clients so they reconnect to the attacker access point.",
+      "Run a rogue access point with a stronger signal to lure clients away from the legitimate network.",
+      "Present a captive portal with a fake login page to harvest credentials from victims.",
+      "Sit in the middle of client traffic with ARP spoofing, then use DNS spoofing or SSL stripping to redirect victims and read protected data.",
+    ],
+    toasts: ["Passive traffic capture", "Evil twin access point", "Rogue AP lure", "Captive portal phishing", "Man in the middle redirect"],
+    nodes: [
+      {"id": "root", "parent": null, "label": "Open network", "kind": "root"},
+      {"id": "goal_capture", "parent": "root", "label": "Capture client traffic", "kind": "goal"},
+      {"id": "method_sniff", "parent": "goal_capture", "label": "Passive sniffing", "kind": "method"},
+      {"id": "action_read", "parent": "method_sniff", "label": "Read unencrypted packets", "kind": "action"},
+      {"id": "action_sessions", "parent": "method_sniff", "label": "Rebuild sessions and cookies", "kind": "action"},
+      {"id": "goal_impersonate", "parent": "root", "label": "Impersonate the network", "kind": "goal"},
+      {"id": "method_eviltwin", "parent": "goal_impersonate", "label": "Evil twin access point", "kind": "method"},
+      {"id": "action_clone", "parent": "method_eviltwin", "label": "Clone the SSID", "kind": "action"},
+      {"id": "action_deauth", "parent": "method_eviltwin", "label": "Deauthenticate clients to force reconnect", "kind": "action"},
+      {"id": "method_rogue", "parent": "goal_impersonate", "label": "Rogue access point", "kind": "method"},
+      {"id": "action_lure", "parent": "method_rogue", "label": "Lure clients with a stronger signal", "kind": "action"},
+      {"id": "goal_harvest", "parent": "root", "label": "Harvest credentials", "kind": "goal"},
+      {"id": "method_portal", "parent": "goal_harvest", "label": "Captive portal", "kind": "method"},
+      {"id": "action_fakelogin", "parent": "method_portal", "label": "Serve a fake login page", "kind": "action"},
+      {"id": "method_mitm", "parent": "goal_harvest", "label": "Man in the middle", "kind": "method"},
+      {"id": "action_arp", "parent": "method_mitm", "label": "ARP spoofing to intercept traffic", "kind": "action"},
+      {"id": "action_redirect", "parent": "method_mitm", "label": "DNS spoofing and SSL stripping", "kind": "action"},
+    ],
+  },
+};
+
+// Classify a selected AP into an ATTACK_DATA key, or null when we don't advise.
+function classifyTech(info) {
   const priv = (info.privacy || "").toUpperCase();
-  if (info.enterprise || priv.includes("MGT")) {
-    return { family: "WPA/WPA2-Enterprise (802.1X)", items: [
-      "Domain user brute-force against the RADIUS login",
-      "EAP downgrade attack (force a weaker EAP method)",
-      "Evil Twin attack (rogue AP with a spoofed RADIUS)",
-      "PEAP relay attack",
-      "Attack EAP-TLS client authentication",
-      "EAP-MD5 offline crack (captured challenge/response)",
-    ] };
-  }
-  if (priv.includes("WEP")) {
-    return { family: "WEP", items: [
-      "ARP request replay attack (speed up IV collection)",
-      "Fragmentation attack",
-      "KoreK ChopChop attack",
-      "Caffe-Latte attack (client-side, no AP contact needed)",
-      "KoreK statistical WEP cracking",
-      "Brute-force WEP key cracking",
-    ] };
-  }
-  if (priv.includes("WPA")) {
-    let wps = "Check whether WPS is enabled and brute-force the PIN";
-    if (info.wps) wps += info.wps_locked
-      ? " (WPS present but locked here: PIN attack likely blocked)"
-      : " (WPS detected on this AP)";
-    return { family: "WPA/WPA2-PSK", items: [
-      wps,
-      "Capture the 4-way handshake, then dictionary-crack the PSK "
-        + "(deauth + handshake + cracking, or passive + handshake + cracking, "
-        + "or evil twin, or MANA attack + handshake capture)",
-      "PMKID attack on vulnerable APs "
-        + "(passive + PMKID capture + cracking, or PMKID request + capture + cracking)",
-    ] };
-  }
-  if (priv.includes("OPN") || priv.includes("OPEN")) {
-    return { family: "Open network", items: [
-      "No key to crack: capture traffic passively",
-      "Rogue AP / Evil Twin with a captive portal to harvest credentials",
-    ] };
-  }
+  if (info.enterprise || priv.includes("MGT")) return "wpa-enterprise";
+  if (priv.includes("WEP")) return "wep";
+  if (priv.includes("WPA")) return "wpa-psk";
+  if (priv.includes("OPN") || priv.includes("OPEN")) return "open";
   return null;
 }
 
-// Collapsible "Suggested attacks" block for an AP, or "" when nothing applies.
+// Advisor payload for an AP: {key, data} or null when nothing applies.
+function suggestAttacks(info) {
+  const key = info.kind === "ap" ? classifyTech(info) : null;
+  return key ? { key, data: ATTACK_DATA[key] } : null;
+}
+
+// One line about this AP's own WPS state, shown for WPA/WPA2 PSK.
+function wpsNote(info) {
+  if (!info.wps) return "";
+  return info.wps_locked
+    ? "WPS is present but locked on this AP, so the PIN attack is likely blocked."
+    : "WPS is enabled on this AP, so the PIN attack is worth trying first.";
+}
+
+// The "Suggested attacks" panel block for an AP, or "" when nothing applies. Open
+// by default for visibility; the button opens the attack path graph.
 function attackAdvisorHtml(info) {
   const s = suggestAttacks(info);
   if (!s) return "";
-  const lis = s.items.map((t) => `<li>${escapeHtml(t)}</li>`).join("");
-  return `<details class="subpanel attack-advisor">
+  const lis = s.data.list.map((t) => `<li>${escapeHtml(t)}</li>`).join("");
+  const note = s.key === "wpa-psk" ? wpsNote(info) : "";
+  const noteHtml = note ? `<p class="advisor-wps">${escapeHtml(note)}</p>` : "";
+  return `<details class="subpanel attack-advisor" open>
     <summary>Suggested attacks</summary>
     <div class="panel-body">
-      <p class="advisor-family">${escapeHtml(s.family)}</p>
+      <p class="advisor-family">${escapeHtml(s.data.family)}</p>
+      ${noteHtml}
       <ul class="advisor-list">${lis}</ul>
+      <button class="btn" id="attack-tree-btn">View attack paths</button>
       <p class="advisor-note">Guidance only. Use exclusively on networks you are authorized to test.</p>
     </div>
   </details>`;
 }
 
+// Render the attack tree for a security type as an on-demand Cytoscape graph in a
+// modal. A fresh instance is built on open and destroyed on close so it never
+// competes with the live network graph.
+let attackCy = null;
+function _cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "#888";
+}
+function openAttackModal(key) {
+  const data = ATTACK_DATA[key];
+  if (!data || typeof cytoscape === "undefined") return;
+  document.getElementById("attack-modal-title").textContent = "Attack paths: " + data.family;
+  const root = data.nodes.find((n) => n.parent === null) || data.nodes[0];
+  const elements = [];
+  for (const n of data.nodes) {
+    elements.push({ data: { id: n.id, label: n.label, kind: n.kind } });
+    if (n.parent) elements.push({ data: { id: n.parent + ">" + n.id, source: n.parent, target: n.id } });
+  }
+  document.getElementById("attack-modal").classList.remove("hidden");
+  if (attackCy) { attackCy.destroy(); attackCy = null; }
+  const accent = _cssVar("--accent"), client = _cssVar("--client"),
+    panel2 = _cssVar("--panel-2"), border = _cssVar("--border"),
+    text = _cssVar("--text"), muted = _cssVar("--muted"),
+    onColor = _cssVar("--btn-primary-text") || "#0b0f12";
+  attackCy = cytoscape({
+    container: document.getElementById("attack-graph"),
+    elements,
+    style: [
+      { selector: "node", style: {
+          label: "data(label)", "text-wrap": "wrap", "text-max-width": "128px",
+          "font-size": "11px", color: text, "text-valign": "center", "text-halign": "center",
+          "background-color": panel2, "border-width": 1, "border-color": border,
+          shape: "round-rectangle", width: "label", height: "label", padding: "8px" } },
+      { selector: 'node[kind="root"]', style: {
+          "background-color": accent, color: onColor, "font-weight": "bold", "border-width": 0 } },
+      { selector: 'node[kind="goal"]', style: {
+          "background-color": client, color: onColor, "border-width": 0 } },
+      { selector: 'node[kind="method"]', style: {
+          "background-color": "transparent", "border-color": accent, "border-width": 2, color: text } },
+      { selector: 'node[kind="action"]', style: {
+          "background-color": panel2, "border-color": border, color: muted } },
+      { selector: "edge", style: {
+          width: 1.5, "line-color": border, "target-arrow-color": border,
+          "target-arrow-shape": "triangle", "arrow-scale": 0.9, "curve-style": "bezier" } },
+    ],
+    layout: { name: "breadthfirst", directed: true, roots: [root.id],
+              spacingFactor: 1.15, padding: 24 },
+    wheelSensitivity: 0.2, autoungrabify: true,
+  });
+  attackCy.ready(() => attackCy.fit(undefined, 30));
+}
+function closeAttackModal() {
+  document.getElementById("attack-modal").classList.add("hidden");
+  if (attackCy) { attackCy.destroy(); attackCy = null; }
+}
+
 function showDetails(info) {
   const body = document.getElementById("details-body");
   const isAp = info.kind === "ap";
+  const prevDetailId = detailNodeId;
   detailNodeId = info.id;
   const title = isAp ? info.essid || "&lt;Hidden&gt;" : info.id;
   const clientAssociated =
@@ -739,6 +899,15 @@ function showDetails(info) {
   if (certBtn) certBtn.onclick = () => inspectCert(info);
   const eapBtn = document.getElementById("op-eap-btn");
   if (eapBtn) eapBtn.onclick = () => openEapModal(info);
+  const treeBtn = document.getElementById("attack-tree-btn");
+  if (treeBtn) treeBtn.onclick = () => openAttackModal(classifyTech(info));
+
+  // On a genuinely new AP selection, flash its suggested attacks across the bar
+  // (one toast per attack type) so they are noticed, not just parked in the panel.
+  if (isAp && info.id !== prevDetailId) {
+    const s = suggestAttacks(info);
+    if (s) toastSequence(s.data.toasts, "info");
+  }
 
   // The panel docks on the right and shrinks the graph area; reflow Cytoscape
   // into the new size and, when it just opened, keep the node beside the panel.
@@ -1240,6 +1409,12 @@ document.getElementById("cert-file").addEventListener("change", async (e) => {
 // dismiss it), so the certificate stays up while you read it.
 document.getElementById("cert-modal-close").onclick = closeCertModal;
 
+// Attack path graph: close via the × button or by clicking the backdrop.
+document.getElementById("attack-modal-close").onclick = closeAttackModal;
+document.getElementById("attack-modal").addEventListener("click", (e) => {
+  if (e.target.id === "attack-modal") closeAttackModal();
+});
+
 /* --------------------------------------------------------------- wiring up */
 async function openNode(id) {
   try {
@@ -1620,7 +1795,7 @@ function markHandshake(msg) {
     node.data("hsLabel", "🔑 " + (node.data("label") || msg.bssid));
     node.addClass("has-handshake");
   }
-  jumpCat();   // celebrate: the runner cat hops on every captured WPA handshake
+  celebrateCat();   // cat + key hop 5 times on every captured WPA handshake
   toast(`WPA handshake captured: ${name}`, "ok");
 }
 
@@ -1869,6 +2044,21 @@ function toast(msg, kind) {
   el.className = "toast" + (kind ? " " + kind : "");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.add("hidden"), 3500);
+}
+
+// Show a short series of toasts, one after another, on the bar. Each toast resets
+// its own hide timer, so stepping faster than that keeps the bar continuously up
+// until the last one fades. Used to surface an AP's suggested attacks.
+let toastSeqTimer = null;
+function toastSequence(messages, kind) {
+  clearTimeout(toastSeqTimer);
+  let i = 0;
+  const step = () => {
+    if (i >= messages.length) return;
+    toast(messages[i++], kind);
+    toastSeqTimer = setTimeout(step, 2600);
+  };
+  step();
 }
 
 function escapeHtml(value) {

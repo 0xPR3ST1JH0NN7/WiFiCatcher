@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32.png?v=2"/>
   <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon-16.png?v=2"/>
   <link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png?v=2"/>
-  <link rel="stylesheet" href="/static/style.css?v=22"/>
+  <link rel="stylesheet" href="/static/style.css?v=23"/>
   <script src="/static/vendor/cytoscape.min.js"></script>
   <script src="/static/vendor/layout-base.js"></script>
   <script src="/static/vendor/cose-base.js"></script>
@@ -366,8 +366,24 @@
     </div>
   </div>
 
+  <!-- Attack path graph for the selected AP's security type -->
+  <div id="attack-modal" class="modal hidden">
+    <div class="modal-card attack-card">
+      <button class="details-close" id="attack-modal-close" aria-label="Close">&times;</button>
+      <h3 id="attack-modal-title">Attack paths</h3>
+      <div id="attack-graph"></div>
+      <div class="attack-legend">
+        <span><i class="lg lg-root"></i>Target</span>
+        <span><i class="lg lg-goal"></i>Goal</span>
+        <span><i class="lg lg-method"></i>Method</span>
+        <span><i class="lg lg-action"></i>Action</span>
+      </div>
+      <p class="advisor-note">Drag to pan, scroll to zoom. Guidance only, for authorized testing.</p>
+    </div>
+  </div>
+
   <div id="toast" class="toast hidden"></div>
 
-  <script src="/static/app.js?v=23"></script>
+  <script src="/static/app.js?v=24"></script>
 </body>
 </html>

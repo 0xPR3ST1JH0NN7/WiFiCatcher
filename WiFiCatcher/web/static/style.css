@@ -162,13 +162,11 @@ body { font-size: 14px; }   /* design baseline; the size setting zooms the whole
   animation: cat-bob .24s steps(2) infinite;
   pointer-events: auto; cursor: pointer;   /* clickable even though the lane isn't */
 }
-/* Click the cat (or capture a handshake) and it hops 5 times: the jump overrides
-   the running bob/flee, then reverts to the gait when the .jump class is removed
-   on animationend. The key celebrates with the same hop, right alongside it. */
-.cat-run.jump, .cat-key.jump {
-  animation: cat-jump .5s ease-out 5;
-  animation-play-state: running;
-}
+/* Click the cat: one hop of the cat alone (.hop). A captured handshake makes the
+   cat and the key hop together 5 times (.jump celebration). Either overrides the
+   running gait, then reverts when the class is cleared on animationend. */
+.cat-run.hop { animation: cat-jump .5s ease-out; }
+.cat-run.jump, .cat-key.jump { animation: cat-jump .5s ease-out 5; }
 @keyframes cat-jump {
   0% { transform: translateY(0); }
   35%, 55% { transform: translateY(-15px); }
@@ -220,28 +218,15 @@ body { font-size: 14px; }   /* design baseline; the size setting zooms the whole
   100% { opacity: 0; transform: translateX(-10px); }
 }
 
-/* Idle-friendly: the runner is paused at rest, so it costs no CPU (no per-frame
-   repaints of the scrolling road etc.), and only springs to life while the
-   pointer is over it. This is what stops the tab from pegging a core when open. */
+/* The runner walks continuously (its gait, road and dust loop the whole time).
+   The steps()-based keyframes keep it cheap on a software renderer, and the tab
+   still costs nothing while backgrounded thanks to .anim-paused below. */
 .cat-track { pointer-events: auto; }
-.cat-run, .cat-run .cat-legs-a, .cat-run .cat-legs-b,
-.cat-key, .cat-ground, .cat-dust::before, .cat-dust::after {
-  animation-play-state: paused;
-}
-.cat-track:hover .cat-run,
-.cat-track:hover .cat-run .cat-legs-a,
-.cat-track:hover .cat-run .cat-legs-b,
-.cat-track:hover .cat-key,
-.cat-track:hover .cat-ground,
-.cat-track:hover .cat-dust::before,
-.cat-track:hover .cat-dust::after {
-  animation-play-state: running;
-}
 
 /* keep the toolbar usable where a running mascot would crowd it */
 @media (max-width: 720px) { .cat-runner { display: none; } }
 @media (prefers-reduced-motion: reduce) {
-  .cat-run, .cat-run.jump, .cat-key.jump, .cat-run .cat-legs-a, .cat-run .cat-legs-b,
+  .cat-run, .cat-run.hop, .cat-run.jump, .cat-key.jump, .cat-run .cat-legs-a, .cat-run .cat-legs-b,
   .cat-key, .cat-ground, .cat-dust::before, .cat-dust::after { animation: none; }
 }
 
@@ -364,9 +349,32 @@ details.subpanel[open] > summary::after { transform: rotate(90deg); }
 .attack-advisor .advisor-family {
   margin: 8px 0 6px; font-weight: 600; color: var(--accent); font-size: 13px;
 }
-.attack-advisor .advisor-list { margin: 0 0 8px; padding-left: 18px; }
-.attack-advisor .advisor-list li { margin: 4px 0; font-size: 13px; line-height: 1.4; }
-.attack-advisor .advisor-note { margin: 0; font-size: 11px; color: var(--muted); }
+.attack-advisor .advisor-wps {
+  margin: 0 0 8px; font-size: 12px; color: var(--text);
+  border-left: 2px solid var(--accent); padding-left: 8px;
+}
+.attack-advisor .advisor-list { margin: 0 0 12px; padding-left: 18px; }
+.attack-advisor .advisor-list li { margin: 5px 0; font-size: 13px; line-height: 1.45; }
+.attack-advisor .btn { width: 100%; }
+.attack-advisor .advisor-note { margin: 10px 0 0; font-size: 11px; color: var(--muted); }
+
+/* Attack path graph modal: a wide card holding an on-demand Cytoscape tree. The
+   tree fans out wide, so give it room; drag/scroll pans and zooms the rest. */
+.attack-card { width: min(1040px, 95vw); }
+#attack-graph {
+  width: 100%; height: 64vh; min-height: 340px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+}
+.attack-legend {
+  display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 0 2px;
+  font-size: 12px; color: var(--muted);
+}
+.attack-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.attack-legend .lg { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.attack-legend .lg-root { background: var(--accent); }
+.attack-legend .lg-goal { background: var(--client); }
+.attack-legend .lg-method { background: transparent; border: 2px solid var(--accent); }
+.attack-legend .lg-action { background: var(--panel-2); border: 1px solid var(--border); }
 /* Give the Start live capture button room to breathe below More options. */
 #live-toggle { margin-top: 16px; }
 .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -731,3 +739,4 @@ code { background: var(--panel); padding: 1px 5px; border-radius: 4px; font-size
 }
 .toast.error { border-color: var(--danger); color: #ffb3ba; }
 .toast.ok { border-color: var(--accent); }
+.toast.info { border-color: var(--client); }
