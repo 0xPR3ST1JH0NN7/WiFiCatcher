@@ -641,6 +641,9 @@ code { background: var(--panel); padding: 1px 5px; border-radius: 4px; font-size
   border-bottom: 1px solid var(--border); }
 .detail-row .k { color: var(--muted); }
 .detail-row .v { text-align: right; word-break: break-all; }
+.detail-row .v.copyable { cursor: pointer; text-decoration: underline dotted;
+  text-underline-offset: 3px; }
+.detail-row .v.copyable:hover { color: var(--accent); }
 .probe-list { margin: 8px 0 0; padding-left: 18px; color: var(--text); }
 .details .actions { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
 
@@ -657,6 +660,9 @@ code { background: var(--panel); padding: 1px 5px; border-radius: 4px; font-size
 }
 .cert-card { width: 560px; }
 #cert-modal-body { margin-top: 6px; }
+/* When several distinct certificates are shown, scroll inside the modal instead
+   of growing it off-screen; the export buttons stay pinned below. */
+.cert-scroll { max-height: 55vh; overflow-y: auto; }
 #cert-modal-body .detail-row .v { font-family: var(--font); }
 .modal-card h3 { margin: 0 0 14px; }
 .modal-card label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }

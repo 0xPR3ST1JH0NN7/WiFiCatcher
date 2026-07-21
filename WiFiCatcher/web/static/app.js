@@ -541,10 +541,15 @@ function showDetails(info) {
     v !== null && v !== undefined && v !== ""
       ? rows.push(`<div class="detail-row"><span class="k">${k}</span><span class="v">${escapeHtml(v)}</span></div>`)
       : null;
+  // Same as row(), but the value is click-to-copy (ESSID / BSSID / MAC).
+  const rowCopy = (k, v) =>
+    v !== null && v !== undefined && v !== ""
+      ? rows.push(`<div class="detail-row"><span class="k">${k}</span><span class="v copyable" title="Click to copy">${escapeHtml(v)}</span></div>`)
+      : null;
 
   if (isAp) {
-    row("ESSID", info.essid);
-    row("BSSID", info.id);
+    rowCopy("ESSID", info.essid);
+    rowCopy("BSSID", info.id);
     row("Channel", info.channel);
     row("Encryption", info.privacy);
     row("Cipher", info.cipher);
@@ -561,9 +566,9 @@ function showDetails(info) {
     row("First seen", info.first_seen);
     row("Last seen", info.last_seen);
   } else {
-    row("MAC", info.id);
+    rowCopy("MAC", info.id);
     row("Vendor", info.vendor);
-    row("Associated to", info.associated_bssid);
+    rowCopy("Associated to", info.associated_bssid);
     row("Signal", info.power != null ? `${info.power} dBm` : null);
     row("Packets", info.packets);
     row("First seen", info.first_seen);
@@ -596,9 +601,13 @@ function showDetails(info) {
   const enterprise = isAp && info.enterprise;
   const entBadge = enterprise
     ? `<span class="kind-badge enterprise">802.1X Enterprise</span>` : "";
+  // The RADIUS cert button appears only once the helper has actually captured
+  // the certificate live for this AP (it rides along in the node details).
+  const certReady = enterprise && info.radius_certs && info.radius_certs.length;
   let entBtns = "";
   if (enterprise && liveActive) {
-    entBtns += `<button class="btn" id="op-cert-btn">Inspect RADIUS cert</button>`;
+    if (certReady)
+      entBtns += `<button class="btn" id="op-cert-btn">Read RADIUS cert</button>`;
     entBtns += `<button class="btn" id="op-eap-btn">Enumerate EAP methods…</button>`;
   }
 
@@ -624,6 +633,9 @@ function showDetails(info) {
   document.getElementById("neighbors-btn").onclick = () => highlightNeighbors(info.id);
   document.getElementById("isolate-btn").onclick = () => isolate(info.id);
   document.getElementById("copy-btn").onclick = () => copyText(info.id);
+  body.querySelectorAll(".v.copyable").forEach((el) => {
+    el.onclick = () => copyText(el.textContent);
+  });
   const deauthBtn = document.getElementById("op-deauth-btn");
   if (deauthBtn) deauthBtn.onclick = () => openDeauthModal(info);
   const certBtn = document.getElementById("op-cert-btn");
@@ -770,13 +782,14 @@ function openEapModal(info) {
   document.getElementById("op-title").textContent = "Enumerate EAP methods";
   document.getElementById("op-body").innerHTML = `
     <p>Probe which EAP methods <strong>${escapeHtml(info.essid || info.id)}</strong> accepts.</p>
-    <p class="hint">Active 802.1X authentication. Runs for several minutes and the
-      interface is switched to <strong>managed</strong> mode (don't use one mid-capture).
-      Use a legitimate identity; anonymous ones give unreliable results.</p>
+    <p class="hint">Active 802.1X authentication (several minutes). The live
+      capture is stopped first so its interface can be switched to
+      <strong>managed</strong> mode for the probe. Use a legitimate identity;
+      anonymous ones give unreliable results.</p>
     <label>EAP identity</label>
     <input id="op-identity" placeholder="DOMAIN\\user"/>
     <label>Interface</label>
-    <input id="op-iface" placeholder="wlan0"/>
+    <input id="op-iface" value="${escapeHtml(live.iface || "")}" placeholder="wlan0"/>
     <label><input type="checkbox" id="op-dry"/> Dry run (build command only)</label>`;
   const confirm = document.getElementById("op-confirm");
   confirm.textContent = "Run";
@@ -872,6 +885,12 @@ async function confirmEap() {
   const essid = pendingOp.essid;
   document.getElementById("op-modal").classList.add("hidden");
   pendingOp = null;
+  // EAP_buster drives the interface in managed mode, which fights a live monitor
+  // capture. Free the radio by stopping the capture first (real runs only).
+  if (!dry && live.running) {
+    toast("Stopping capture to free the interface…");
+    try { await stopLive({ silent: true }); } catch (e) { /* ignore */ }
+  }
   const box = document.getElementById("enterprise-result");
   if (box && !dry) {
     box.innerHTML = `<p class="hint">Running EAP enumeration on ${escapeHtml(iface)}.
@@ -902,13 +921,10 @@ function closeCertModal() {
   document.getElementById("cert-modal").classList.add("hidden");
 }
 
-async function inspectCert(info) {
-  showCertModal(`<p class="hint">Inspecting RADIUS certificate…</p>`);
-  try {
-    renderCert(await API.enterpriseCert({ ap_bssid: info.id }));
-  } catch (e) {
-    showCertModal(`<p class="hint" style="color:#ffb3ba">${escapeHtml(e.message)}</p>`);
-  }
+function inspectCert(info) {
+  // The certificate was extracted live by the helper and rides in the node
+  // details, so read it straight from there — no file, no round-trip.
+  renderCert({ status: "ok", certificates: info.radius_certs || [] });
 }
 
 // Friendly names for the distinguished-name components, so you don't have to
@@ -968,7 +984,11 @@ function renderCert(res) {
     const rows = parseDN(dn).map((p) => row(dnLabel(p.key), p.val)).join("");
     return rows || row("Raw", dn);
   };
+  const many = res.certificates.length > 1;
   showCertModal(
+    (many ? `<p class="hint">${res.certificates.length} certificates in the chain `
+          + `(leaf first). Scroll to see them all.</p>` : "") +
+    `<div class="cert-scroll">` +
     res.certificates
       .map((c) =>
         `<h4>Subject</h4>${dnRows(c.subject)}` +
@@ -977,6 +997,7 @@ function renderCert(res) {
         row("Valid from", c.not_before) + row("Valid to", c.not_after) +
         row("Serial number", c.serial))
       .join(`<hr class="cert-sep"/>`) +
+    `</div>` +
     `<div class="cert-actions">
        <button class="btn" id="cert-copy">Copy text</button>
        <button class="btn" id="cert-txt">Export .txt</button>
@@ -1420,6 +1441,8 @@ function handleLiveMessage(msg) {
     markHandshake(msg);
   } else if (msg.type === "wps") {
     markWps(msg);
+  } else if (msg.type === "cert") {
+    markCert(msg);
   } else if (msg.type === "stopped") {
     setLiveUI(false);
   }
@@ -1443,6 +1466,11 @@ function markWps(msg) {
   toast(`WPS enabled: ${name}${v}${lock}`, "ok");
 }
 
+function markCert(msg) {
+  const name = msg.essid || msg.bssid;
+  toast(`RADIUS certificate captured: ${name}. Open the AP to read it.`, "ok");
+}
+
 function openLiveSocket() {
   const proto = location.protocol === "https:" ? "wss" : "ws";
   const ws = new WebSocket(`${proto}://${location.host}/api/live/ws`);
@@ -1454,9 +1482,12 @@ function openLiveSocket() {
 }
 
 // Populate the interface pick-list from the host's detected wireless adapters.
-async function loadInterfaces() {
+async function loadInterfaces(prefer) {
   const sel = document.getElementById("live-iface");
-  const prev = sel.value;
+  // Prefer an explicitly requested interface (the one the last capture used),
+  // else keep the current selection. Stops the picker snapping back to the first
+  // adapter (wlan0) after a capture, when the chosen one briefly left the list.
+  const want = prefer || sel.value;
   try {
     const { interfaces } = await API.interfaces();
     if (!interfaces.length) {
@@ -1466,7 +1497,7 @@ async function loadInterfaces() {
     sel.innerHTML = interfaces
       .map((i) => `<option value="${escapeHtml(i.name)}">${escapeHtml(i.name)} (${escapeHtml(i.mode)})</option>`)
       .join("");
-    if (prev && interfaces.some((i) => i.name === prev)) sel.value = prev;
+    if (want && interfaces.some((i) => i.name === want)) sel.value = want;
   } catch (e) {
     sel.innerHTML = '<option value="">scan failed</option>';
   }
@@ -1476,6 +1507,7 @@ async function startLive() {
   // Live capture is always a real airodump-ng capture (radio), never a CSV.
   const iface = document.getElementById("live-iface").value.trim();
   if (!iface) return toast("Select a wireless interface", "error");
+  live.iface = iface;   // remember the chosen adapter so stop can reselect it
   const interval = Number(document.getElementById("live-interval").value) || 1.2;
   const channel = document.getElementById("live-channel").value.trim() || null;
   const payload = {
@@ -1564,8 +1596,8 @@ async function stopLive(opts = {}) {
     // after we disconnect, so auto-refresh the interface list now and a few times
     // shortly after: the adapter shows back in managed mode without the user
     // having to hit "rescan" manually.
-    loadInterfaces();
-    [1500, 3000, 5000].forEach((ms) => setTimeout(loadInterfaces, ms));
+    loadInterfaces(live.iface);
+    [1500, 3000, 5000].forEach((ms) => setTimeout(() => loadInterfaces(live.iface), ms));
   }
   return saved;
 }
