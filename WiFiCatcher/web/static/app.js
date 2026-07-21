@@ -647,7 +647,6 @@ function showDetails(info) {
     <div class="actions">
       <button class="btn" id="neighbors-btn">Highlight neighbors</button>
       <button class="btn" id="isolate-btn">Isolate</button>
-      <button class="btn" id="copy-btn">Copy ${isAp ? "BSSID" : "MAC"}</button>
       ${offBtn}
       ${entBtns}
     </div>
@@ -659,7 +658,6 @@ function showDetails(info) {
   document.getElementById("resizer-right").classList.remove("hidden");
   document.getElementById("neighbors-btn").onclick = () => highlightNeighbors(info.id);
   document.getElementById("isolate-btn").onclick = () => isolate(info.id);
-  document.getElementById("copy-btn").onclick = () => copyText(info.id);
   attachCopyable(body);
   const deauthBtn = document.getElementById("op-deauth-btn");
   if (deauthBtn) deauthBtn.onclick = () => openDeauthModal(info);
