@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32.png?v=2"/>
   <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon-16.png?v=2"/>
   <link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png?v=2"/>
-  <link rel="stylesheet" href="/static/style.css?v=21"/>
+  <link rel="stylesheet" href="/static/style.css?v=22"/>
   <script src="/static/vendor/cytoscape.min.js"></script>
   <script src="/static/vendor/layout-base.js"></script>
   <script src="/static/vendor/cose-base.js"></script>
@@ -121,11 +121,16 @@
                 <option value="both">both</option>
               </select>
             </label>
-            <label class="filter-row">Channel
-              <input id="live-channel" class="mini-input" type="text"
-                     placeholder="any, or 1 or 1,6,11"
-                     title="One channel or a comma list. A single channel enables deauth."/>
-            </label>
+            <div class="filter-col">
+              <div class="filter-col-head">
+                <span>Channel</span>
+                <span id="live-channel-hint" class="chan-hint"></span>
+              </div>
+              <input id="live-channel" type="hidden"/>
+              <div id="live-channel-chips" class="chan-chips" role="group"
+                   aria-label="Channels to scan"
+                   title="Pick one or more channels, or Any. A single channel enables deauth."></div>
+            </div>
             <label class="filter"><input type="checkbox" id="live-save"/> Save capture file</label>
             <div class="iface-pick hidden" id="save-path-row" style="margin-top:8px">
               <input id="live-save-path" class="mini-input" type="text"
@@ -363,6 +368,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="/static/app.js?v=22"></script>
+  <script src="/static/app.js?v=23"></script>
 </body>
 </html>

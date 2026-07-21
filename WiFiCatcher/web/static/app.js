@@ -1393,6 +1393,78 @@ function setDisabled(ids, disabled) {
   });
 }
 
+// -------------------------------------------------------- channel picker
+// Valid channels per band. A novice shouldn't have to know these, so we offer
+// them as toggle chips instead of a free-text field; the band select decides
+// which set is shown. Multi-select is allowed (airodump hops across them).
+const CH_24 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+const CH_5 = [36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120,
+  124, 128, 132, 136, 140, 144, 149, 153, 157, 161, 165];
+const NONOVERLAP_24 = new Set([1, 6, 11]);
+
+function channelsForBand(band) {
+  if (band === "5") return CH_5;
+  if (band === "both") return CH_24.concat(CH_5);
+  return CH_24;   // 2.4 GHz default
+}
+
+// Mirror the chip selection into the hidden #live-channel as a comma list; ""
+// means Any, which the backend reads as "scan the whole band".
+function syncChannelValue() {
+  const wrap = document.getElementById("live-channel-chips");
+  const hidden = document.getElementById("live-channel");
+  if (!wrap || !hidden) return;
+  const sel = [...wrap.querySelectorAll(".chan-chip:not(.any).on")]
+    .map((c) => c.dataset.ch);
+  hidden.value = sel.join(",");
+}
+
+// (Re)build the chip row for the current band, resetting the selection to Any.
+function renderChannelChips() {
+  const wrap = document.getElementById("live-channel-chips");
+  if (!wrap) return;
+  const band = (document.getElementById("live-band") || {}).value || "2.4";
+  let html = `<button type="button" class="chan-chip any on" data-ch="">Any</button>`;
+  for (const c of channelsForBand(band)) {
+    const rec = band !== "5" && NONOVERLAP_24.has(c);
+    html += `<button type="button" class="chan-chip${rec ? " rec" : ""}"`
+      + `${rec ? ' title="Non-overlapping 2.4 GHz channel"' : ""}`
+      + ` data-ch="${c}">${c}</button>`;
+  }
+  wrap.innerHTML = html;
+  const hint = document.getElementById("live-channel-hint");
+  if (hint) hint.textContent = band === "5"
+    ? "pick one or more, or Any"
+    : band === "both"
+      ? "both bands; 1/6/11 don't overlap"
+      : "1 / 6 / 11 don't overlap";
+  syncChannelValue();
+}
+
+// Chip click: "Any" clears the specific picks; a number toggles itself and
+// flips Any on only when nothing specific is selected.
+function onChannelChipClick(e) {
+  const chip = e.target.closest(".chan-chip");
+  if (!chip || chip.disabled) return;
+  const wrap = document.getElementById("live-channel-chips");
+  if (chip.classList.contains("any")) {
+    wrap.querySelectorAll(".chan-chip.on").forEach((c) => c.classList.remove("on"));
+    chip.classList.add("on");
+  } else {
+    chip.classList.toggle("on");
+    const anySpecific = wrap.querySelector(".chan-chip:not(.any).on");
+    const anyChip = wrap.querySelector(".chan-chip.any");
+    if (anyChip) anyChip.classList.toggle("on", !anySpecific);
+  }
+  syncChannelValue();
+}
+
+const _liveBandSel = document.getElementById("live-band");
+if (_liveBandSel) _liveBandSel.addEventListener("change", renderChannelChips);
+const _chanChips = document.getElementById("live-channel-chips");
+if (_chanChips) _chanChips.addEventListener("click", onChannelChipClick);
+renderChannelChips();
+
 function refreshLiveButtons() {
   const running = live.running, mode = live.mode;
   const capturing = running && mode === "airodump";
@@ -1404,6 +1476,8 @@ function refreshLiveButtons() {
   document.getElementById("live-dot").classList.toggle("on", capturing);
   // Lock the capture options for the duration of a live capture.
   setDisabled(AIRODUMP_OPT_IDS, capturing);
+  document.querySelectorAll("#live-channel-chips .chan-chip")
+    .forEach((b) => { b.disabled = capturing; });
 
   const rep = document.getElementById("replay-toggle");
   const replaying = running && mode === "replay";
