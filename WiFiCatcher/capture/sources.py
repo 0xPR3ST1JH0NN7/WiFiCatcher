@@ -241,7 +241,6 @@ class HelperAirodumpSource(Source):
         self._latest = ""
         self._handshakes: set[str] = set()
         self._wps: dict[str, dict] = {}
-        self._deauth: list = []
         self._certs: dict[str, list] = {}
         self._lock = threading.Lock()
         self._parser = AirodumpCsvParser()
@@ -291,9 +290,6 @@ class HelperAirodumpSource(Source):
             elif event and "wps" in event:
                 with self._lock:
                     self._wps.update(event["wps"] or {})
-            elif event and "deauth" in event:
-                with self._lock:
-                    self._deauth.extend(event["deauth"] or [])
             elif event and "cert" in event:
                 with self._lock:
                     self._certs.update(event["cert"] or {})
@@ -325,16 +321,6 @@ class HelperAirodumpSource(Source):
         """Per-BSSID WPS info ({version, locked}) the helper has reported so far."""
         with self._lock:
             return dict(self._wps)
-
-    def drain_deauth(self) -> list:
-        """Return and clear deauth/disassoc events received since the last call.
-
-        Each is ``{"client": mac|None, "bssid": mac, "broadcast": bool}``; the
-        controller consumes these to suppress torn-down associations.
-        """
-        with self._lock:
-            out, self._deauth = self._deauth, []
-            return out
 
     def certs_info(self) -> dict:
         """Per-BSSID RADIUS/EAP server certificates the helper has parsed so far."""

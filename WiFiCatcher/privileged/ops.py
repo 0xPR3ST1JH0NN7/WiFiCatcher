@@ -183,7 +183,6 @@ def _capture_stream(params: dict):
     import subprocess
     import tempfile
 
-    from WiFiCatcher.capture.deauth import DEAUTH_FILTER, parse_deauth
     from WiFiCatcher.capture.handshake import parse_handshakes
     from WiFiCatcher.capture.interfaces import ensure_monitor_mode, restore_managed_mode
     from WiFiCatcher.capture.wps import WPS_FILTER, parse_wps
@@ -222,7 +221,6 @@ def _capture_stream(params: dict):
     last = ""
     seen_hs: set[str] = set()
     wps_prev: dict = {}
-    deauth_last = 0.0
     seen_certs: set[str] = set()
     tick = 0
     have_tshark = shutil.which("tshark") is not None
@@ -265,25 +263,6 @@ def _capture_stream(params: dict):
                     if delta:
                         wps_prev.update(delta)
                         yield {"wps": delta}
-                except (OSError, subprocess.SubprocessError):
-                    pass
-            # Deauth/disassoc: checked often so a torn-down link disappears fast.
-            # Only frames newer than the last emitted one are sent, so old deauths
-            # accumulated in the pcap are never re-reported.
-            if caps and tick % 3 == 0:
-                try:
-                    out = subprocess.run(
-                        ["tshark", "-r", caps[-1], "-n", "-Y", DEAUTH_FILTER,
-                         "-T", "fields", "-e", "frame.time_epoch", "-e", "wlan.sa",
-                         "-e", "wlan.da", "-e", "wlan.bssid", "-E", "separator=|"],
-                        capture_output=True, text=True, timeout=15,
-                        check=False).stdout
-                    events = parse_deauth(out, since=deauth_last)
-                    if events:
-                        deauth_last = max(e["ts"] for e in events)
-                        yield {"deauth": [
-                            {"client": e["client"], "bssid": e["bssid"],
-                             "broadcast": e["broadcast"]} for e in events]}
                 except (OSError, subprocess.SubprocessError):
                     pass
             # Enterprise RADIUS certificate: pull the server cert out of the EAP
