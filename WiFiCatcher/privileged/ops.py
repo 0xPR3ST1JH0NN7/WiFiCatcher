@@ -157,6 +157,13 @@ def _build_airodump(params: dict, iface: str, prefix: str) -> list[str]:
     return cmd
 
 
+def _safe_capture_name(name) -> str:
+    """A safe capture filename base from user input: no path, tame chars only."""
+    name = os.path.basename((name or "").strip())
+    name = re.sub(r"[^A-Za-z0-9._-]", "", name)
+    return name[:64]
+
+
 def _capture_stream(params: dict):
     """Own a live capture end-to-end (as root) and stream it back.
 
@@ -192,9 +199,12 @@ def _capture_stream(params: dict):
     if save and save_dir and os.path.isdir(save_dir):
         # Write straight into the folder the user chose (no subfolder). airodump
         # uses this as the filename prefix, so files land as
-        # <folder>/wificatcher-<ts>-01.cap / -01.csv.
+        # <folder>/<name>-01.cap / -01.csv. Use the user's name if given
+        # (sanitized to a safe basename), else a timestamped default.
         workdir = None
-        prefix = os.path.join(save_dir, "wificatcher-" + time.strftime("%Y%m%d-%H%M%S"))
+        name = _safe_capture_name(params.get("save_name")) or (
+            "wificatcher-" + time.strftime("%Y%m%d-%H%M%S"))
+        prefix = os.path.join(save_dir, name)
         save_path = save_dir
     else:
         workdir = tempfile.mkdtemp(prefix="wc-cap-")

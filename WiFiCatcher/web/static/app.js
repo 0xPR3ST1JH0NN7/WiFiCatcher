@@ -108,7 +108,8 @@ const cy = cytoscape({
     },
     {
       selector: 'node[kind = "ap"][?enterprise]',
-      style: { "border-color": "#a78bfa", "border-width": 4 },
+      style: { "background-image": "/static/img/node-ap-enterprise.svg?v=1",
+               "border-color": "#a78bfa", "border-width": 4 },
     },
     {
       selector: "edge",
@@ -1277,8 +1278,8 @@ function recomputeUnassoc() {
 // The airodump option controls — locked while a capture is running, since
 // changing them mid-capture is meaningless.
 const AIRODUMP_OPT_IDS = ["live-iface", "live-iface-refresh", "live-band",
-  "live-save", "live-save-dir", "live-save-browse", "live-channel", "live-encrypt",
-  "live-essid", "live-bssid", "live-interval"];
+  "live-save", "live-save-dir", "live-save-name", "live-save-browse",
+  "live-channel", "live-encrypt", "live-essid", "live-bssid", "live-interval"];
 
 function setDisabled(ids, disabled) {
   ids.forEach((id) => {
@@ -1521,6 +1522,7 @@ async function startLive() {
     bssid: document.getElementById("live-bssid").value.trim() || null,
     save: document.getElementById("live-save").checked,
     save_dir: document.getElementById("live-save-dir").value.trim() || null,
+    save_name: document.getElementById("live-save-name").value.trim() || null,
     acknowledged: true,
   };
   closeDetails();   // a fresh scan: drop any stale node details from the last one
@@ -1617,10 +1619,14 @@ populateChannelOptions();   // seed the channel picker for the default band
 
 document.getElementById("live-iface-refresh").onclick = () => loadInterfaces();
 
-// Show the save-folder picker only while "Save capture file" is ticked.
+// Show the save-folder picker and file-name field only while "Save capture
+// file" is ticked.
 const liveSaveChk = document.getElementById("live-save");
-if (liveSaveChk) liveSaveChk.addEventListener("change", () =>
-  document.getElementById("save-dir-row").classList.toggle("hidden", !liveSaveChk.checked));
+if (liveSaveChk) liveSaveChk.addEventListener("change", () => {
+  const on = liveSaveChk.checked;
+  document.getElementById("save-dir-row").classList.toggle("hidden", !on);
+  document.getElementById("live-save-name").classList.toggle("hidden", !on);
+});
 
 // "Browse…" asks the server to open a native folder dialog. WiFiCatcher runs
 // locally, so the dialog appears on this machine's desktop and its absolute path

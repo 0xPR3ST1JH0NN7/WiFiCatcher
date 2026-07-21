@@ -223,7 +223,7 @@ class HelperAirodumpSource(Source):
                  band: Optional[str] = None, encrypt: Optional[str] = None,
                  essid: Optional[str] = None, bssid: Optional[str] = None,
                  save: bool = False, save_dir: Optional[str] = None,
-                 acknowledged: bool = True):
+                 save_name: Optional[str] = None, acknowledged: bool = True):
         # The interface the user picked; becomes the monitor interface once the
         # helper reports it back (that is what the controller/deauth read).
         self.interface: Optional[str] = interface
@@ -233,7 +233,8 @@ class HelperAirodumpSource(Source):
         self._params = {
             "iface": interface, "channel": channel, "band": band,
             "encrypt": encrypt, "essid": essid, "bssid": bssid,
-            "save": save, "save_dir": save_dir, "acknowledged": acknowledged,
+            "save": save, "save_dir": save_dir, "save_name": save_name,
+            "acknowledged": acknowledged,
         }
         self._sock: Optional[socket.socket] = None
         self._thread: Optional[threading.Thread] = None

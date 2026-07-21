@@ -354,6 +354,7 @@ class LiveStartRequest(BaseModel):
     interval: float | None = None
     save: bool = False              # keep the capture files (default ./captures)
     save_dir: str | None = None     # folder chosen for the saved capture
+    save_name: str | None = None    # optional base name for the saved files
     acknowledged: bool = False
 
 
@@ -409,7 +410,7 @@ async def live_start(req: LiveStartRequest):
             req.interface, channel=req.channel, band=req.band,
             encrypt=req.encrypt, essid=req.essid, bssid=req.bssid,
             save=req.save, save_dir=(req.save_dir or None),
-            acknowledged=req.acknowledged)
+            save_name=(req.save_name or None), acknowledged=req.acknowledged)
         handshakes = HelperHandshakeWatcher(source)
         # WPS detection is always on (cheap: one tshark pass every few seconds),
         # like handshake detection, so the user never has to enable it.
