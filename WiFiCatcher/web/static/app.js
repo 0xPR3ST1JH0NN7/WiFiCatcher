@@ -534,8 +534,13 @@ document.addEventListener("visibilitychange", () => {
 });
 
 /* ----------------------------------------------------------------- details */
-function showDetails(info) {
-  const body = document.getElementById("details-body");
+// The node whose details panel is open, so its values can be refreshed live.
+let detailNodeId = null;
+
+// Build just the field rows (+ probed ESSIDs) for a node. Kept separate so the
+// panel's values can be refreshed in place during a live capture without
+// rebuilding the action buttons (whose state a running op may be driving).
+function buildDetailFields(info) {
   const isAp = info.kind === "ap";
   const rows = [];
   const row = (k, v) =>
@@ -547,7 +552,6 @@ function showDetails(info) {
     v !== null && v !== undefined && v !== ""
       ? rows.push(`<div class="detail-row"><span class="k">${k}</span><span class="v copyable" title="Click to copy">${escapeHtml(v)}</span></div>`)
       : null;
-
   if (isAp) {
     rowCopy("ESSID", info.essid);
     rowCopy("BSSID", info.id);
@@ -575,7 +579,6 @@ function showDetails(info) {
     row("First seen", info.first_seen);
     row("Last seen", info.last_seen);
   }
-
   let probes = "";
   if (info.probed_essids && info.probed_essids.length) {
     probes =
@@ -583,7 +586,31 @@ function showDetails(info) {
       info.probed_essids.map((p) => `<li>${escapeHtml(p)}</li>`).join("") +
       `</ul>`;
   }
+  return rows.join("") + probes;
+}
 
+// Wire click-to-copy on the values inside a container.
+function attachCopyable(container) {
+  container.querySelectorAll(".v.copyable").forEach((el) => {
+    el.onclick = () => copyText(el.textContent);
+  });
+}
+
+// Refresh only the open panel's field values (signal, last seen, clients…) in
+// place, leaving the action buttons untouched so a running op's button state
+// survives.
+function refreshDetails(info) {
+  if (!info || info.id !== detailNodeId) return;
+  const fields = document.getElementById("detail-fields");
+  if (!fields) return;
+  fields.innerHTML = buildDetailFields(info);
+  attachCopyable(fields);
+}
+
+function showDetails(info) {
+  const body = document.getElementById("details-body");
+  const isAp = info.kind === "ap";
+  detailNodeId = info.id;
   const title = isAp ? info.essid || "&lt;Hidden&gt;" : info.id;
   const clientAssociated =
     !isAp && info.associated_bssid && info.associated_bssid !== "(not associated)";
@@ -593,9 +620,9 @@ function showDetails(info) {
   const liveActive = live.running && live.mode === "airodump";
   let offBtn = "";
   if (live.canDeauth && isAp) {
-    offBtn = `<button class="btn danger" id="op-deauth-btn">Deauth this AP…</button>`;
+    offBtn = `<button class="btn danger" id="op-deauth-btn">Deauth this AP</button>`;
   } else if (live.canDeauth && clientAssociated) {
-    offBtn = `<button class="btn danger" id="op-deauth-btn">Deauth from AP…</button>`;
+    offBtn = `<button class="btn danger" id="op-deauth-btn">Deauth from AP</button>`;
   }
 
   // Enterprise (802.1X) badge is informational; its actions need a live capture.
@@ -616,8 +643,7 @@ function showDetails(info) {
     <span class="kind-badge ${info.kind}">${isAp ? "Access Point" : "Client"}</span>
     ${entBadge}
     <h3>${escapeHtml(title)}</h3>
-    ${rows.join("")}
-    ${probes}
+    <div id="detail-fields">${buildDetailFields(info)}</div>
     <div class="actions">
       <button class="btn" id="neighbors-btn">Highlight neighbors</button>
       <button class="btn" id="isolate-btn">Isolate</button>
@@ -634,9 +660,7 @@ function showDetails(info) {
   document.getElementById("neighbors-btn").onclick = () => highlightNeighbors(info.id);
   document.getElementById("isolate-btn").onclick = () => isolate(info.id);
   document.getElementById("copy-btn").onclick = () => copyText(info.id);
-  body.querySelectorAll(".v.copyable").forEach((el) => {
-    el.onclick = () => copyText(el.textContent);
-  });
+  attachCopyable(body);
   const deauthBtn = document.getElementById("op-deauth-btn");
   if (deauthBtn) deauthBtn.onclick = () => openDeauthModal(info);
   const certBtn = document.getElementById("op-cert-btn");
@@ -656,6 +680,7 @@ function showDetails(info) {
 }
 
 function closeDetails() {
+  detailNodeId = null;
   document.getElementById("details").classList.add("hidden");
   document.getElementById("resizer-right").classList.add("hidden");
   requestAnimationFrame(() => cy.resize());
@@ -865,7 +890,14 @@ async function confirmDeauth() {
   // moment, so don't leave the user staring at a frozen modal.
   document.getElementById("op-modal").classList.add("hidden");
   pendingOp = null;
-  toast("Sending deauth…");
+  // Show progress on the deauth button in the details panel (if still open):
+  // "Sending deauth" while it runs, restored to its label when done.
+  const btn = document.getElementById("op-deauth-btn");
+  const label = btn ? btn.textContent : "";
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Sending deauth';
+  }
   const stopFx = startDeauthFx(op);   // pulse the target until the deauth ends
   try {
     const res = await API.deauth(payload);
@@ -874,6 +906,7 @@ async function confirmDeauth() {
     toast(e.message, "error");
   } finally {
     stopFx();
+    if (btn) { btn.disabled = false; btn.textContent = label; }
   }
 }
 
@@ -1400,6 +1433,17 @@ function applyPatch(p) {
   // user may have arranged by hand.
   const structural = (p.add && p.add.length) || (p.remove && p.remove.length);
   if (structural) scheduleLiveLayout();
+  if (detailNodeId) tickDetailRefresh();   // keep the open panel's values live
+}
+
+// Re-fetch the open node's details and update its field values in place, so the
+// panel stays current during a live capture without the user reopening it.
+async function tickDetailRefresh() {
+  const id = detailNodeId;
+  if (!id) return;
+  try {
+    refreshDetails(await API.node(id));
+  } catch (e) { /* the node may have been pruned; leave the last values */ }
 }
 
 function scheduleLiveLayout() {
