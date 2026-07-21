@@ -26,7 +26,7 @@ const API = {
     }),
   liveStop: () => fetchJSON("/api/live/stop", { method: "POST" }),
   interfaces: () => fetchJSON("/api/live/interfaces"),
-  chooseDir: () => fetchJSON("/api/live/choose-dir", { method: "POST" }),
+  chooseSave: () => fetchJSON("/api/live/choose-save", { method: "POST" }),
   enterpriseCert: (payload) =>
     fetchJSON("/api/operations/enterprise/cert", {
       method: "POST",
@@ -1642,20 +1642,21 @@ if (liveSaveChk) liveSaveChk.addEventListener("change", () => {
   document.getElementById("live-save-name").classList.toggle("hidden", !on);
 });
 
-// "Browse…" asks the server to open a native folder dialog. WiFiCatcher runs
-// locally, so the dialog appears on this machine's desktop and its absolute path
-// comes back here (a browser can't read a real folder path on its own). Empty
-// path means cancelled or no desktop dialog available -> falls back to ./captures.
+// "Save as…" asks the server to open a native Save As dialog on this machine's
+// desktop (a browser can't do it), and fills both the folder and the file-name
+// fields from what the user picks. Empty means cancelled or no desktop dialog
+// available -> falls back to ./captures with a timestamped name.
 const saveBrowseBtn = document.getElementById("live-save-browse");
 if (saveBrowseBtn) saveBrowseBtn.addEventListener("click", async () => {
   saveBrowseBtn.disabled = true;
   try {
-    const { path } = await API.chooseDir();
-    if (path) {
-      document.getElementById("live-save-dir").value = path;
-      toast("Save folder set", "ok");
+    const { dir, name } = await API.chooseSave();
+    if (dir) {
+      document.getElementById("live-save-dir").value = dir;
+      if (name) document.getElementById("live-save-name").value = name;
+      toast("Save location set", "ok");
     } else {
-      toast("No folder chosen (or no desktop dialog available); using ./captures");
+      toast("No file chosen (or no desktop dialog available); using ./captures");
     }
   } catch (e) {
     toast(e.message, "error");

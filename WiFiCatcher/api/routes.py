@@ -295,22 +295,24 @@ def live_interfaces():
     return {"interfaces": list_wireless_interfaces()}
 
 
-def _pick_directory() -> str:
-    """Open a native "choose folder" dialog on the host and return the selected
-    absolute path (``""`` if cancelled, or if no dialog / desktop is available).
+def _pick_save_path() -> str:
+    """Open a native "Save As" dialog on the host and return the chosen absolute
+    file path (``""`` if cancelled or no dialog / desktop is available).
 
-    A browser can't hand a real filesystem path to the server, but WiFiCatcher
-    runs locally, so we pop the OS folder picker on the user's own desktop. Tries
-    GTK (``zenity``), then KDE (``kdialog``), then a Tk fallback in its own
-    process so it owns the main thread. Blocking, so callers run it in a thread.
+    Lets the user pick the folder AND the file name in one go. A browser can't
+    hand a real filesystem path to the server, but WiFiCatcher runs locally, so
+    we pop the OS dialog on the user's own desktop. Tries GTK (``zenity --save``),
+    then KDE (``kdialog``), then a Tk fallback in its own process so it owns the
+    main thread. Blocking, so callers run it in a thread.
     """
     import shutil
     import subprocess
     import sys
 
-    for cmd in (["zenity", "--file-selection", "--directory",
-                 "--title=Choose where to save captures"],
-                ["kdialog", "--getexistingdirectory", os.path.expanduser("~")]):
+    default = os.path.join(os.path.expanduser("~"), "wificatcher-capture.cap")
+    for cmd in (["zenity", "--file-selection", "--save", "--confirm-overwrite",
+                 "--title=Save capture as", f"--filename={default}"],
+                ["kdialog", "--getsavefilename", default, "*.cap *.pcap"]):
         if not shutil.which(cmd[0]):
             continue
         try:
@@ -322,7 +324,7 @@ def _pick_directory() -> str:
     tk = ("import tkinter as tk\n"
           "from tkinter import filedialog\n"
           "r = tk.Tk(); r.withdraw(); r.attributes('-topmost', True)\n"
-          "print(filedialog.askdirectory(title='Choose where to save captures') or '')\n")
+          "print(filedialog.asksaveasfilename(title='Save capture as') or '')\n")
     try:
         res = subprocess.run([sys.executable, "-c", tk],
                              capture_output=True, text=True, timeout=180)
@@ -333,14 +335,22 @@ def _pick_directory() -> str:
     return ""
 
 
-@router.post("/live/choose-dir")
-async def live_choose_dir():
-    """Open a native folder picker on the host; return ``{"path": <dir or "">}``."""
-    path = await asyncio.get_event_loop().run_in_executor(None, _pick_directory)
-    if path and not os.path.isdir(path):
+@router.post("/live/choose-save")
+async def live_choose_save():
+    """Open a native Save As dialog; return ``{dir, name}`` split for the form.
+
+    ``name`` is the base name without extension (airodump appends ``-01.cap``).
+    Both empty when cancelled or no desktop dialog is available.
+    """
+    path = await asyncio.get_event_loop().run_in_executor(None, _pick_save_path)
+    if not path:
+        return {"dir": "", "name": ""}
+    directory = os.path.dirname(path)
+    if not os.path.isdir(directory):
         raise HTTPException(status_code=400,
-                            detail="The selected path is not a directory.")
-    return {"path": path}
+                            detail="The selected folder does not exist.")
+    name = os.path.splitext(os.path.basename(path))[0]
+    return {"dir": directory, "name": name}
 
 
 class LiveStartRequest(BaseModel):
