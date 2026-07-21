@@ -162,9 +162,13 @@ body { font-size: 14px; }   /* design baseline; the size setting zooms the whole
   animation: cat-bob .24s steps(2) infinite;
   pointer-events: auto; cursor: pointer;   /* clickable even though the lane isn't */
 }
-/* Click the cat and it hops: a one-shot jump that overrides the running bob,
-   then reverts to the gait when the .jump class is removed on animationend. */
-.cat-run.jump { animation: cat-jump .5s ease-out; animation-play-state: running; }
+/* Click the cat (or capture a handshake) and it hops 5 times: the jump overrides
+   the running bob/flee, then reverts to the gait when the .jump class is removed
+   on animationend. The key celebrates with the same hop, right alongside it. */
+.cat-run.jump, .cat-key.jump {
+  animation: cat-jump .5s ease-out 5;
+  animation-play-state: running;
+}
 @keyframes cat-jump {
   0% { transform: translateY(0); }
   35%, 55% { transform: translateY(-15px); }
@@ -237,7 +241,7 @@ body { font-size: 14px; }   /* design baseline; the size setting zooms the whole
 /* keep the toolbar usable where a running mascot would crowd it */
 @media (max-width: 720px) { .cat-runner { display: none; } }
 @media (prefers-reduced-motion: reduce) {
-  .cat-run, .cat-run.jump, .cat-run .cat-legs-a, .cat-run .cat-legs-b,
+  .cat-run, .cat-run.jump, .cat-key.jump, .cat-run .cat-legs-a, .cat-run .cat-legs-b,
   .cat-key, .cat-ground, .cat-dust::before, .cat-dust::after { animation: none; }
 }
 

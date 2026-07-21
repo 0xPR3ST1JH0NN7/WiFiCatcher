@@ -511,19 +511,23 @@ document.getElementById("table-search").addEventListener("input", renderTable);
 // Easter egg: click the toolbar runner cat and it hops. Re-triggering mid-hop
 // restarts the animation; the class is cleared when the jump finishes.
 const catRun = document.querySelector(".cat-run");
-// Make the cat hop once. Re-triggering mid-hop restarts the animation; the
-// .jump class runs its own cat-jump keyframe (which plays even while the cat is
-// otherwise paused at rest), cleared on animationend.
+const catKey = document.querySelector(".cat-key");
+// Make the cat and the key hop together (5 hops, driven by the CSS iteration
+// count). Re-triggering mid-hop restarts it; the .jump class runs its own
+// cat-jump keyframe (which plays even while both are otherwise paused at rest),
+// cleared on animationend once all 5 hops finish.
 function jumpCat() {
-  if (!catRun) return;
-  catRun.classList.remove("jump");
-  void catRun.offsetWidth;   // force reflow so a repeat trigger restarts the hop
-  catRun.classList.add("jump");
+  for (const el of [catRun, catKey]) {
+    if (!el) continue;
+    el.classList.remove("jump");
+    void el.offsetWidth;   // force reflow so a repeat trigger restarts the hop
+    el.classList.add("jump");
+  }
 }
-if (catRun) {
-  catRun.addEventListener("click", jumpCat);   // easter egg: click to hop
-  catRun.addEventListener("animationend", (e) => {
-    if (e.animationName === "cat-jump") catRun.classList.remove("jump");
+if (catRun) catRun.addEventListener("click", jumpCat);   // easter egg: click to hop
+for (const el of [catRun, catKey]) {
+  if (el) el.addEventListener("animationend", (e) => {
+    if (e.animationName === "cat-jump") el.classList.remove("jump");
   });
 }
 
