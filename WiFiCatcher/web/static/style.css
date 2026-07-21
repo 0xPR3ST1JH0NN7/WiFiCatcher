@@ -365,16 +365,6 @@ details.subpanel[open] > summary::after { transform: rotate(90deg); }
   width: 100%; height: 64vh; min-height: 340px;
   background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
 }
-.attack-legend {
-  display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 0 2px;
-  font-size: 12px; color: var(--muted);
-}
-.attack-legend span { display: inline-flex; align-items: center; gap: 6px; }
-.attack-legend .lg { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
-.attack-legend .lg-root { background: var(--accent); }
-.attack-legend .lg-goal { background: var(--client); }
-.attack-legend .lg-method { background: transparent; border: 2px solid var(--accent); }
-.attack-legend .lg-action { background: var(--panel-2); border: 1px solid var(--border); }
 /* Give the Start live capture button room to breathe below More options. */
 #live-toggle { margin-top: 16px; }
 .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
