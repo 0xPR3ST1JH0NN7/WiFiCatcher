@@ -790,10 +790,25 @@ function openAttackModal(key) {
   const data = ATTACK_DATA[key];
   if (!data || typeof cytoscape === "undefined") return;
   document.getElementById("attack-modal-title").textContent = "Attack paths: " + data.family;
+  // Left to right tidy tree: x is set by depth, y is packed by leaves and each
+  // parent sits at the midpoint of its children. Rendered with a preset layout so
+  // the shape is exactly this, not an auto layout that drifts.
   const root = data.nodes.find((n) => n.parent === null) || data.nodes[0];
+  const kids = {};
+  for (const n of data.nodes) if (n.parent) (kids[n.parent] = kids[n.parent] || []).push(n.id);
+  const XS = 280, YS = 72, pos = {};
+  let leaf = 0;
+  (function place(id, depth) {
+    const cs = kids[id] || [];
+    if (!cs.length) { pos[id] = { x: depth * XS, y: leaf++ * YS }; return; }
+    cs.forEach((c) => place(c, depth + 1));
+    const ys = cs.map((c) => pos[c].y);
+    pos[id] = { x: depth * XS, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
+  })(root.id, 0);
+
   const elements = [];
   for (const n of data.nodes) {
-    elements.push({ data: { id: n.id, label: n.label, kind: n.kind } });
+    elements.push({ data: { id: n.id, label: n.label, kind: n.kind }, position: pos[n.id] });
     if (n.parent) elements.push({ data: { id: n.parent + ">" + n.id, source: n.parent, target: n.id } });
   }
   document.getElementById("attack-modal").classList.remove("hidden");
@@ -807,25 +822,29 @@ function openAttackModal(key) {
     elements,
     style: [
       { selector: "node", style: {
-          label: "data(label)", "text-wrap": "wrap", "text-max-width": "128px",
+          label: "data(label)", "text-wrap": "wrap", "text-max-width": "150px",
           "font-size": "11px", color: text, "text-valign": "center", "text-halign": "center",
-          "background-color": panel2, "border-width": 1, "border-color": border,
-          shape: "round-rectangle", width: "label", height: "label", padding: "8px" } },
+          "background-color": panel2, "background-opacity": 1,
+          "border-width": 1, "border-color": border,
+          shape: "round-rectangle", width: "label", height: "label", padding: "10px" } },
       { selector: 'node[kind="root"]', style: {
           "background-color": accent, color: onColor, "font-weight": "bold", "border-width": 0 } },
       { selector: 'node[kind="goal"]', style: {
-          "background-color": client, color: onColor, "border-width": 0 } },
+          "background-color": client, color: onColor, "font-weight": "bold", "border-width": 0 } },
       { selector: 'node[kind="method"]', style: {
-          "background-color": "transparent", "border-color": accent, "border-width": 2, color: text } },
+          "background-color": panel2, "border-color": accent, "border-width": 2.5, color: text } },
       { selector: 'node[kind="action"]', style: {
-          "background-color": panel2, "border-color": border, color: muted } },
+          "background-color": panel2, "border-color": border, "border-width": 1, color: muted } },
+      // Thicker orthogonal (taxi) connectors flowing rightward, matching the
+      // structured feel of the app rather than thin diagonal lines.
       { selector: "edge", style: {
-          width: 1.5, "line-color": border, "target-arrow-color": border,
-          "target-arrow-shape": "triangle", "arrow-scale": 0.9, "curve-style": "bezier" } },
+          width: 2.5, "line-color": muted, "line-opacity": 0.85,
+          "target-arrow-color": muted, "target-arrow-shape": "triangle", "arrow-scale": 1.3,
+          "curve-style": "taxi", "taxi-direction": "rightward",
+          "taxi-turn": "40px", "taxi-turn-min-distance": "6px" } },
     ],
-    layout: { name: "breadthfirst", directed: true, roots: [root.id],
-              spacingFactor: 1.15, padding: 24 },
-    wheelSensitivity: 0.2, autoungrabify: true,
+    layout: { name: "preset", padding: 30 },
+    wheelSensitivity: 0.2, autoungrabify: true, minZoom: 0.2, maxZoom: 2.5,
   });
   attackCy.ready(() => attackCy.fit(undefined, 30));
 }
