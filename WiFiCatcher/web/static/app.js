@@ -778,12 +778,10 @@ function openAttackModal(key) {
   document.getElementById("attack-modal").classList.remove("hidden");
   if (attackCy) { attackCy.destroy(); attackCy = null; }
   const accent = _cssVar("--accent"),
-    panel2 = _cssVar("--panel-2"), border = _cssVar("--border"),
-    text = _cssVar("--text"),
+    panel2 = _cssVar("--panel-2"),
+    text = _cssVar("--text"), muted = _cssVar("--muted"),
     font = _cssVar("--font") || "inherit",
     onColor = _cssVar("--btn-primary-text") || "#0b0f12";
-  // Same muted tone the app's network graph uses for its edges.
-  const edgeColor = "#2d4654";
   attackCy = cytoscape({
     container: document.getElementById("attack-graph"),
     elements,
@@ -798,12 +796,13 @@ function openAttackModal(key) {
       // The target sits on the left, filled; every attack branches off it.
       { selector: 'node[kind="root"]', style: {
           "background-color": accent, color: onColor, "font-weight": "bold", "border-width": 0 } },
-      // Edges like the app's own graph: smooth curves in the same muted tone,
-      // but fat with a chunky arrowhead so the direction reads at a glance.
+      // Thin orthogonal (taxi) connectors flowing rightward: the structured tree
+      // look preferred over fat diagonal arrows.
       { selector: "edge", style: {
-          width: 4, "line-color": edgeColor, "curve-style": "bezier",
-          "target-arrow-color": edgeColor, "target-arrow-shape": "triangle",
-          "arrow-scale": 2.2 } },
+          width: 2.5, "line-color": muted, "line-opacity": 0.85,
+          "target-arrow-color": muted, "target-arrow-shape": "triangle", "arrow-scale": 1.3,
+          "curve-style": "taxi", "taxi-direction": "rightward",
+          "taxi-turn": "40px", "taxi-turn-min-distance": "6px" } },
     ],
     layout: { name: "preset", padding: 30 },
     wheelSensitivity: 0.2, autoungrabify: true, minZoom: 0.2, maxZoom: 2.5,
