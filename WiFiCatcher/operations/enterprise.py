@@ -144,7 +144,13 @@ def parse_certificates_from_der_list(der_blobs: list[bytes]) -> list[dict]:
             "Certificate parsing needs the 'cryptography' package "
             "(pip install cryptography).")
     certs = []
+    seen: set[bytes] = set()
     for der in der_blobs:
+        # The same certificate repeats once per handshake in a capture, which
+        # would otherwise show as dozens of identical copies. Keep each DER once.
+        if der in seen:
+            continue
+        seen.add(der)
         try:
             certs.append(x509.load_der_x509_certificate(der))
         except (ValueError, TypeError):

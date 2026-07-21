@@ -180,6 +180,8 @@ def _capture_stream(params: dict):
     from WiFiCatcher.capture.handshake import parse_handshakes
     from WiFiCatcher.capture.interfaces import ensure_monitor_mode, restore_managed_mode
     from WiFiCatcher.capture.wps import WPS_FILTER, parse_wps
+    from WiFiCatcher.operations.enterprise import (
+        hexfields_to_der, parse_certificates_from_der_list)
 
     handle = ensure_monitor_mode(
         _iface(params), acknowledged=bool(params.get("acknowledged", True)))
@@ -211,6 +213,7 @@ def _capture_stream(params: dict):
     seen_hs: set[str] = set()
     wps_prev: dict = {}
     deauth_last = 0.0
+    seen_certs: set[str] = set()
     tick = 0
     have_tshark = shutil.which("tshark") is not None
     try:
@@ -271,6 +274,42 @@ def _capture_stream(params: dict):
                         yield {"deauth": [
                             {"client": e["client"], "bssid": e["bssid"],
                              "broadcast": e["broadcast"]} for e in events]}
+                except (OSError, subprocess.SubprocessError):
+                    pass
+            # Enterprise RADIUS certificate: pull the server cert out of the EAP
+            # handshake so it can be read live. Done once per BSSID (it costs a
+            # full TLS-reassembly pass), keyed by the AP that sent it (wlan.sa).
+            if caps and tick % 8 == 0:
+                try:
+                    out = subprocess.run(
+                        ["tshark", "-r", caps[-1], "-n",
+                         "-Y", "tls.handshake.type == 11", "-T", "fields",
+                         "-e", "wlan.sa", "-e", "tls.handshake.certificate",
+                         "-o", "tls.desegment_ssl_records:TRUE",
+                         "-o", "tls.desegment_ssl_application_data:TRUE",
+                         "-E", "separator=|"],
+                        capture_output=True, text=True, timeout=30,
+                        check=False).stdout
+                    by_bssid: dict = {}
+                    for line in out.splitlines():
+                        sa, _, cert_hex = line.partition("|")
+                        bssid = normalize_mac(sa)
+                        if bssid and cert_hex.strip():
+                            by_bssid.setdefault(bssid, []).append(cert_hex)
+                    fresh = {}
+                    for bssid, hexes in by_bssid.items():
+                        if bssid in seen_certs:
+                            continue
+                        try:
+                            certs = parse_certificates_from_der_list(
+                                hexfields_to_der(" ".join(hexes)))
+                        except Exception:
+                            certs = []
+                        if certs:
+                            seen_certs.add(bssid)
+                            fresh[bssid] = certs
+                    if fresh:
+                        yield {"cert": fresh}
                 except (OSError, subprocess.SubprocessError):
                     pass
             time.sleep(1.0)

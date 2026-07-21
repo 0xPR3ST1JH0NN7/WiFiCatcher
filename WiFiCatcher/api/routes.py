@@ -95,6 +95,12 @@ def get_node(node_id: str):
         info = STATE.node(node_id) or CAPTURE.node(node_id)
     if info is None:
         raise HTTPException(status_code=404, detail="Node not found")
+    # Attach any RADIUS certificate captured live for this AP, so the details
+    # panel can offer to read it in real time without a separate file.
+    if CAPTURE.running:
+        certs = CAPTURE.radius_certs(node_id)
+        if certs:
+            info = {**info, "radius_certs": certs}
     return info
 
 

@@ -111,6 +111,8 @@ class CaptureController:
         # deauths, {bssid -> expiry}. A matching association is hidden until then.
         self._deauth_suppress: dict[str, tuple[str, float]] = {}
         self._deauth_bcast: dict[str, float] = {}
+        self._certs: dict[str, list] = {}
+        self._seen_certs: set[str] = set()
         self.running = False
         self.mode: Optional[str] = None
         # Where the most recent capture was kept, if "save" was requested.
@@ -133,6 +135,8 @@ class CaptureController:
         self._seen_wps = set()
         self._deauth_suppress = {}
         self._deauth_bcast = {}
+        self._certs = {}
+        self._seen_certs = set()
         self.last_saved_path = None
         if interval:
             self._interval = interval
@@ -190,6 +194,7 @@ class CaptureController:
                     })
             await self._poll_handshakes()
             await self._poll_wps()
+            await self._poll_certs()
             await asyncio.sleep(self._interval)
 
     def _apply_wps(self, scan) -> None:
@@ -267,6 +272,27 @@ class CaptureController:
                 "type": "wps", "bssid": bssid, "essid": essid,
                 "version": info.get("version"), "locked": info.get("locked"),
             })
+
+    async def _poll_certs(self) -> None:
+        """Pull parsed RADIUS certs from the source; announce each AP once."""
+        getter = getattr(self._source, "certs_info", None)
+        if not callable(getter):
+            return
+        try:
+            self._certs = getter()
+        except Exception:
+            return
+        for bssid in self._certs:
+            if bssid in self._seen_certs:
+                continue
+            self._seen_certs.add(bssid)
+            node = self._graph.node(bssid)
+            essid = node.get("essid") if node else None
+            await self._broadcast({"type": "cert", "bssid": bssid, "essid": essid})
+
+    def radius_certs(self, bssid: str):
+        """Parsed RADIUS server certificate(s) captured live for an AP, if any."""
+        return self._certs.get((bssid or "").upper())
 
     async def _poll_handshakes(self) -> None:
         if not self._handshakes:
