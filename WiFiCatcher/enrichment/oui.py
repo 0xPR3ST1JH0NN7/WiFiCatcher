@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import re
+import threading
 from typing import Optional
 
 # A compact, offline-friendly seed list. Extend via an external OUI file.
@@ -184,15 +185,48 @@ _SYSTEM_OUI_PATHS = (
 )
 
 
+# The official IEEE registry, used as a last resort when no local file exists.
+IEEE_OUI_URL = "https://standards-oui.ieee.org/oui/oui.txt"
+_CACHE_PATH = os.path.join(
+    os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"),
+    "wificatcher", "oui.txt")
+
+
+def _download_ieee_oui() -> None:
+    """Fetch the official IEEE OUI list into the cache and load it. Best-effort.
+
+    Runs in a background thread so startup is never blocked; vendors resolve once
+    it finishes, and later runs read the cached copy instead of re-downloading.
+    """
+    import urllib.request
+    try:
+        req = urllib.request.Request(
+            IEEE_OUI_URL, headers={"User-Agent": "WiFiCatcher"})
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = resp.read()
+        if len(data) < 100_000:          # sanity: the real list is multi-MB
+            return
+        os.makedirs(os.path.dirname(_CACHE_PATH), exist_ok=True)
+        tmp = _CACHE_PATH + ".tmp"
+        with open(tmp, "wb") as fh:
+            fh.write(data)
+        os.replace(tmp, _CACHE_PATH)
+        load_oui_file(_CACHE_PATH)
+    except Exception:
+        pass
+
+
 def _autoload() -> None:
     """Load a fuller OUI table so vendors resolve beyond the built-in seed list.
 
-    Priority: the ``WIFICATCHER_OUI_FILE`` env var, else the first system OUI
-    database found. Best-effort: a missing or unreadable file just leaves the
-    built-in table in place.
+    Priority: the ``WIFICATCHER_OUI_FILE`` env var, then the first system OUI
+    database, then a cached IEEE download. If none exists, fetch the official
+    IEEE list in the background. Best-effort throughout: any failure just leaves
+    the built-in table in place.
     """
     env_file = os.environ.get("WIFICATCHER_OUI_FILE")
-    candidates = ([env_file] if env_file else []) + list(_SYSTEM_OUI_PATHS)
+    candidates = (([env_file] if env_file else [])
+                  + list(_SYSTEM_OUI_PATHS) + [_CACHE_PATH])
     for path in candidates:
         if path and os.path.exists(path):
             try:
@@ -200,6 +234,7 @@ def _autoload() -> None:
                     return
             except OSError:
                 continue
+    threading.Thread(target=_download_ieee_oui, daemon=True).start()
 
 
 _autoload()
