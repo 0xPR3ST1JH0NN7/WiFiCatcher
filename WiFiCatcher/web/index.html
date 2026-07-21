@@ -122,9 +122,9 @@
               </select>
             </label>
             <label class="filter-row">Channel
-              <select id="live-channel" class="mini-input">
-                <option value="">any</option>
-              </select>
+              <input id="live-channel" class="mini-input" type="text"
+                     placeholder="any, or 1 or 1,6,11"
+                     title="One channel or a comma list. A single channel enables deauth."/>
             </label>
             <label class="filter"><input type="checkbox" id="live-save"/> Save capture file</label>
             <div class="iface-pick hidden" id="save-dir-row" style="margin-top:8px">
@@ -366,6 +366,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="/static/app.js?v=16"></script>
+  <script src="/static/app.js?v=17"></script>
 </body>
 </html>

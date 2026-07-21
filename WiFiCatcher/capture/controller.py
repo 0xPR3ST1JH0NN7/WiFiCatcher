@@ -58,6 +58,40 @@ def prune_stale(scan: Scan, max_age: float) -> Scan:
     )
 
 
+def channels_from(spec) -> set:
+    """Parse a channel spec ('1' or '1,6,11') into a set of ints. Empty if none."""
+    out = set()
+    for tok in str(spec or "").split(","):
+        tok = tok.strip()
+        if tok.isdigit():
+            out.add(int(tok))
+    return out
+
+
+def filter_by_channel(scan: Scan, channels: set) -> Scan:
+    """Drop APs whose channel is not one of ``channels``.
+
+    airodump-ng hears APs on adjacent channels through 2.4GHz overlap, so a
+    fixed channel still surfaces neighbours. When the user chose a channel (or a
+    set) keep only APs on those; an AP with an unknown/unparsable channel is kept
+    rather than hidden silently. Clients are untouched (they carry no channel).
+    """
+    if not channels:
+        return scan
+
+    def keep(ap) -> bool:
+        try:
+            return int(str(ap.channel).strip()) in channels
+        except (ValueError, TypeError):
+            return True
+
+    return Scan(
+        access_points=[a for a in scan.access_points if keep(a)],
+        clients=scan.clients,
+        source=scan.source, format=scan.format,
+    )
+
+
 def _index(cyto: dict) -> dict:
     """Map element id -> ("nodes"|"edges", data) for diffing."""
     idx: dict = {}
@@ -164,6 +198,9 @@ class CaptureController:
                 # client that disconnected leaves the graph. Replay keeps all.
                 if self.mode == "airodump":
                     scan = prune_stale(scan, STALE_AFTER)
+                    # If a channel (or set) was chosen, hide APs on other
+                    # channels that airodump picked up via 2.4GHz overlap.
+                    scan = filter_by_channel(scan, channels_from(self.channel))
                 # Resolve vendors (live capture parses raw CSV, which has none).
                 oui.enrich_scan(scan)
                 self._apply_wps(scan)
@@ -290,8 +327,9 @@ class CaptureController:
 
     @property
     def can_deauth(self) -> bool:
-        """Deauth needs a live airodump capture locked on one channel."""
-        return bool(self.running and self.mode == "airodump" and self.channel)
+        """Deauth needs a live airodump capture locked on a single channel."""
+        return bool(self.running and self.mode == "airodump"
+                    and len(channels_from(self.channel)) == 1)
 
     def snapshot(self) -> dict:
         """Full current graph, used as the init message for a new subscriber."""

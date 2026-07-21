@@ -1321,32 +1321,6 @@ function setDisabled(ids, disabled) {
   });
 }
 
-// Which channels each band actually uses, so the picker only offers real ones
-// (2.4 GHz: 1-14; 5 GHz: the UNII channels). "both" offers every channel; an
-// empty value means "any" — airodump hops the whole band.
-const CHANNELS_24 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
-const CHANNELS_5 = [36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116,
-  120, 124, 128, 132, 136, 140, 144, 149, 153, 157, 161, 165];
-
-function channelsForBand(band) {
-  if (band === "2.4") return CHANNELS_24;
-  if (band === "5") return CHANNELS_5;
-  return [...CHANNELS_24, ...CHANNELS_5];
-}
-
-// Rebuild the channel picker for the selected band, keeping the current pick if
-// it still belongs to that band (otherwise fall back to "any").
-function populateChannelOptions() {
-  const bandSel = document.getElementById("live-band");
-  const chanSel = document.getElementById("live-channel");
-  if (!bandSel || !chanSel) return;
-  const prev = chanSel.value;
-  const list = channelsForBand(bandSel.value);
-  chanSel.innerHTML = '<option value="">any</option>' +
-    list.map((c) => `<option value="${c}">${c}</option>`).join("");
-  chanSel.value = list.includes(Number(prev)) ? prev : "";
-}
-
 function refreshLiveButtons() {
   const running = live.running, mode = live.mode;
   const capturing = running && mode === "airodump";
@@ -1580,7 +1554,8 @@ async function startLive() {
     const res = await API.liveStart(payload);
     live.mode = "airodump";
     live.channel = channel;
-    live.canDeauth = !!channel;
+    // Deauth needs a single fixed channel; a comma list makes airodump hop.
+    live.canDeauth = !!channel && channel.split(",").filter((s) => s.trim()).length === 1;
     openLiveSocket();
     setLiveUI(true);   // rewrites the button to "Stop live capture"
     const onIface =
@@ -1657,9 +1632,6 @@ document.getElementById("replay-toggle").onclick = () => {
   if (!live.loaded) return document.getElementById("file-input").click();
   return startReplay();
 };
-
-document.getElementById("live-band").addEventListener("change", populateChannelOptions);
-populateChannelOptions();   // seed the channel picker for the default band
 
 document.getElementById("live-iface-refresh").onclick = () => loadInterfaces();
 

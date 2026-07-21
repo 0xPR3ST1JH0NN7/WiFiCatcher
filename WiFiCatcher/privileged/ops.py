@@ -139,10 +139,15 @@ def _build_airodump(params: dict, iface: str, prefix: str) -> list[str]:
     cmd = ["airodump-ng", "--output-format", "pcap,csv", "-w", prefix]
     channel = params.get("channel")
     if channel:
+        # Accept a single channel or a comma list (e.g. "1,6,11"); airodump-ng
+        # takes them as -c 1,6,11 and hops among them.
         try:
-            cmd += ["-c", str(int(channel))]
+            chans = [str(int(t)) for t in str(channel).split(",") if t.strip()]
         except (TypeError, ValueError):
-            raise OpError("'channel' must be an integer.")
+            raise OpError("'channel' must be a number or comma list, e.g. 1,6,11.")
+        if not chans:
+            raise OpError("'channel' must be a number or comma list, e.g. 1,6,11.")
+        cmd += ["-c", ",".join(chans)]
     elif params.get("band") in _BAND_FLAGS:
         cmd += ["--band", _BAND_FLAGS[params["band"]]]
     if params.get("encrypt"):
