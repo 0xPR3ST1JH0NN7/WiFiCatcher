@@ -33,6 +33,7 @@ from WiFiCatcher.capture import (
 from WiFiCatcher.privileged import PrivClient, PrivError, PrivUnavailable
 from WiFiCatcher.enrichment import oui
 from WiFiCatcher.graph import WifiGraph
+from WiFiCatcher.models import normalize_mac
 from WiFiCatcher.operations import OperationError, enterprise
 
 router = APIRouter(prefix="/api")
@@ -394,6 +395,13 @@ async def live_start(req: LiveStartRequest):
                     status_code=400,
                     detail="Choose an existing, writable folder to save the "
                            "capture into before starting.")
+        # Validate the optional BSSID filter up front: an invalid one would
+        # otherwise fail deep in the helper after the capture "started", leaving
+        # an empty graph with no explanation.
+        if req.bssid and not normalize_mac(req.bssid):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid BSSID; use the AA:BB:CC:DD:EE:FF form.")
         # The helper enables monitor mode, runs airodump-ng and streams CSV +
         # handshake events back; source.interface / saved_path come from its
         # first event.

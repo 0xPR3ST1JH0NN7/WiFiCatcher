@@ -12,8 +12,13 @@ from typing import Optional
 
 
 def normalize_mac(mac: str) -> str:
-    """Return an upper-cased, whitespace-trimmed MAC. Empty if obviously invalid."""
-    mac = (mac or "").strip().upper()
+    """Return an upper-cased MAC in colon form. Empty if obviously invalid.
+
+    Hyphen-separated MACs (``AA-BB-CC-DD-EE-FF``, as some tools and paste sources
+    produce) are accepted and converted to the colon form, so a BSSID copied in
+    that shape still works.
+    """
+    mac = (mac or "").strip().upper().replace("-", ":")
     return mac if len(mac) == 17 and mac.count(":") == 5 else ""
 
 
