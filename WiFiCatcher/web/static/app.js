@@ -611,6 +611,70 @@ function refreshDetails(info) {
   attachCopyable(fields);
 }
 
+// Attack advisor: from the selected AP's security type, suggest which attack
+// families apply. Purely informational (no steps, no actions) — it orients the
+// operator toward the right approach for that network. Returns {family, items}
+// or null when the encryption is unknown / not one we advise on.
+function suggestAttacks(info) {
+  const priv = (info.privacy || "").toUpperCase();
+  if (info.enterprise || priv.includes("MGT")) {
+    return { family: "WPA/WPA2-Enterprise (802.1X)", items: [
+      "Domain user brute-force against the RADIUS login",
+      "EAP downgrade attack (force a weaker EAP method)",
+      "Evil Twin attack (rogue AP with a spoofed RADIUS)",
+      "PEAP relay attack",
+      "Attack EAP-TLS client authentication",
+      "EAP-MD5 offline crack (captured challenge/response)",
+    ] };
+  }
+  if (priv.includes("WEP")) {
+    return { family: "WEP", items: [
+      "ARP request replay attack (speed up IV collection)",
+      "Fragmentation attack",
+      "KoreK ChopChop attack",
+      "Caffe-Latte attack (client-side, no AP contact needed)",
+      "KoreK statistical WEP cracking",
+      "Brute-force WEP key cracking",
+    ] };
+  }
+  if (priv.includes("WPA")) {
+    let wps = "Check whether WPS is enabled and brute-force the PIN";
+    if (info.wps) wps += info.wps_locked
+      ? " (WPS present but locked here: PIN attack likely blocked)"
+      : " (WPS detected on this AP)";
+    return { family: "WPA/WPA2-PSK", items: [
+      wps,
+      "Capture the 4-way handshake, then dictionary-crack the PSK "
+        + "(deauth + handshake + cracking, or passive + handshake + cracking, "
+        + "or evil twin, or MANA attack + handshake capture)",
+      "PMKID attack on vulnerable APs "
+        + "(passive + PMKID capture + cracking, or PMKID request + capture + cracking)",
+    ] };
+  }
+  if (priv.includes("OPN") || priv.includes("OPEN")) {
+    return { family: "Open network", items: [
+      "No key to crack: capture traffic passively",
+      "Rogue AP / Evil Twin with a captive portal to harvest credentials",
+    ] };
+  }
+  return null;
+}
+
+// Collapsible "Suggested attacks" block for an AP, or "" when nothing applies.
+function attackAdvisorHtml(info) {
+  const s = suggestAttacks(info);
+  if (!s) return "";
+  const lis = s.items.map((t) => `<li>${escapeHtml(t)}</li>`).join("");
+  return `<details class="subpanel attack-advisor">
+    <summary>Suggested attacks</summary>
+    <div class="panel-body">
+      <p class="advisor-family">${escapeHtml(s.family)}</p>
+      <ul class="advisor-list">${lis}</ul>
+      <p class="advisor-note">Guidance only. Use exclusively on networks you are authorized to test.</p>
+    </div>
+  </details>`;
+}
+
 function showDetails(info) {
   const body = document.getElementById("details-body");
   const isAp = info.kind === "ap";
@@ -643,6 +707,11 @@ function showDetails(info) {
     entBtns += `<button class="btn" id="op-eap-btn">Enumerate EAP methods…</button>`;
   }
 
+  // Attack advisor is informational and static per AP, so it lives outside
+  // #detail-fields (which the live tick rebuilds) — otherwise opening it would
+  // snap shut on the next refresh.
+  const advisor = isAp ? attackAdvisorHtml(info) : "";
+
   body.innerHTML = `
     <span class="kind-badge ${info.kind}">${isAp ? "Access Point" : "Client"}</span>
     ${entBadge}
@@ -654,7 +723,8 @@ function showDetails(info) {
       ${offBtn}
       ${entBtns}
     </div>
-    <div id="enterprise-result"></div>`;
+    <div id="enterprise-result"></div>
+    ${advisor}`;
 
   const panel = document.getElementById("details");
   const wasHidden = panel.classList.contains("hidden");
