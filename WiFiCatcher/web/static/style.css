@@ -359,11 +359,16 @@ details.subpanel[open] > summary::after { transform: rotate(90deg); }
   margin: 12px 0 4px; font-weight: 700; color: var(--client);
   font-size: 12px; text-transform: uppercase; letter-spacing: .5px;
 }
-.attack-advisor .advisor-list { margin: 0 0 6px; padding-left: 16px; }
-.attack-advisor .advisor-list li { margin: 6px 0; line-height: 1.4; }
+/* Each attack sits in its own callout "bubble", with a left edge in the category
+   colour, so the side panel reads as a stack of cards rather than a plain list. */
+.attack-advisor .atk-card {
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-left: 3px solid var(--client); border-radius: 8px;
+  padding: 8px 10px; margin: 0 0 6px;
+}
 .attack-advisor .atk-name { display: block; font-weight: 600; font-size: 13px; }
-.attack-advisor .atk-desc { display: block; font-size: 12px; color: var(--muted); margin-top: 1px; }
-.attack-advisor .btn { width: 100%; margin-top: 6px; }
+.attack-advisor .atk-desc { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+.attack-advisor .btn { width: 100%; margin-top: 8px; }
 .attack-advisor .advisor-note { margin: 10px 0 0; font-size: 11px; color: var(--muted); }
 
 /* Attack path graph modal: a near full page card holding an on-demand Cytoscape
@@ -412,9 +417,13 @@ details.subpanel[open] > summary::after { transform: rotate(90deg); }
   display: flex; align-items: baseline; justify-content: space-between;
   gap: 8px; margin-bottom: 6px;
 }
-.chan-chips { display: flex; flex-wrap: wrap; gap: 5px; max-height: 132px; overflow-y: auto; }
+/* A precise grid of equal cells so every chip lines up in rows and columns. */
+.chan-chips {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: 5px; max-height: 176px; overflow-y: auto;
+}
 .chan-chip {
-  min-width: 30px; padding: 4px 7px; font-size: 12px; line-height: 1;
+  padding: 5px 0; font-size: 12px; line-height: 1; text-align: center;
   background: var(--panel); color: var(--text); cursor: pointer;
   border: 1px solid var(--border); border-radius: 7px;
   transition: background .12s, border-color .12s;

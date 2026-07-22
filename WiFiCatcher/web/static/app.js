@@ -621,10 +621,9 @@ function refreshDetails(info) {
 // attack tree as flat nodes with parent pointers (rendered as a graph on demand).
 const ATTACK_DATA = {
   "wpa-psk": {
-    family: "WPA and WPA2 PSK",
-    toasts: ["WPS PIN brute force","Pixie Dust on WPS","Handshake capture then offline crack","PMKID offline crack"],
+    family: "WPA/WPA2-PSK",
     nodes: [
-      {"id": "root", "parent": null, "label": "WPA/WPA2 PSK", "kind": "root"},
+      {"id": "root", "parent": null, "label": "WPA/WPA2-PSK", "kind": "root"},
       {"id": "g_wps", "parent": "root", "label": "WPS", "kind": "goal"},
       {"id": "wps_online", "parent": "g_wps", "label": "Online PIN brute force", "kind": "attack", "desc": "Reaver repeatedly guesses the router's eight digit setup PIN over the air until it yields the passphrase."},
       {"id": "wps_pixie", "parent": "g_wps", "label": "Offline Pixie Dust", "kind": "attack", "desc": "Pixiewps exploits weak random numbers in the router's setup exchange to compute the PIN offline almost instantly."},
@@ -635,7 +634,6 @@ const ATTACK_DATA = {
   },
   "wep": {
     family: "WEP (Wired Equivalent Privacy)",
-    toasts: ["ARP replay IV flood","Fragmentation keystream attack","ChopChop packet decrypt","Caffe Latte client attack","KoreK statistical crack"],
     nodes: [
       {"id": "root", "parent": null, "label": "WEP", "kind": "root"},
       {"id": "g_ivs", "parent": "root", "label": "Collect IVs", "kind": "goal"},
@@ -650,8 +648,7 @@ const ATTACK_DATA = {
     ],
   },
   "wpa-enterprise": {
-    family: "WPA2 Enterprise (802.1X)",
-    toasts: ["Password spray the login","Rogue RADIUS evil twin","EAP downgrade attack","MSCHAPv2 offline crack","EAP MD5 capture and crack"],
+    family: "WPA2-Enterprise",
     nodes: [
       {"id": "root", "parent": null, "label": "WPA2-Enterprise", "kind": "root"},
       {"id": "g_guess", "parent": "root", "label": "Guess the password", "kind": "goal"},
@@ -667,19 +664,17 @@ const ATTACK_DATA = {
   },
   "open": {
     family: "Open network",
-    toasts: ["Passive traffic capture","Evil twin access point","Rogue AP lure","Captive portal phishing","Man in the middle redirect"],
     nodes: [
       {"id": "root", "parent": null, "label": "Open network", "kind": "root"},
       {"id": "g_read", "parent": "root", "label": "Read the traffic", "kind": "goal"},
       {"id": "sniff", "parent": "g_read", "label": "Passive traffic capture", "kind": "attack", "desc": "Because an open network sends data unencrypted, anyone nearby can silently record packets and read the victim's browsing traffic."},
       {"id": "g_imp", "parent": "root", "label": "Impersonate the network", "kind": "goal"},
-      {"id": "twin", "parent": "g_imp", "label": "Evil twin access point", "kind": "attack", "desc": "The attacker broadcasts a fake access point using the same network name, tricking devices into connecting so their traffic is intercepted."},
+      {"id": "twin", "parent": "g_imp", "label": "Evil twin access point", "kind": "attack", "desc": "The attacker broadcasts a fake access point, cloning the network name or using an inviting one, so devices connect and their traffic is intercepted."},
       {"id": "portal", "parent": "twin", "label": "Captive portal phishing", "kind": "attack", "desc": "A fake login page appears after connecting, tricking users into entering passwords or personal details that the attacker quietly steals."},
       {"id": "mitm", "parent": "twin", "label": "Man in the middle", "kind": "attack", "desc": "The attacker reroutes the victim's traffic through their own device, letting them read or alter data while both sides suspect nothing."},
-      {"id": "rogue", "parent": "g_imp", "label": "Rogue AP lure", "kind": "attack", "desc": "A tempting open network with an inviting name is planted in a public place to attract victims and capture whatever they send."},
     ],
   },
-};;
+};;;
 
 // Classify a selected AP into an ATTACK_DATA key, or null when we don't advise.
 function classifyTech(info) {
@@ -726,15 +721,16 @@ function attackAdvisorHtml(info) {
     return out;
   };
   const cats = childrenOf(root.id).filter((n) => n.kind === "goal").map((cat) => {
+    // Each attack is its own little "bubble" card with its name and description.
     const items = attacksUnder(cat.id).map((a) =>
-      `<li><span class="atk-name">${escapeHtml(a.label)}</span>` +
-      (a.desc ? `<span class="atk-desc">${escapeHtml(a.desc)}</span>` : "") + `</li>`
+      `<div class="atk-card"><span class="atk-name">${escapeHtml(a.label)}</span>` +
+      (a.desc ? `<span class="atk-desc">${escapeHtml(a.desc)}</span>` : "") + `</div>`
     ).join("");
-    return `<p class="advisor-cat-name">${escapeHtml(cat.label)}</p><ul class="advisor-list">${items}</ul>`;
+    return `<p class="advisor-cat-name">${escapeHtml(cat.label)}</p>${items}`;
   }).join("");
   const note = s.key === "wpa-psk" ? wpsNote(info) : "";
   const noteHtml = note ? `<p class="advisor-wps">${escapeHtml(note)}</p>` : "";
-  return `<details class="subpanel attack-advisor" open>
+  return `<details class="subpanel attack-advisor">
     <summary>Suggested attacks</summary>
     <div class="panel-body">
       <p class="advisor-family">${escapeHtml(s.data.family)}</p>
@@ -823,7 +819,6 @@ function closeAttackModal() {
 function showDetails(info) {
   const body = document.getElementById("details-body");
   const isAp = info.kind === "ap";
-  const prevDetailId = detailNodeId;
   detailNodeId = info.id;
   const title = isAp ? info.essid || "&lt;Hidden&gt;" : info.id;
   const clientAssociated =
@@ -887,13 +882,6 @@ function showDetails(info) {
   if (eapBtn) eapBtn.onclick = () => openEapModal(info);
   const treeBtn = document.getElementById("attack-tree-btn");
   if (treeBtn) treeBtn.onclick = () => openAttackModal(classifyTech(info));
-
-  // On a genuinely new AP selection, flash its suggested attacks across the bar
-  // (one toast per attack type) so they are noticed, not just parked in the panel.
-  if (isAp && info.id !== prevDetailId) {
-    const s = suggestAttacks(info);
-    if (s) toastSequence(s.data.toasts, "info");
-  }
 
   // The panel docks on the right and shrinks the graph area; reflow Cytoscape
   // into the new size and, when it just opened, keep the node beside the panel.
@@ -1850,6 +1838,11 @@ async function startLive() {
     acknowledged: true,
   };
   closeDetails();   // a fresh scan: drop any stale node details from the last one
+  // Wipe the previous session's graph and zero the Overview right away, so a new
+  // scan starts from a clean slate instead of showing the old counts.
+  cy.elements().remove();
+  updateStats({});
+  setEmptyState(true);
   // Enabling monitor mode (airmon-ng) takes a couple of seconds, so show a
   // spinner on the button right away — mirrors the "Stopping…" state on stop.
   const btn = document.getElementById("live-toggle");
@@ -2030,21 +2023,6 @@ function toast(msg, kind) {
   el.className = "toast" + (kind ? " " + kind : "");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.add("hidden"), 3500);
-}
-
-// Show a short series of toasts, one after another, on the bar. Each toast resets
-// its own hide timer, so stepping faster than that keeps the bar continuously up
-// until the last one fades. Used to surface an AP's suggested attacks.
-let toastSeqTimer = null;
-function toastSequence(messages, kind) {
-  clearTimeout(toastSeqTimer);
-  let i = 0;
-  const step = () => {
-    if (i >= messages.length) return;
-    toast(messages[i++], kind);
-    toastSeqTimer = setTimeout(step, 2600);
-  };
-  step();
 }
 
 function escapeHtml(value) {
