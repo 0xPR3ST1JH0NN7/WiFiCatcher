@@ -106,10 +106,24 @@ const cy = cytoscape({
       selector: 'node[kind = "client"][?unassociated]',
       style: { "background-image-opacity": 0.4 },
     },
+    // Per-encryption AP icons (same router, different coloured waves). Order
+    // matters: enterprise is last so an 802.1X AP keeps its purple waves even
+    // when its privacy string also matches WPA3.
+    {
+      selector: 'node[kind = "ap"][privacy *= "WEP"]',
+      style: { "background-image": "/static/img/node-ap-wep.svg?v=1" },
+    },
+    {
+      selector: 'node[kind = "ap"][privacy *= "OPN"]',
+      style: { "background-image": "/static/img/node-ap-open.svg?v=1" },
+    },
+    {
+      selector: 'node[kind = "ap"][privacy *= "WPA3"]',
+      style: { "background-image": "/static/img/node-ap-wpa3.svg?v=1" },
+    },
     {
       selector: 'node[kind = "ap"][?enterprise]',
-      style: { "background-image": "/static/img/node-ap-enterprise.svg?v=1",
-               "border-color": "#a78bfa", "border-width": 4 },
+      style: { "background-image": "/static/img/node-ap-enterprise.svg?v=1" },
     },
     {
       selector: "edge",
@@ -241,11 +255,24 @@ function updateStats(s) {
   document.getElementById("stat-hidden").textContent = s.hidden_aps ?? 0;
 }
 
+// A user-facing WiFi technology label for an AP, so the graph filter groups by
+// real technology (e.g. WPA2-Enterprise vs WPA/WPA2-PSK) rather than the raw
+// airodump privacy string. Order matters: enterprise and WPA3 come first.
+function apTechLabel(d) {
+  const priv = (d.privacy || "").toUpperCase();
+  if (d.enterprise || priv.includes("MGT")) return "WPA2-Enterprise";
+  if (priv.includes("WEP")) return "WEP";
+  if (priv.includes("WPA3")) return "WPA3";
+  if (priv.includes("WPA")) return "WPA/WPA2-PSK";
+  if (priv.includes("OPN") || priv.includes("OPEN")) return "Open";
+  return d.privacy || "Unknown";
+}
+
 function populateFilterOptions() {
   const encs = new Set();
   const chans = new Set();
   cy.nodes('[kind = "ap"]').forEach((n) => {
-    if (n.data("privacy")) encs.add(n.data("privacy"));
+    encs.add(apTechLabel(n.data()));
     if (n.data("channel")) chans.add(n.data("channel"));
   });
   fillSelect("filter-enc", [...encs].sort());
@@ -288,7 +315,7 @@ function applyFilters() {
       let show = true;
       if (kind === "ap") {
         if (!showAps) show = false;
-        if (enc && n.data("privacy") !== enc) show = false;
+        if (enc && apTechLabel(n.data()) !== enc) show = false;
         if (chan && String(n.data("channel")) !== chan) show = false;
       } else {
         if (!showClients) show = false;
@@ -1633,11 +1660,10 @@ function refreshLiveButtons() {
     ? "Replays the loaded capture node by node."
     : "Import an airodump-ng CSV file (.csv) to enable replay.";
 
-  // Encryption / channel filters only carry meaning for an imported capture or
-  // its replay — a live airodump session doesn't populate them, so hide them
-  // while one is running (the Layout filter stays available).
+  // The technology / channel filters apply to whatever is on the graph, so keep
+  // them available during a live capture too (they filter the current scan).
   const repFilters = document.getElementById("replay-filters");
-  if (repFilters) repFilters.classList.toggle("hidden", capturing);
+  if (repFilters) repFilters.classList.remove("hidden");
 }
 
 function setLiveUI(running) {
@@ -1823,6 +1849,12 @@ async function startLive() {
     acknowledged: true,
   };
   closeDetails();   // a fresh scan: drop any stale node details from the last one
+  // Switching to a live scan discards any imported capture still loaded for
+  // replay, so the two never mix.
+  if (live.loaded) {
+    try { await API.clear(); } catch (e) { /* ignore */ }
+    live.loaded = false;
+  }
   // Wipe the previous session's graph and zero the Overview right away, so a new
   // scan starts from a clean slate instead of showing the old counts.
   cy.elements().remove();
