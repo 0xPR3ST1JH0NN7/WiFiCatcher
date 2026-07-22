@@ -268,6 +268,12 @@ function apTechLabel(d) {
   return d.privacy || "Unknown";
 }
 
+// Technology label -> a CSS class suffix for the coloured detail-panel badge.
+const TECH_CLASS = {
+  "WPA/WPA2-PSK": "psk", "WEP": "wep", "Open": "open",
+  "WPA3": "wpa3", "WPA2-Enterprise": "ent",
+};
+
 function populateFilterOptions() {
   const encs = new Set();
   const chans = new Set();
@@ -651,9 +657,9 @@ const ATTACK_DATA = {
     family: "WPA/WPA2-PSK",
     nodes: [
       {"id": "root", "parent": null, "label": "WPA/WPA2-PSK", "kind": "root"},
-      {"id": "g_psk", "parent": "root", "label": "Crack the passphrase", "kind": "goal"},
-      {"id": "hs", "parent": "g_psk", "label": "4-way handshake capture and crack", "kind": "attack", "desc": "Capture the 4-way handshake when a client connects, or force it with deauth packets, then crack the password offline with a wordlist."},
-      {"id": "pmkid", "parent": "g_psk", "label": "PMKID capture and offline crack", "kind": "attack", "desc": "Capture the PMKID when a client connects, via deauth, or by exploiting vulnerable routers with a single association request using hcxdumptool, then crack it offline."},
+      {"id": "g_psk", "parent": "root", "label": "Offline Cracking", "kind": "goal"},
+      {"id": "hs", "parent": "g_psk", "label": "4-way handshake capture and crack", "kind": "attack", "desc": "Capture the 4-way handshake when a client connects, or force it with deauth packets, then crack the password offline."},
+      {"id": "pmkid", "parent": "g_psk", "label": "PMKID capture and crack", "kind": "attack", "desc": "Capture the PMKID when a client connects, via deauth, or by exploiting vulnerable routers with a single association request using hcxdumptool, then crack it offline."},
       {"id": "g_wps", "parent": "root", "label": "WPS", "kind": "goal"},
       {"id": "wps_online", "parent": "g_wps", "label": "Online PIN brute force", "kind": "attack", "desc": "An interactive attack that keeps trying WPS PINs against the access point until it finds the valid one, using a tool such as Reaver."},
       {"id": "wps_pixie", "parent": "g_wps", "label": "Offline Pixie Dust", "kind": "attack", "desc": "Exploits weak random values in the WPS setup exchange to recover the PIN offline in seconds, using a tool such as pixiewps."},
@@ -856,10 +862,13 @@ function showDetails(info) {
     offBtn = `<button class="btn danger" id="op-deauth-btn">Deauth from AP</button>`;
   }
 
-  // Enterprise (802.1X) badge is informational; its actions need a live capture.
+  // Enterprise (802.1X) actions need a live capture.
   const enterprise = isAp && info.enterprise;
-  const entBadge = enterprise
-    ? `<span class="kind-badge enterprise">802.1X Enterprise</span>` : "";
+  // A technology badge on every AP (coloured to match its icon), so enterprise
+  // is not the only kind that gets a tag.
+  const techBadge = isAp
+    ? `<span class="tech-badge tech-${TECH_CLASS[apTechLabel(info)] || "psk"}">${escapeHtml(apTechLabel(info))}</span>`
+    : "";
   // The RADIUS cert button appears only once the helper has actually captured
   // the certificate live for this AP (it rides along in the node details).
   const certReady = enterprise && info.radius_certs && info.radius_certs.length;
@@ -877,7 +886,7 @@ function showDetails(info) {
 
   body.innerHTML = `
     <span class="kind-badge ${info.kind}">${isAp ? "Access Point" : "Client"}</span>
-    ${entBadge}
+    ${techBadge}
     <h3>${escapeHtml(title)}</h3>
     <div id="detail-fields">${buildDetailFields(info)}</div>
     <div class="actions">

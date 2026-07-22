@@ -673,7 +673,17 @@ code { background: var(--panel); padding: 1px 5px; border-radius: 4px; font-size
 }
 .kind-badge.ap { background: rgba(255,93,108,.15); color: var(--ap); }
 .kind-badge.client { background: rgba(77,166,255,.15); color: var(--client); }
-.kind-badge.enterprise { background: rgba(167,139,250,.15); color: #a78bfa; margin-left: 6px; }
+/* Per-AP technology tag, coloured to match the node's icon waves. */
+.details .tech-badge {
+  display: inline-block; font-size: 11px; text-transform: uppercase;
+  letter-spacing: 1px; padding: 3px 8px; border-radius: 20px;
+  margin-bottom: 14px; margin-left: 6px;
+}
+.tech-badge.tech-psk { background: rgba(255,93,108,.15); color: #ff5d6c; }
+.tech-badge.tech-wep { background: rgba(52,211,153,.15); color: #34d399; }
+.tech-badge.tech-open { background: rgba(255,255,255,.12); color: #e6edf3; }
+.tech-badge.tech-wpa3 { background: rgba(56,189,248,.15); color: #38bdf8; }
+.tech-badge.tech-ent { background: rgba(167,139,250,.15); color: #a78bfa; }
 #enterprise-result, #cert-modal-body { margin-top: 12px; }
 #enterprise-result h4, #cert-modal-body h4 { margin: 14px 0 6px; font-size: 14px; }
 #enterprise-result code, #cert-modal-body code { word-break: break-all; }
