@@ -630,9 +630,12 @@ const ATTACK_DATA = {
     toasts: ["WPS PIN brute force", "Pixie Dust on WPS", "Handshake capture then offline crack", "PMKID offline crack"],
     nodes: [
       {"id": "root", "parent": null, "label": "WPA/WPA2 PSK", "kind": "root"},
-      {"id": "wps", "parent": "root", "label": "WPS PIN brute force", "kind": "attack"},
-      {"id": "hs", "parent": "root", "label": "Four way handshake capture and crack", "kind": "attack"},
-      {"id": "pmkid", "parent": "root", "label": "PMKID capture and offline crack", "kind": "attack"},
+      {"id": "g_wps", "parent": "root", "label": "WPS", "kind": "goal"},
+      {"id": "wps_online", "parent": "g_wps", "label": "Online PIN brute force", "kind": "attack"},
+      {"id": "wps_pixie", "parent": "g_wps", "label": "Offline Pixie Dust", "kind": "attack"},
+      {"id": "g_psk", "parent": "root", "label": "Crack the passphrase", "kind": "goal"},
+      {"id": "hs", "parent": "g_psk", "label": "Four way handshake capture and crack", "kind": "attack"},
+      {"id": "pmkid", "parent": "g_psk", "label": "PMKID capture and offline crack", "kind": "attack"},
     ],
   },
   "wep": {
@@ -648,12 +651,15 @@ const ATTACK_DATA = {
     toasts: ["ARP replay IV flood", "Fragmentation keystream attack", "ChopChop packet decrypt", "Caffe Latte client attack", "KoreK statistical crack"],
     nodes: [
       {"id": "root", "parent": null, "label": "WEP", "kind": "root"},
-      {"id": "arp", "parent": "root", "label": "ARP replay to collect IVs", "kind": "attack"},
-      {"id": "frag", "parent": "root", "label": "Fragmentation attack", "kind": "attack"},
-      {"id": "chop", "parent": "root", "label": "ChopChop attack", "kind": "attack"},
-      {"id": "caffe", "parent": "root", "label": "Caffe Latte client attack", "kind": "attack"},
-      {"id": "korek", "parent": "root", "label": "KoreK statistical crack", "kind": "attack"},
-      {"id": "brute", "parent": "root", "label": "Brute force key crack", "kind": "attack"},
+      {"id": "g_ivs", "parent": "root", "label": "Collect IVs", "kind": "goal"},
+      {"id": "arp", "parent": "g_ivs", "label": "ARP request replay", "kind": "attack"},
+      {"id": "frag", "parent": "g_ivs", "label": "Fragmentation attack", "kind": "attack"},
+      {"id": "chop", "parent": "g_ivs", "label": "ChopChop attack", "kind": "attack"},
+      {"id": "g_client", "parent": "root", "label": "Attack a client", "kind": "goal"},
+      {"id": "caffe", "parent": "g_client", "label": "Caffe Latte attack", "kind": "attack"},
+      {"id": "g_crack", "parent": "root", "label": "Crack the key", "kind": "goal"},
+      {"id": "korek", "parent": "g_crack", "label": "KoreK statistical crack", "kind": "attack"},
+      {"id": "brute", "parent": "g_crack", "label": "Brute force key crack", "kind": "attack"},
     ],
   },
   "wpa-enterprise": {
@@ -668,14 +674,16 @@ const ATTACK_DATA = {
     ],
     toasts: ["Password spray the login", "Rogue RADIUS evil twin", "EAP downgrade attack", "MSCHAPv2 offline crack", "EAP MD5 capture and crack"],
     nodes: [
-      {"id": "root", "parent": null, "label": "WPA2 Enterprise (802.1X)", "kind": "root"},
-      {"id": "spray", "parent": "root", "label": "Password spray the login", "kind": "attack"},
-      {"id": "twin", "parent": "root", "label": "Rogue RADIUS evil twin", "kind": "attack"},
-      {"id": "downgrade", "parent": "root", "label": "EAP downgrade", "kind": "attack"},
-      {"id": "mschap", "parent": "root", "label": "MSCHAPv2 offline crack", "kind": "attack"},
-      {"id": "peap", "parent": "root", "label": "PEAP relay", "kind": "attack"},
-      {"id": "eaptls", "parent": "root", "label": "EAP TLS certificate attack", "kind": "attack"},
-      {"id": "eapmd5", "parent": "root", "label": "EAP MD5 capture and crack", "kind": "attack"},
+      {"id": "root", "parent": null, "label": "WPA2-Enterprise", "kind": "root"},
+      {"id": "g_guess", "parent": "root", "label": "Guess the password", "kind": "goal"},
+      {"id": "spray", "parent": "g_guess", "label": "Password spraying or bruteforcing", "kind": "attack"},
+      {"id": "g_twin", "parent": "root", "label": "Evil twin", "kind": "goal"},
+      {"id": "mschap", "parent": "g_twin", "label": "Capture and crack MSCHAPv2", "kind": "attack"},
+      {"id": "downgrade", "parent": "g_twin", "label": "EAP downgrade", "kind": "attack"},
+      {"id": "peap", "parent": "g_twin", "label": "PEAP relay", "kind": "attack"},
+      {"id": "g_method", "parent": "root", "label": "Break the EAP method", "kind": "goal"},
+      {"id": "eaptls", "parent": "g_method", "label": "EAP TLS certificate attack", "kind": "attack"},
+      {"id": "eapmd5", "parent": "g_method", "label": "EAP MD5 capture and crack", "kind": "attack"},
     ],
   },
   "open": {
@@ -690,11 +698,14 @@ const ATTACK_DATA = {
     toasts: ["Passive traffic capture", "Evil twin access point", "Rogue AP lure", "Captive portal phishing", "Man in the middle redirect"],
     nodes: [
       {"id": "root", "parent": null, "label": "Open network", "kind": "root"},
-      {"id": "sniff", "parent": "root", "label": "Passive traffic capture", "kind": "attack"},
-      {"id": "twin", "parent": "root", "label": "Evil twin access point", "kind": "attack"},
-      {"id": "rogue", "parent": "root", "label": "Rogue AP lure", "kind": "attack"},
-      {"id": "portal", "parent": "root", "label": "Captive portal phishing", "kind": "attack"},
-      {"id": "mitm", "parent": "root", "label": "Man in the middle", "kind": "attack"},
+      {"id": "g_capture", "parent": "root", "label": "Read the traffic", "kind": "goal"},
+      {"id": "sniff", "parent": "g_capture", "label": "Passive traffic capture", "kind": "attack"},
+      {"id": "g_imp", "parent": "root", "label": "Impersonate the network", "kind": "goal"},
+      {"id": "twin", "parent": "g_imp", "label": "Evil twin access point", "kind": "attack"},
+      {"id": "rogue", "parent": "g_imp", "label": "Rogue AP lure", "kind": "attack"},
+      {"id": "g_harvest", "parent": "root", "label": "Harvest credentials", "kind": "goal"},
+      {"id": "portal", "parent": "g_harvest", "label": "Captive portal phishing", "kind": "attack"},
+      {"id": "mitm", "parent": "g_harvest", "label": "Man in the middle", "kind": "attack"},
     ],
   },
 };
@@ -760,7 +771,7 @@ function openAttackModal(key) {
   const root = data.nodes.find((n) => n.parent === null) || data.nodes[0];
   const kids = {};
   for (const n of data.nodes) if (n.parent) (kids[n.parent] = kids[n.parent] || []).push(n.id);
-  const XS = 280, YS = 72, pos = {};
+  const XS = 300, YS = 72, pos = {};
   let leaf = 0;
   (function place(id, depth) {
     const cs = kids[id] || [];
@@ -777,7 +788,7 @@ function openAttackModal(key) {
   }
   document.getElementById("attack-modal").classList.remove("hidden");
   if (attackCy) { attackCy.destroy(); attackCy = null; }
-  const accent = _cssVar("--accent"),
+  const accent = _cssVar("--accent"), client = _cssVar("--client"),
     panel2 = _cssVar("--panel-2"),
     text = _cssVar("--text"), muted = _cssVar("--muted"),
     font = _cssVar("--font") || "inherit",
@@ -788,14 +799,17 @@ function openAttackModal(key) {
     style: [
       { selector: "node", style: {
           label: "data(label)", "font-family": font, "text-wrap": "wrap",
-          "text-max-width": "160px", "font-size": "12px", color: text,
+          "text-max-width": "150px", "font-size": "12px", color: text,
           "text-valign": "center", "text-halign": "center",
           "background-color": panel2, "background-opacity": 1,
           "border-width": 2, "border-color": accent,
           shape: "round-rectangle", width: "label", height: "label", padding: "11px" } },
-      // The target sits on the left, filled; every attack branches off it.
+      // The target sits on the left, filled. Category nodes (goals) are filled in
+      // the client blue; the concrete attacks keep the accent outline.
       { selector: 'node[kind="root"]', style: {
           "background-color": accent, color: onColor, "font-weight": "bold", "border-width": 0 } },
+      { selector: 'node[kind="goal"]', style: {
+          "background-color": client, color: onColor, "font-weight": "bold", "border-width": 0 } },
       // Thin orthogonal (taxi) connectors flowing rightward: the structured tree
       // look preferred over fat diagonal arrows.
       { selector: "edge", style: {
