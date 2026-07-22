@@ -669,7 +669,7 @@ const ATTACK_DATA = {
       {"id": "g_read", "parent": "root", "label": "Read the traffic", "kind": "goal"},
       {"id": "sniff", "parent": "g_read", "label": "Passive traffic capture", "kind": "attack", "desc": "Because an open network sends data unencrypted, anyone nearby can silently record packets and read the victim's browsing traffic."},
       {"id": "g_imp", "parent": "root", "label": "Impersonate the network", "kind": "goal"},
-      {"id": "twin", "parent": "g_imp", "label": "Evil twin access point", "kind": "attack", "desc": "The attacker broadcasts a fake access point, cloning the network name or using an inviting one, so devices connect and their traffic is intercepted."},
+      {"id": "twin", "parent": "g_imp", "label": "Evil twin", "kind": "attack", "desc": "The attacker broadcasts a fake access point, cloning the network name or using an inviting one, so devices connect and their traffic is intercepted."},
       {"id": "portal", "parent": "twin", "label": "Captive portal phishing", "kind": "attack", "desc": "A fake login page appears after connecting, tricking users into entering passwords or personal details that the attacker quietly steals."},
       {"id": "mitm", "parent": "twin", "label": "Man in the middle", "kind": "attack", "desc": "The attacker reroutes the victim's traffic through their own device, letting them read or alter data while both sides suspect nothing."},
     ],
