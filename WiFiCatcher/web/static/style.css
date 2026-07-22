@@ -526,6 +526,22 @@ code { background: var(--panel); padding: 1px 5px; border-radius: 4px; font-size
 .legend-collapse:hover { background: var(--panel-2); color: var(--text); }
 .legend-collapse::after { content: "\2013"; }              /* en-dash: collapse */
 .graph-legend.collapsed .legend-collapse::after { content: "+"; }
+.legend-header-btns { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+/* Small "i" that opens the node-colour legend. */
+.legend-info { width: 20px; height: 20px; border-radius: 50%; cursor: pointer;
+  background: none; border: 1px solid var(--border); color: var(--muted);
+  font: italic 700 12px/1 "Georgia", serif; padding: 0; }
+.legend-info:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Node-colour legend modal: an icon per node type with a one-line explanation. */
+.node-legend-sub { color: var(--muted); font-size: 12.5px; margin: 2px 0 10px; }
+.node-legend-list { list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 12px; }
+.node-legend-list li { display: flex; align-items: center; gap: 12px; }
+.node-legend-list img { width: 34px; height: 34px; flex: 0 0 auto; }
+.node-legend-list .faded-ico { opacity: .45; }
+.node-legend-list strong { display: block; font-size: 14px; }
+.node-legend-list span { color: var(--muted); font-size: 12.5px; }
 .legend-toggle {
   display: flex; align-items: center; gap: 8px; width: 100%;
   background: none; border: none; color: var(--text); cursor: pointer;

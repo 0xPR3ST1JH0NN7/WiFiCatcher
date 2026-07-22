@@ -1530,6 +1530,18 @@ document.getElementById("attack-modal").addEventListener("click", (e) => {
   if (e.target.id === "attack-modal") closeAttackModal();
 });
 
+// Node-colour legend: the "i" in the filters header opens it; close via × or backdrop.
+const nodeLegendModal = document.getElementById("node-legend-modal");
+document.getElementById("legend-info").onclick = (e) => {
+  e.stopPropagation();   // don't let the click reach the legend collapse/dim logic
+  nodeLegendModal.classList.remove("hidden");
+};
+document.getElementById("node-legend-close").onclick = () =>
+  nodeLegendModal.classList.add("hidden");
+nodeLegendModal.addEventListener("click", (e) => {
+  if (e.target.id === "node-legend-modal") nodeLegendModal.classList.add("hidden");
+});
+
 /* --------------------------------------------------------------- wiring up */
 async function openNode(id) {
   try {
@@ -1840,6 +1852,10 @@ function refreshLiveButtons() {
 function setLiveUI(running) {
   live.running = running;
   refreshLiveButtons();
+  // Stopping a live capture (or a replay) reveals the scan filters; build their
+  // options from whatever ended up on the graph so the menus are ready to use.
+  // (During a live capture they stay hidden, so they are populated only now.)
+  if (!running) populateFilterOptions();
 }
 
 // Where to drop freshly discovered nodes: the middle of the current graph, or

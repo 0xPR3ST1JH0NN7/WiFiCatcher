@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32.png?v=2"/>
   <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon-16.png?v=2"/>
   <link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png?v=2"/>
-  <link rel="stylesheet" href="/static/style.css?v=34"/>
+  <link rel="stylesheet" href="/static/style.css?v=35"/>
   <script src="/static/vendor/cytoscape.min.js"></script>
   <script src="/static/vendor/layout-base.js"></script>
   <script src="/static/vendor/cose-base.js"></script>
@@ -227,8 +227,12 @@
       <div class="graph-legend hidden" id="graph-legend">
         <div class="legend-header">
           <span class="legend-title">Filters &amp; view</span>
-          <button type="button" class="legend-collapse" id="legend-collapse"
-                  title="Hide filters" aria-label="Hide filters" aria-expanded="true"></button>
+          <div class="legend-header-btns">
+            <button type="button" class="legend-info" id="legend-info"
+                    title="What the node colours mean" aria-label="Node colour legend">i</button>
+            <button type="button" class="legend-collapse" id="legend-collapse"
+                    title="Hide filters" aria-label="Hide filters" aria-expanded="true"></button>
+          </div>
         </div>
         <div class="legend-content" id="legend-content">
           <button type="button" class="legend-toggle" id="lt-aps" data-filter="aps">
@@ -237,20 +241,18 @@
             <img class="legend-ico" src="/static/img/node-client.svg?v=1" alt=""/> Clients</button>
           <button type="button" class="legend-toggle" id="lt-unassoc" data-filter="unassoc">
             <img class="legend-ico faded-ico" src="/static/img/node-client.svg?v=1" alt=""/> Unassociated</button>
-          <div class="legend-filters">
-            <div id="replay-filters">
-              <div class="filter-row">Technology
-                <div class="multi-select" id="filter-enc"></div>
-              </div>
-              <div class="filter-row">Channel
-                <div class="multi-select" id="filter-chan"></div>
-              </div>
-              <div class="filter-row">ESSID
-                <div class="multi-select" id="filter-essid"></div>
-              </div>
-              <div class="filter-row">BSSID
-                <div class="multi-select" id="filter-bssid"></div>
-              </div>
+          <div class="legend-filters" id="replay-filters">
+            <div class="filter-row">Technology
+              <div class="multi-select" id="filter-enc"></div>
+            </div>
+            <div class="filter-row">Channel
+              <div class="multi-select" id="filter-chan"></div>
+            </div>
+            <div class="filter-row">ESSID
+              <div class="multi-select" id="filter-essid"></div>
+            </div>
+            <div class="filter-row">BSSID
+              <div class="multi-select" id="filter-bssid"></div>
             </div>
           </div>
           <p class="legend-hint">Click an item to filter · click a node for details</p>
@@ -360,8 +362,32 @@
     </div>
   </div>
 
+  <div id="node-legend-modal" class="modal hidden">
+    <div class="modal-card">
+      <button class="details-close" id="node-legend-close" aria-label="Close">&times;</button>
+      <h3>What the nodes mean</h3>
+      <p class="node-legend-sub">Access-point icons are coloured by their security type.</p>
+      <ul class="node-legend-list">
+        <li><img src="/static/img/node-ap.svg?v=1" alt=""/>
+          <div><strong>WPA / WPA2-PSK</strong><span>Standard personal Wi-Fi. Red waves.</span></div></li>
+        <li><img src="/static/img/node-ap-wpa3.svg?v=1" alt=""/>
+          <div><strong>WPA3</strong><span>Modern personal Wi-Fi using SAE. Blue waves.</span></div></li>
+        <li><img src="/static/img/node-ap-enterprise.svg?v=1" alt=""/>
+          <div><strong>WPA2-Enterprise</strong><span>802.1X / RADIUS network. Purple waves.</span></div></li>
+        <li><img src="/static/img/node-ap-wep.svg?v=1" alt=""/>
+          <div><strong>WEP</strong><span>Legacy, easily broken encryption. Green waves.</span></div></li>
+        <li><img src="/static/img/node-ap-open.svg?v=1" alt=""/>
+          <div><strong>Open</strong><span>No encryption at all. White waves.</span></div></li>
+        <li><img src="/static/img/node-client.svg?v=1" alt=""/>
+          <div><strong>Client</strong><span>A device associated to an access point.</span></div></li>
+        <li><img class="faded-ico" src="/static/img/node-client.svg?v=1" alt=""/>
+          <div><strong>Unassociated client</strong><span>A device not linked to any access point.</span></div></li>
+      </ul>
+    </div>
+  </div>
+
   <div id="toast" class="toast hidden"></div>
 
-  <script src="/static/app.js?v=41"></script>
+  <script src="/static/app.js?v=42"></script>
 </body>
 </html>
