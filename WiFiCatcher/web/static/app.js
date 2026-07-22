@@ -1549,7 +1549,6 @@ function setDisabled(ids, disabled) {
 const CH_24 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
 const CH_5 = [36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120,
   124, 128, 132, 136, 140, 144, 149, 153, 157, 161, 165];
-const NONOVERLAP_24 = new Set([1, 6, 11]);
 
 function channelsForBand(band) {
   if (band === "5") return CH_5;
@@ -1575,18 +1574,9 @@ function renderChannelChips() {
   const band = (document.getElementById("live-band") || {}).value || "2.4";
   let html = `<button type="button" class="chan-chip any on" data-ch="">Any</button>`;
   for (const c of channelsForBand(band)) {
-    const rec = band !== "5" && NONOVERLAP_24.has(c);
-    html += `<button type="button" class="chan-chip${rec ? " rec" : ""}"`
-      + `${rec ? ' title="Non-overlapping 2.4 GHz channel"' : ""}`
-      + ` data-ch="${c}">${c}</button>`;
+    html += `<button type="button" class="chan-chip" data-ch="${c}">${c}</button>`;
   }
   wrap.innerHTML = html;
-  const hint = document.getElementById("live-channel-hint");
-  if (hint) hint.textContent = band === "5"
-    ? "pick one or more, or Any"
-    : band === "both"
-      ? "both bands; 1/6/11 don't overlap"
-      : "1 / 6 / 11 don't overlap";
   syncChannelValue();
 }
 

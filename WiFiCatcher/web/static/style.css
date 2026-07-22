@@ -419,13 +419,11 @@ details.subpanel[open] > summary::after { transform: rotate(90deg); }
   transition: background .12s, border-color .12s;
 }
 .chan-chip:hover { border-color: var(--accent); }
-.chan-chip.rec { border-color: var(--accent); }   /* non-overlapping 2.4 GHz */
 .chan-chip.on {
   background: var(--accent); border-color: var(--accent);
   color: var(--btn-primary-text); font-weight: 600;
 }
 .chan-chip:disabled { opacity: .45; cursor: not-allowed; }
-.chan-hint { font-size: 11px; color: var(--muted); text-align: right; }
 .iface-pick { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
 .iface-pick select { background: var(--panel); color: var(--text);
   border: 1px solid var(--border); border-radius: 7px; padding: 5px 8px;
