@@ -302,6 +302,18 @@ class CaptureController:
         """EAP Response/Identity usernames captured live for an AP, if any."""
         return self._eap_ids.get((bssid or "").upper())
 
+    def all_eap_identities(self) -> list:
+        """Every distinct EAP identity captured so far, across all APs."""
+        seen: set = set()
+        out: list = []
+        for ids in self._eap_ids.values():
+            for entry in ids:
+                name = entry.get("identity")
+                if name and name not in seen:
+                    seen.add(name)
+                    out.append(name)
+        return out
+
     async def _poll_handshakes(self) -> None:
         if not self._handshakes:
             return

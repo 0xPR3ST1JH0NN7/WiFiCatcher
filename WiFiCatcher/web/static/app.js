@@ -19,6 +19,12 @@ const API = {
       body: JSON.stringify(payload),
     }),
   eapStatus: () => fetchJSON("/api/operations/enterprise/eap-methods/status"),
+  eapIdentitiesAll: () => fetchJSON("/api/operations/enterprise/eap-identities"),
+  ensureMonitor: (iface) =>
+    fetchJSON("/api/live/monitor", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ interface: iface }),
+    }),
   liveStopForEap: (iface) =>
     fetchJSON("/api/live/stop-for-eap", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -999,12 +1005,10 @@ function showDetails(info) {
   // The RADIUS cert button appears only once the helper has actually captured
   // the certificate live for this AP (it rides along in the node details).
   const certReady = enterprise && info.radius_certs && info.radius_certs.length;
-  let entBtns = "";
-  if (enterprise && liveActive) {
-    if (certReady)
-      entBtns += `<button class="btn" id="op-cert-btn">Read RADIUS cert</button>`;
-    entBtns += `<button class="btn" id="op-eap-btn">Enumerate EAP methods</button>`;
-  }
+  // RADIUS cert button appears only once the helper has captured it live for
+  // this AP. EAP enumeration is a standalone tool in the Enterprise panel.
+  const entBtns = certReady
+    ? `<button class="btn" id="op-cert-btn">Read RADIUS cert</button>` : "";
 
   // Attack advisor is informational and static per AP, so it lives outside
   // #detail-fields (which the live tick rebuilds) — otherwise opening it would
@@ -1022,7 +1026,6 @@ function showDetails(info) {
       ${offBtn}
       ${entBtns}
     </div>
-    <div id="enterprise-result"></div>
     ${advisor}`;
 
   const panel = document.getElementById("details");
@@ -1036,8 +1039,6 @@ function showDetails(info) {
   if (deauthBtn) deauthBtn.onclick = () => openDeauthModal(info);
   const certBtn = document.getElementById("op-cert-btn");
   if (certBtn) certBtn.onclick = () => inspectCert(info);
-  const eapBtn = document.getElementById("op-eap-btn");
-  if (eapBtn) eapBtn.onclick = () => openEapModal(info);
   const treeBtn = document.getElementById("attack-tree-btn");
   if (treeBtn) treeBtn.onclick = () => openAttackModal(info);
 
@@ -1175,77 +1176,13 @@ function openDeauthModal(info) {
   document.getElementById("op-modal").classList.remove("hidden");
 }
 
-// Enterprise: enumerate EAP methods for an AP's ESSID (active; root + ack).
-function openEapModal(info) {
-  pendingOp = { type: "eap", essid: info.essid || "" };
-  document.getElementById("op-title").textContent = "Enumerate EAP methods";
-  // Domain users already captured on this AP's handshakes, offered as one-click
-  // fills for the identity field.
-  const caught = [...new Set((info.eap_identities || []).map((e) => e.identity))];
-  const suggest = caught.length
-    ? `<p class="hint eapid-suggest-label">Captured on this AP (click to use):</p>
-       <div class="eapid-chips">${caught.map((n) =>
-         `<button type="button" class="eapid-chip" data-id="${escapeHtml(n)}">${escapeHtml(n)}</button>`).join("")}</div>`
-    : "";
-  document.getElementById("op-body").innerHTML = `
-    <p>Probe which EAP methods <strong>${escapeHtml(info.essid || info.id)}</strong> accepts.</p>
-    <p class="hint">Active 802.1X authentication (several minutes). It needs the
-      adapter free of NetworkManager, so if the chosen interface is running a live
-      capture it is stopped and kept in <strong>monitor</strong> mode for the
-      probe. Use a real domain identity; anonymous ones give unreliable results.</p>
-    <label>Domain user (EAP identity)</label>
-    <input id="op-identity" placeholder="DOMAIN\\user"/>
-    ${suggest}
-    <label>Interface</label>
-    <select id="op-iface"><option value="">loading interfaces…</option></select>`;
-  const confirm = document.getElementById("op-confirm");
-  confirm.textContent = "Run";
-  confirm.classList.remove("danger");
-  confirm.disabled = false;
-  document.querySelectorAll("#op-body .eapid-chip").forEach((b) => {
-    b.onclick = () => { document.getElementById("op-identity").value = b.dataset.id; };
-  });
-  document.getElementById("op-modal").classList.remove("hidden");
-  fillEapInterfaces();   // populate from the present adapters, preferring the capturing one
-}
-
-// Fill the EAP interface picker from the actually-present adapters. Prefer the
-// interface the live capture is running on (its monitor vif): picking it stops
-// the capture and hands the restored managed adapter to EAP.
-async function fillEapInterfaces() {
-  const sel = document.getElementById("op-iface");
-  if (!sel) return;
-  const prefer = live.monitorIface;   // the capture's monitor vif, if capturing
-  try {
-    const { interfaces } = await API.interfaces();
-    if (!interfaces.length) {
-      sel.innerHTML = '<option value="">no wireless interface found</option>';
-      return;
-    }
-    sel.innerHTML = interfaces
-      .map((i) => {
-        const capturing = i.name === prefer ? ", in capture" : "";
-        return `<option value="${escapeHtml(i.name)}">${escapeHtml(i.name)} (${escapeHtml(i.mode)}${capturing})</option>`;
-      })
-      .join("");
-    // Default to the capturing adapter, else the first managed one, else the first.
-    const managed = interfaces.find((i) => i.mode === "managed");
-    sel.value = (prefer && interfaces.some((i) => i.name === prefer))
-      ? prefer
-      : (managed ? managed.name : interfaces[0].name);
-  } catch (e) {
-    sel.innerHTML = '<option value="">scan failed</option>';
-  }
-}
-
 document.getElementById("op-cancel").onclick = () => {
   document.getElementById("op-modal").classList.add("hidden");
   pendingOp = null;
 };
 
 document.getElementById("op-confirm").onclick = () => {
-  if (!pendingOp) return;
-  return pendingOp.type === "eap" ? confirmEap() : confirmDeauth();
+  if (pendingOp) confirmDeauth();
 };
 
 // Pulse a red circular halo while a deauth runs server-side, so it is clear
@@ -1324,49 +1261,99 @@ async function confirmDeauth() {
   }
 }
 
-async function confirmEap() {
-  const identity = document.getElementById("op-identity").value.trim();
-  const iface = document.getElementById("op-iface").value.trim();
-  if (!identity) return toast("Enter a domain user (EAP identity)", "error");
-  if (!iface) return toast("Select an interface", "error");
-  const essid = pendingOp.essid;
-  document.getElementById("op-modal").classList.add("hidden");
-  pendingOp = null;
-  // EAP_buster takes over the interface (setting it managed itself) but needs it
-  // free of NetworkManager. If the chosen interface is the live capture's monitor
-  // vif, stop the capture and keep the adapter in monitor mode (airmon-ng kills
-  // the interfering services), then run EAP_buster on that monitor vif — the same
-  // "EAP_buster.sh <essid> <identity> wlan0mon" the tool expects.
-  let eapIface = iface;
-  if (live.running && iface === live.monitorIface) {
-    toast("Stopping capture, keeping monitor mode for EAP…");
-    const base = live.iface;
-    await stopLive({ silent: true, eapBase: base });
-    eapIface = live.eapMonitorIface || iface || base;
-  }
-  const box = document.getElementById("enterprise-result");
-  // Start it server-side (returns immediately) and poll for progress,
-  // so the request is never held open for the minutes EAP_buster takes (which
-  // fails the fetch with a NetworkError while the tool keeps running).
-  eapRunning = true;
-  setEapButtonBusy(true);
+/* -------------------------------------------------------- EAP enumeration */
+// Standalone Enterprise tool: pick an interface, SSID and domain user, then
+// probe which EAP methods the AP accepts (live, streamed).
+
+// Populate the interface picker from the present adapters, preferring the one a
+// live capture is running on (its monitor vif). data-mode carries each mode so
+// run() knows whether it must switch the adapter to monitor first.
+async function fillEapInterfaces() {
+  const sel = document.getElementById("eap-iface");
+  if (!sel) return;
+  const prefer = live.monitorIface;
   try {
-    await API.eapStart({ essid, identity, interface: eapIface, acknowledged: true });
+    const { interfaces } = await API.interfaces();
+    if (!interfaces.length) {
+      sel.innerHTML = '<option value="">no wireless interface found</option>';
+      return;
+    }
+    sel.innerHTML = interfaces.map((i) => {
+      const cap = i.name === prefer ? ", in capture" : "";
+      return `<option value="${escapeHtml(i.name)}" data-mode="${escapeHtml(i.mode)}">` +
+        `${escapeHtml(i.name)} (${escapeHtml(i.mode)}${cap})</option>`;
+    }).join("");
+    const pick = interfaces.find((i) => i.mode === "monitor")
+      || interfaces.find((i) => i.mode === "managed") || interfaces[0];
+    sel.value = (prefer && interfaces.some((i) => i.name === prefer)) ? prefer : pick.name;
   } catch (e) {
-    eapRunning = false;
-    setEapButtonBusy(false);
-    if (box) box.innerHTML = `<p class="hint" style="color:#ffb3ba">${escapeHtml(e.message)}</p>`;
-    else toast(e.message, "error");
-    return;
+    sel.innerHTML = '<option value="">scan failed</option>';
   }
-  clearTimeout(eapPollTimer);
-  pollEap(essid, eapIface, Date.now(), 0);
 }
 
-// Toggle the detail-panel "Enumerate EAP methods" button between idle and a
-// disabled, spinning "Enumerating EAP methods…" state.
+// Captured identities as clickable chips that fill the domain-user field.
+async function fillEapIdentitySuggestions() {
+  const box = document.getElementById("eap-id-suggest");
+  if (!box) return;
+  let ids = [];
+  try { ids = (await API.eapIdentitiesAll()).identities || []; } catch (e) { ids = []; }
+  if (!ids.length) { box.innerHTML = ""; return; }
+  box.innerHTML =
+    `<p class="hint eapid-suggest-label">Captured identities (click to use):</p>` +
+    `<div class="eapid-chips">${ids.map((n) =>
+      `<button type="button" class="eapid-chip" data-id="${escapeHtml(n)}">${escapeHtml(n)}</button>`).join("")}</div>`;
+  box.querySelectorAll(".eapid-chip").forEach((b) => {
+    b.onclick = () => { document.getElementById("eap-identity").value = b.dataset.id; };
+  });
+}
+
+function refreshEapPanel() {
+  fillEapInterfaces();
+  fillEapIdentitySuggestions();
+}
+
+async function runEapEnum() {
+  const sel = document.getElementById("eap-iface");
+  const iface = sel ? sel.value.trim() : "";
+  const essid = document.getElementById("eap-essid").value.trim();
+  const identity = document.getElementById("eap-identity").value.trim();
+  if (!iface) return toast("Select an interface", "error");
+  if (!essid) return toast("Enter the SSID", "error");
+  if (!identity) return toast("Enter a domain user (DOMAIN\\user)", "error");
+  const box = document.getElementById("eap-enum-result");
+  const fail = (msg) => {
+    eapRunning = false;
+    setEapButtonBusy(false);
+    if (box) box.innerHTML = `<p class="hint" style="color:#ffb3ba">${escapeHtml(msg)}</p>`;
+  };
+  eapRunning = true;
+  setEapButtonBusy(true);
+  // EAP_buster needs the adapter in monitor mode (NM-free); it sets managed
+  // itself. If the chosen interface is the live capture's monitor vif, stop the
+  // capture keeping monitor; if it is not already monitor, switch it; otherwise
+  // use it as-is.
+  let monIface = iface;
+  try {
+    if (live.running && iface === live.monitorIface) {
+      toast("Stopping capture, keeping monitor mode for EAP…");
+      await stopLive({ silent: true, eapBase: live.iface });
+      monIface = live.eapMonitorIface || iface;
+    } else if (!sel.selectedOptions[0] || sel.selectedOptions[0].dataset.mode !== "monitor") {
+      toast("Enabling monitor mode…");
+      monIface = (await API.ensureMonitor(iface)).interface || iface;
+    }
+    await API.eapStart({ essid, identity, interface: monIface, acknowledged: true });
+  } catch (e) {
+    return fail(e.message);
+  }
+  clearTimeout(eapPollTimer);
+  pollEap(essid, monIface, Date.now(), 0);
+}
+
+// Toggle the "Enumerate EAP methods" button between idle and a disabled, spinning
+// "Enumerating EAP methods…" state.
 function setEapButtonBusy(busy) {
-  const btn = document.getElementById("op-eap-btn");
+  const btn = document.getElementById("eap-run-btn");
   if (!btn) return;
   btn.disabled = busy;
   btn.innerHTML = busy
@@ -1381,7 +1368,7 @@ async function pollEap(essid, iface, t0, fails) {
   try {
     st = await API.eapStatus();
   } catch (e) {
-    const box = document.getElementById("enterprise-result");
+    const box = document.getElementById("eap-enum-result");
     if (fails >= 4) {   // give up after a few consecutive poll failures
       eapRunning = false;
       setEapButtonBusy(false);
@@ -1399,7 +1386,7 @@ async function pollEap(essid, iface, t0, fails) {
   eapRunning = false;
   setEapButtonBusy(false);
   if (st.error) {
-    const box = document.getElementById("enterprise-result");
+    const box = document.getElementById("eap-enum-result");
     if (box) box.innerHTML = `<p class="hint" style="color:#ffb3ba">${escapeHtml(st.error)}</p>`;
     else toast(st.error, "error");
   } else {
@@ -1409,7 +1396,7 @@ async function pollEap(essid, iface, t0, fails) {
 
 // The in-progress panel: spinner, elapsed clock, count, and the methods so far.
 function renderEapLive(st, iface, essid, t0) {
-  const box = document.getElementById("enterprise-result");
+  const box = document.getElementById("eap-enum-result");
   if (!box) return;
   const s = Math.floor((Date.now() - t0) / 1000);
   const clock = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
@@ -1612,7 +1599,7 @@ function exportCertImage(res) {
 }
 
 function renderEap(res) {
-  const box = document.getElementById("enterprise-result");
+  const box = document.getElementById("eap-enum-result");
   if (!box) return;
   const rank = { yes: 0, maybe: 1, no: 2 };
   const dot = (s) => (s === "yes" ? "🟢" : s === "maybe" ? "🟡" : "⚪");
@@ -1648,6 +1635,13 @@ document.getElementById("eapid-open-btn").onclick = () =>
       box.innerHTML = `<p class="hint" style="color:#ffb3ba">${escapeHtml(err.message)}</p>`;
     }
   });
+
+// EAP enumeration panel: fill the interface list + identity suggestions when the
+// Enterprise section is opened, and run the probe on demand.
+document.getElementById("eap-run-btn").onclick = runEapEnum;
+document.getElementById("enterprise-panel").addEventListener("toggle", (e) => {
+  if (e.target.open) refreshEapPanel();
+});
 
 // Render a list of captured EAP identities into a container.
 function renderEapIdentities(res, box) {

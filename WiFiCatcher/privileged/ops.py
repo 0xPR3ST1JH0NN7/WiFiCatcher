@@ -97,23 +97,6 @@ def _deauth(params: dict) -> dict:
     )
 
 
-def _eap_enumerate(params: dict) -> dict:
-    from WiFiCatcher.operations.enterprise import enumerate_eap_methods
-    essid = (params.get("essid") or "").strip()
-    if not essid or len(essid) > _MAX_ESSID:
-        raise OpError("A valid ESSID (1-32 chars) is required.")
-    identity = (params.get("identity") or "").strip()
-    if not identity:
-        raise OpError("An EAP identity is required.")
-    return enumerate_eap_methods(
-        interface=_iface(params),
-        essid=essid,
-        identity=identity,
-        acknowledged=bool(params.get("acknowledged")),
-        dry_run=bool(params.get("dry_run")),
-    )
-
-
 def _network_restart(params: dict) -> dict:
     from WiFiCatcher.capture.interfaces import restart_network_services
     restart_network_services()
@@ -125,7 +108,6 @@ HANDLERS: dict[str, Callable[[dict], dict]] = {
     "monitor.start": _monitor_start,
     "monitor.stop": _monitor_stop,
     "deauth": _deauth,
-    "eap.enumerate": _eap_enumerate,
     "network.restart": _network_restart,
 }
 

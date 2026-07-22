@@ -344,87 +344,17 @@ def extract_eap_identities(cap_path: str, ap_bssid: str | None = None) -> dict:
 
 
 # --------------------------------------------------------- EAP enumeration
-def enumerate_eap_methods(interface: str, essid: str, identity: str,
-                          script_path: str = EAP_BUSTER,
-                          acknowledged: bool = False,
-                          dry_run: bool = False) -> dict:
-    """Enumerate the EAP methods an enterprise AP accepts, via ``EAP_buster.sh``.
-
-    Active 802.1X authentication against a live AP, so it needs root and an
-    explicit acknowledgement. The script **takes the interface to managed mode
-    itself**, so do not pass an interface you need to keep in monitor mode.
-    Long-running (several minutes). Returns a ``methods`` list from
-    :func:`parse_eap_buster`.
-    """
-    require_authorization(acknowledged)            # root + acknowledged
-    require_tools("wpa_supplicant",
-                  hint="Install wpa_supplicant (apt install wpasupplicant).")
-    if not os.path.isfile(script_path):
-        raise OperationError(f"EAP_buster.sh was not found at {script_path}.")
-
-    if not interface or not interface.strip():
-        raise OperationError("A wireless interface is required.")
-    interface = interface.strip()
-    if not essid or not essid.strip():
-        raise OperationError("An ESSID is required.")
-    if not identity or not _IDENTITY_RE.match(identity):
-        raise OperationError(
-            "A legitimate EAP identity is required (e.g. 'DOMAIN\\\\user'); "
-            "anonymous identities give unreliable results.")
-
-    # Positional order is fixed: <ESSID> <IDENTITY> <INTERFACE>.
-    cmd = [script_path, essid, identity, interface]
-    # Audit at INFO so it stays off the default terminal (shown with --debug).
-    logger.info("EAP enumeration requested: %s", " ".join(cmd))
-    if dry_run:
-        return {"status": "dry-run", "command": cmd}
-
-    # EAP_buster generates certs, per-ESSID logs and edits its config files in
-    # place, so run it from a private copy. The bundled tool stays pristine and
-    # nothing is left behind in the package directory.
-    src_dir = os.path.dirname(os.path.abspath(script_path))
-    workdir = tempfile.mkdtemp(prefix="wificatcher-eap-")
-    try:
-        run_dir = os.path.join(workdir, "EAP_buster")
-        shutil.copytree(src_dir, run_dir)
-        run_script = os.path.join(run_dir, os.path.basename(script_path))
-        os.chmod(run_script, 0o755)
-        try:
-            proc = subprocess.run(
-                [run_script, essid, identity, interface],
-                capture_output=True, text=True,
-                timeout=EAP_BUSTER_TIMEOUT, check=False)
-        except FileNotFoundError as exc:
-            raise OperationError(str(exc)) from exc
-        except subprocess.TimeoutExpired as exc:
-            raise OperationError(
-                "EAP_buster timed out; the AP/RADIUS may be rate-limiting or "
-                "the interface is stuck.") from exc
-    finally:
-        shutil.rmtree(workdir, ignore_errors=True)
-
-    methods = parse_eap_buster(proc.stdout, mark_untested_as_maybe=True)
-    return {
-        "status": "ok" if proc.returncode == 0 else "error",
-        "command": cmd,
-        "returncode": proc.returncode,
-        "essid": essid,
-        "identity": identity,
-        "methods": methods,
-        "stdout": proc.stdout[-8000:],
-        "stderr": proc.stderr[-4000:],
-    }
-
-
 def stream_eap_methods(interface: str, essid: str, identity: str,
                        script_path: str = EAP_BUSTER,
                        acknowledged: bool = False):
-    """Generator variant of :func:`enumerate_eap_methods` for live progress.
+    """Run ``EAP_buster.sh`` and stream its progress for a live enumeration.
 
-    Same guardrails and private-copy setup, but runs EAP_buster with ``Popen`` and
-    yields ``{"line": <text>}`` for each stdout line as the tool tries a method,
-    then a final ``{"done": True, "methods": [...], "returncode": int}``. Lets the
-    caller show per-method progress instead of blocking for minutes.
+    Active 802.1X auth against the AP, so it needs root and acknowledgement. The
+    script takes the interface to managed mode itself and edits files in place, so
+    it runs from a private copy. Yields ``{"line": <text>}`` per stdout line as the
+    tool tries each method, then a final ``{"done": True, "methods": [...],
+    "returncode": int}`` (methods parsed by :func:`parse_eap_buster`). Streaming
+    lets the caller show per-method progress instead of blocking for minutes.
     """
     require_authorization(acknowledged)
     require_tools("wpa_supplicant",

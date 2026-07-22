@@ -351,45 +351,6 @@ class EapMethodsRequest(BaseModel):
     essid: str
     identity: str                   # legitimate 802.1X id, e.g. "DOMAIN\\user"
     interface: str | None = None
-    acknowledged: bool = False
-    dry_run: bool = False
-
-
-@router.post("/operations/enterprise/eap-methods")
-def operations_enterprise_eap(req: EapMethodsRequest):
-    """Enumerate supported EAP methods via EAP_buster.sh.
-
-    Active 802.1X auth against the AP, so it needs root and an acknowledgement.
-    The tool takes the interface to managed mode itself, so pass a free
-    interface (not one mid airodump capture). Runs for several minutes.
-    """
-    interface = (req.interface or "").strip()
-    if not interface:
-        raise HTTPException(status_code=400,
-                            detail="A wireless interface is required.")
-
-    def _run():
-        # The privileged helper runs EAP_buster.sh / wpa_supplicant (as root).
-        try:
-            return PrivClient(timeout=max(60.0, enterprise.EAP_BUSTER_TIMEOUT)).call(
-                "eap.enumerate", iface=interface, essid=req.essid,
-                identity=req.identity, acknowledged=req.acknowledged,
-                dry_run=req.dry_run)
-        except PrivUnavailable as exc:
-            raise HTTPException(status_code=503,
-                                detail=f"Privileged helper unavailable: {exc}") from exc
-        except PrivError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    if req.dry_run:
-        return _run()
-    if not _EAP_LOCK.acquire(blocking=False):
-        raise HTTPException(status_code=409,
-                            detail="An EAP enumeration is already running.")
-    try:
-        return _run()
-    finally:
-        _EAP_LOCK.release()
 
 
 @router.post("/operations/enterprise/eap-methods/start")
@@ -415,6 +376,38 @@ def operations_enterprise_eap_start(req: EapMethodsRequest):
                      args=(interface, req.essid, req.identity),
                      daemon=True).start()
     return {"status": "started", "essid": req.essid, "interface": interface}
+
+
+@router.get("/operations/enterprise/eap-identities")
+def operations_enterprise_eap_identities_all():
+    """Every EAP identity captured live so far, for the enumeration dialog."""
+    ids = CAPTURE.all_eap_identities() if CAPTURE.running else []
+    return {"identities": ids}
+
+
+class MonitorRequest(BaseModel):
+    interface: str
+
+
+@router.post("/live/monitor")
+def live_monitor(req: MonitorRequest):
+    """Put an interface into monitor mode (already-monitor is left as-is), for EAP.
+
+    Returns the monitor interface name (airmon-ng may create a vif, wlan0 ->
+    wlan0mon). Does not touch a capture; the caller stops that first if needed.
+    """
+    iface = (req.interface or "").strip()
+    if not iface:
+        raise HTTPException(status_code=400,
+                            detail="A wireless interface is required.")
+    try:
+        mon = PrivClient().call("monitor.start", iface=iface)
+    except PrivUnavailable as exc:
+        raise HTTPException(status_code=503,
+                            detail=f"Privileged helper unavailable: {exc}") from exc
+    except PrivError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"interface": mon.get("interface")}
 
 
 @router.get("/operations/enterprise/eap-methods/status")
