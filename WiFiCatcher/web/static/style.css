@@ -399,6 +399,34 @@ details.subpanel[open] > summary::after { transform: rotate(90deg); }
   border: 1px solid var(--border); border-radius: 7px; padding: 5px 8px;
 }
 
+/* Checkbox-dropdown filter: a trigger that summarises the selection and a menu
+   of options that lets several values be picked at once (OR within a filter). */
+.multi-select { position: relative; min-width: 116px; }
+.ms-trigger {
+  width: 100%; text-align: left; cursor: pointer;
+  background: var(--panel); color: var(--text);
+  border: 1px solid var(--border); border-radius: 7px; padding: 5px 22px 5px 8px;
+  font: inherit; position: relative;
+}
+.ms-trigger::after {
+  content: "▾"; position: absolute; right: 8px; top: 50%;
+  transform: translateY(-50%); color: var(--muted); font-size: 11px;
+}
+.ms-trigger.active { border-color: var(--accent); color: var(--accent); }
+.ms-menu {
+  position: absolute; z-index: 40; right: 0; top: calc(100% + 4px);
+  min-width: 100%; max-height: 220px; overflow-y: auto;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: 4px; box-shadow: 0 8px 20px rgba(0, 0, 0, .35);
+}
+.ms-opt {
+  display: flex; align-items: center; gap: 7px; cursor: pointer;
+  padding: 5px 7px; border-radius: 6px; white-space: nowrap;
+}
+.ms-opt:hover { background: var(--bg); }
+.ms-opt input { accent-color: var(--accent); margin: 0; }
+.ms-empty { color: var(--muted); margin: 4px 7px; font-size: 12px; }
+
 .live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
   background: #3a4a55; margin-left: 6px; vertical-align: middle; }
 .live-dot.on { background: var(--accent); box-shadow: 0 0 8px var(--accent);

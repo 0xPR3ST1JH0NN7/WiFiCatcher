@@ -309,32 +309,76 @@ function attackDataFor(info) {
     .filter(Boolean);
 }
 
+// Selected values per multi-select filter; an empty set means "show all".
+const filterSel = {
+  "filter-enc": new Set(),
+  "filter-chan": new Set(),
+  "filter-essid": new Set(),
+  "filter-bssid": new Set(),
+};
+
 function populateFilterOptions() {
   const encs = new Set();
   const chans = new Set();
+  const essids = new Set();
+  const bssids = new Set();
   cy.nodes('[kind = "ap"]').forEach((n) => {
     encs.add(apTechLabel(n.data()));
-    if (n.data("channel")) chans.add(n.data("channel"));
+    if (n.data("channel")) chans.add(String(n.data("channel")));
+    if (n.data("essid")) essids.add(n.data("essid"));
+    bssids.add(n.id());
   });
-  fillSelect("filter-enc", [...encs].sort());
-  fillSelect(
-    "filter-chan",
-    [...chans].sort((a, b) => Number(a) - Number(b))
-  );
+  fillMultiSelect("filter-enc", [...encs].sort());
+  fillMultiSelect("filter-chan", [...chans].sort((a, b) => Number(a) - Number(b)));
+  fillMultiSelect("filter-essid", [...essids].sort());
+  fillMultiSelect("filter-bssid", [...bssids].sort());
 }
 
-function fillSelect(id, values) {
-  const sel = document.getElementById(id);
-  const current = sel.value;
-  sel.innerHTML = '<option value="">all</option>';
-  values.forEach((v) => {
-    const o = document.createElement("option");
-    o.value = v;
-    o.textContent = v;
-    sel.appendChild(o);
+// Build a checkbox dropdown for one filter, keeping any still-valid selections.
+// The label shows "all" when nothing is picked, or "N selected" otherwise.
+function fillMultiSelect(id, values) {
+  const host = document.getElementById(id);
+  if (!host) return;
+  const sel = filterSel[id];
+  [...sel].forEach((v) => { if (!values.includes(v)) sel.delete(v); });
+  const opts = values
+    .map(
+      (v) =>
+        `<label class="ms-opt"><input type="checkbox" value="${escapeHtml(v)}"${
+          sel.has(v) ? " checked" : ""
+        }/><span>${escapeHtml(v)}</span></label>`
+    )
+    .join("");
+  host.innerHTML =
+    `<button type="button" class="ms-trigger"></button>` +
+    `<div class="ms-menu hidden">${opts || '<p class="ms-empty">none</p>'}</div>`;
+  const trigger = host.querySelector(".ms-trigger");
+  const menu = host.querySelector(".ms-menu");
+  const sync = () => {
+    trigger.textContent = sel.size === 0 ? "all" : `${sel.size} selected`;
+    trigger.classList.toggle("active", sel.size > 0);
+  };
+  menu.addEventListener("click", (e) => e.stopPropagation());
+  host.querySelectorAll(".ms-opt input").forEach((cb) => {
+    cb.onchange = () => {
+      if (cb.checked) sel.add(cb.value); else sel.delete(cb.value);
+      sync();
+      applyFilters();
+    };
   });
-  sel.value = current;
+  trigger.onclick = (e) => {
+    e.stopPropagation();
+    const isOpen = !menu.classList.contains("hidden");
+    document.querySelectorAll(".ms-menu").forEach((m) => m.classList.add("hidden"));
+    menu.classList.toggle("hidden", isOpen);
+  };
+  sync();
 }
+
+// Any outside click closes every open filter dropdown.
+document.addEventListener("click", () => {
+  document.querySelectorAll(".ms-menu").forEach((m) => m.classList.add("hidden"));
+});
 
 /* ----------------------------------------------------------------- filters */
 // A legend row is "on" unless it carries the .off class (toggled by clicking it).
@@ -347,8 +391,11 @@ function applyFilters() {
   const showAps = filterActive("aps");
   const showClients = filterActive("clients");
   const showUnassoc = filterActive("unassoc");
-  const enc = document.getElementById("filter-enc").value;
-  const chan = document.getElementById("filter-chan").value;
+  // A node passes a filter when its set is empty (all) or contains its value.
+  const encs = filterSel["filter-enc"];
+  const chans = filterSel["filter-chan"];
+  const essids = filterSel["filter-essid"];
+  const bssids = filterSel["filter-bssid"];
 
   cy.batch(() => {
     cy.nodes().forEach((n) => {
@@ -356,8 +403,10 @@ function applyFilters() {
       let show = true;
       if (kind === "ap") {
         if (!showAps) show = false;
-        if (enc && apTechLabel(n.data()) !== enc) show = false;
-        if (chan && String(n.data("channel")) !== chan) show = false;
+        if (encs.size && !encs.has(apTechLabel(n.data()))) show = false;
+        if (chans.size && !chans.has(String(n.data("channel")))) show = false;
+        if (essids.size && !essids.has(n.data("essid"))) show = false;
+        if (bssids.size && !bssids.has(n.id())) show = false;
       } else {
         if (!showClients) show = false;
         if (!showUnassoc && n.data("unassociated")) show = false;
@@ -636,10 +685,8 @@ function buildDetailFields(info) {
     row("Encryption", info.privacy);
     row("Cipher", info.cipher);
     row("Auth", info.authentication);
-    if (info.wps) {
-      row("WPS", info.wps_version ? `Yes (v${info.wps_version})` : "Yes");
-      row("WPS locked", info.wps_locked ? "Yes" : "No");
-    }
+    row("WPS", info.wps ? (info.wps_version || "Yes") : "Not detected");
+    if (info.wps) row("WPS locked", info.wps_locked ? "Yes" : "No");
     row("Signal", info.power != null ? `${info.power} dBm` : null);
     row("Beacons", info.beacons);
     row("Data", info.data);
@@ -1709,10 +1756,11 @@ function refreshLiveButtons() {
     ? "Replays the loaded capture node by node."
     : "Import an airodump-ng CSV file (.csv) to enable replay.";
 
-  // The technology / channel filters apply to whatever is on the graph, so keep
-  // them available during a live capture too (they filter the current scan).
+  // The scan filters (technology / channel / ESSID / BSSID) are for reviewing a
+  // finished scan, so hide them while a live capture is still running and show
+  // them once it is stopped or a capture is being replayed.
   const repFilters = document.getElementById("replay-filters");
-  if (repFilters) repFilters.classList.remove("hidden");
+  if (repFilters) repFilters.classList.toggle("hidden", capturing);
 }
 
 function setLiveUI(running) {

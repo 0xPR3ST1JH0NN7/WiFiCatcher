@@ -27,12 +27,33 @@ _FIELDS = ["wlan.bssid", "wps.version", "wps.version2", "wps.ap_setup_locked"]
 WPS_FILTER = "wps.version || wps.version2 || wps.wifi_protected_setup_state"
 
 
+def _decode_version(raw: str) -> Optional[str]:
+    """Turn a raw WPS version byte into airodump-ng's ``major.minor`` string.
+
+    tshark prints the WPS version attributes as a hex byte (``0x10``, ``0x20``),
+    with the high nibble the major and the low nibble the minor, exactly how
+    airodump-ng derives the ``2.0`` / ``1.0`` it shows with ``--wps``. Returns
+    ``None`` only when the field is empty or unparseable.
+    """
+    raw = raw.strip().lower()
+    if not raw:
+        return None
+    try:
+        val = int(raw, 16)
+    except ValueError:
+        return None
+    return f"{val >> 4}.{val & 0x0F}"
+
+
 def parse_wps(tshark_output: str) -> dict[str, dict]:
     """Parse ``tshark`` WPS field rows into ``{bssid: {version, locked}}``.
 
     Each row is ``bssid|version|version2|ap_setup_locked`` (see ``_FIELDS``).
-    A non-empty ``wps.version2`` means WPS 2.0, otherwise 1.0; ap_setup_locked is
-    truthy when tshark prints ``1`` / ``True``.
+    The WPS 2.0 attribute (``wps.version2``) wins over the legacy one when both
+    are present, matching what airodump-ng shows. A row only exists when a frame
+    carried a WPS element, so the AP has WPS even if no version byte decodes; in
+    that case the version is reported as ``"0.0"`` rather than dropped.
+    ap_setup_locked is truthy when tshark prints ``1`` / ``True``.
     """
     found: dict[str, dict] = {}
     for line in tshark_output.splitlines():
@@ -40,11 +61,12 @@ def parse_wps(tshark_output: str) -> dict[str, dict]:
         bssid = normalize_mac(cols[0]) if cols else ""
         if not bssid:
             continue
-        version1 = cols[1].strip() if len(cols) > 1 else ""
-        version2 = cols[2].strip() if len(cols) > 2 else ""
+        version1 = cols[1] if len(cols) > 1 else ""
+        version2 = cols[2] if len(cols) > 2 else ""
         locked = cols[3].strip().lower() if len(cols) > 3 else ""
+        version = _decode_version(version2) or _decode_version(version1) or "0.0"
         found[bssid] = {
-            "version": "2.0" if version2 else ("1.0" if version1 else None),
+            "version": version,
             "locked": locked in ("1", "true", "0x01"),
         }
     return found
