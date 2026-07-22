@@ -301,16 +301,23 @@ def _pick_save_path() -> str:
 
     Lets the user pick the folder AND the file name in one go. A browser can't
     hand a real filesystem path to the server, but WiFiCatcher runs locally, so
-    we pop the OS dialog on the user's own desktop. Tries GTK (``zenity --save``),
-    then KDE (``kdialog``), then a Tk fallback in its own process so it owns the
-    main thread. Blocking, so callers run it in a thread.
+    we pop the OS dialog on the user's own desktop. This is the same GTK/Qt file
+    chooser the browser opens for uploads, so it looks identical when a native
+    one is present. We try, in order, the GTK chooser (``zenity``, then its Qt
+    clone ``qarma`` and ``yad``), the KDE chooser (``kdialog``), and only as a
+    last resort a Tk fallback in its own process so it owns the main thread.
+    Blocking, so callers run it in a thread.
     """
     import shutil
     import subprocess
     import sys
 
     default = os.path.join(os.path.expanduser("~"), "wificatcher-capture.cap")
-    for cmd in (["zenity", "--file-selection", "--save", "--confirm-overwrite",
+    gtk_args = ["--file-selection", "--save", "--confirm-overwrite",
+                "--title=Save capture as", f"--filename={default}"]
+    for cmd in (["zenity", *gtk_args],
+                ["qarma", *gtk_args],                    # Qt drop-in for zenity
+                ["yad", "--file", "--save", "--confirm-overwrite",
                  "--title=Save capture as", f"--filename={default}"],
                 ["kdialog", "--getsavefilename", default, "*.cap *.pcap"]):
         if not shutil.which(cmd[0]):
