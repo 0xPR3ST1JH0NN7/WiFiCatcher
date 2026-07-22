@@ -358,12 +358,20 @@ details.subpanel[open] > summary::after { transform: rotate(90deg); }
 }
 .attack-advisor .atk-name { display: block; font-weight: 600; font-size: 13px; }
 .attack-advisor .atk-desc { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+/* Chained attacks (e.g. captive portal / MITM under evil twin): indented and
+   hung off a dashed connector so it is clear they follow from the card above. */
+.attack-advisor .atk-children {
+  margin: -2px 0 6px 12px; padding-left: 12px;
+  border-left: 2px dashed var(--client);
+}
+.attack-advisor .atk-children .atk-card { margin-bottom: 6px; }
 .attack-advisor .btn { width: 100%; margin-top: 8px; }
 .attack-advisor .advisor-note { margin: 10px 0 0; font-size: 11px; color: var(--muted); }
 
 /* Attack path graph modal: a near full page card holding an on-demand Cytoscape
-   tree, so the whole path is easy to read; drag/scroll pans and zooms. */
-.attack-card { width: 96vw; padding: 16px; }
+   tree, so the whole path is easy to read; drag/scroll pans and zooms. The
+   compound selector beats the base .modal-card width defined further down. */
+.modal-card.attack-card { width: 96vw; max-width: none; padding: 16px; }
 #attack-graph {
   width: 100%; height: 82vh; min-height: 340px;
   background: var(--panel); border: 1px solid var(--border); border-radius: 10px;

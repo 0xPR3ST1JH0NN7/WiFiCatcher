@@ -671,7 +671,7 @@ const ATTACK_DATA = {
       {"id": "g_imp", "parent": "root", "label": "Impersonate the network", "kind": "goal"},
       {"id": "twin", "parent": "g_imp", "label": "Evil twin", "kind": "attack", "desc": "The attacker broadcasts a fake access point, cloning the network name or using an inviting one, so devices connect and their traffic is intercepted."},
       {"id": "portal", "parent": "twin", "label": "Captive portal phishing", "kind": "attack", "desc": "A fake login page appears after connecting, tricking users into entering passwords or personal details that the attacker quietly steals."},
-      {"id": "mitm", "parent": "twin", "label": "Man in the middle", "kind": "attack", "desc": "The attacker reroutes the victim's traffic through their own device, letting them read or alter data while both sides suspect nothing."},
+      {"id": "mitm", "parent": "twin", "label": "Man in The Middle", "kind": "attack", "desc": "The attacker reroutes the victim's traffic through their own device, letting them read or alter data while both sides suspect nothing."},
     ],
   },
 };;;
@@ -709,25 +709,20 @@ function attackAdvisorHtml(info) {
   const nodes = s.data.nodes;
   const root = nodes.find((n) => n.parent === null) || nodes[0];
   const childrenOf = (id) => nodes.filter((n) => n.parent === id);
-  // Every attack under a category, in tree order (descends through chained ones).
-  const attacksUnder = (id) => {
-    const out = [];
-    (function walk(pid) {
-      for (const c of childrenOf(pid)) {
-        if (c.kind === "attack") out.push(c);
-        walk(c.id);
-      }
-    })(id);
-    return out;
-  };
-  const cats = childrenOf(root.id).filter((n) => n.kind === "goal").map((cat) => {
-    // Each attack is its own little "bubble" card with its name and description.
-    const items = attacksUnder(cat.id).map((a) =>
-      `<div class="atk-card"><span class="atk-name">${escapeHtml(a.label)}</span>` +
-      (a.desc ? `<span class="atk-desc">${escapeHtml(a.desc)}</span>` : "") + `</div>`
-    ).join("");
-    return `<p class="advisor-cat-name">${escapeHtml(cat.label)}</p>${items}`;
+  // Each attack is its own little "bubble" card with its name and description.
+  const card = (a) =>
+    `<div class="atk-card"><span class="atk-name">${escapeHtml(a.label)}</span>` +
+    (a.desc ? `<span class="atk-desc">${escapeHtml(a.desc)}</span>` : "") + `</div>`;
+  // Render attacks preserving the tree: a chained attack (e.g. captive portal
+  // under evil twin) is nested and indented under its parent, so it reads as a
+  // continuation rather than a sibling.
+  const renderTree = (pid) => childrenOf(pid).filter((n) => n.kind === "attack").map((c) => {
+    const inner = renderTree(c.id);
+    return card(c) + (inner ? `<div class="atk-children">${inner}</div>` : "");
   }).join("");
+  const cats = childrenOf(root.id).filter((n) => n.kind === "goal").map((cat) =>
+    `<p class="advisor-cat-name">${escapeHtml(cat.label)}</p>${renderTree(cat.id)}`
+  ).join("");
   const note = s.key === "wpa-psk" ? wpsNote(info) : "";
   const noteHtml = note ? `<p class="advisor-wps">${escapeHtml(note)}</p>` : "";
   return `<details class="subpanel attack-advisor">
