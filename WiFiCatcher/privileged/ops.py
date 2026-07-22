@@ -190,7 +190,7 @@ def _capture_stream(params: dict):
 
     from WiFiCatcher.capture.handshake import parse_handshakes
     from WiFiCatcher.capture.interfaces import ensure_monitor_mode, restore_managed_mode
-    from WiFiCatcher.capture.wps import WPS_FILTER, parse_wps
+    from WiFiCatcher.capture.wps import parse_wps, wps_fields, wps_filter
     from WiFiCatcher.operations.enterprise import (
         hexfields_to_der, parse_certificates_from_der_list)
 
@@ -229,6 +229,10 @@ def _capture_stream(params: dict):
     seen_certs: set[str] = set()
     tick = 0
     have_tshark = shutil.which("tshark") is not None
+    # Resolve the WPS filter / fields once against the local tshark; names it
+    # does not know are dropped so one bad field can't void the whole pass.
+    wps_flds = wps_fields() if have_tshark else []
+    wps_filt = wps_filter() if have_tshark else ""
     try:
         while True:
             csvs = sorted(glob.glob(f"{prefix}-*.csv"))
@@ -257,13 +261,13 @@ def _capture_stream(params: dict):
             if caps and tick % 6 == 0:
                 try:
                     out = subprocess.run(
-                        ["tshark", "-r", caps[-1], "-n", "-Y", WPS_FILTER,
-                         "-T", "fields", "-e", "wlan.bssid", "-e", "wps.version",
-                         "-e", "wps.version2", "-e", "wps.ap_setup_locked",
-                         "-E", "separator=|"],
+                        ["tshark", "-r", caps[-1], "-n", "-Y", wps_filt,
+                         "-T", "fields"]
+                        + [arg for f in wps_flds for arg in ("-e", f)]
+                        + ["-E", "separator=|"],
                         capture_output=True, text=True, timeout=20,
                         check=False).stdout
-                    delta = {b: v for b, v in parse_wps(out).items()
+                    delta = {b: v for b, v in parse_wps(out, wps_flds).items()
                              if wps_prev.get(b) != v}
                     if delta:
                         wps_prev.update(delta)
