@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32.png?v=2"/>
   <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon-16.png?v=2"/>
   <link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png?v=2"/>
-  <link rel="stylesheet" href="/static/style.css?v=35"/>
+  <link rel="stylesheet" href="/static/style.css?v=36"/>
   <script src="/static/vendor/cytoscape.min.js"></script>
   <script src="/static/vendor/layout-base.js"></script>
   <script src="/static/vendor/cose-base.js"></script>
@@ -133,7 +133,7 @@
             <label class="filter"><input type="checkbox" id="live-save"/> Save capture file</label>
             <div class="iface-pick hidden" id="save-path-row" style="margin-top:8px">
               <input id="live-save-path" class="mini-input" type="text"
-                     placeholder="path + file name, or Save as…"
+                     placeholder="/path/to/file"
                      title="Full path and base name for the saved capture"
                      style="flex:1; min-width:0"/>
               <button class="btn ghost mini-btn" id="live-save-browse" type="button"
@@ -143,7 +143,7 @@
               <summary>More options</summary>
               <div class="panel-body">
                 <div class="multi-field" id="live-encrypt" data-kind="proto" data-label="Protocol"></div>
-                <div class="multi-field" id="live-essid" data-kind="text" data-ph="optional" data-label="ESSID"></div>
+                <div class="multi-field" id="live-essid" data-kind="text" data-ph="FREE-WIFI" data-label="ESSID"></div>
                 <div class="multi-field" id="live-bssid" data-kind="mac" data-ph="AA:BB:CC:DD:EE:FF" data-label="BSSID"></div>
                 <label class="filter-row">Interval (s)
                   <input id="live-interval" class="mini-input" type="number" min="0.2" max="10"
@@ -388,6 +388,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="/static/app.js?v=42"></script>
+  <script src="/static/app.js?v=43"></script>
 </body>
 </html>

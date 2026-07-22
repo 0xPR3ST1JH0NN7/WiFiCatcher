@@ -542,6 +542,12 @@ code { background: var(--panel); padding: 1px 5px; border-radius: 4px; font-size
 .node-legend-list .faded-ico { opacity: .45; }
 .node-legend-list strong { display: block; font-size: 14px; }
 .node-legend-list span { color: var(--muted); font-size: 12.5px; }
+
+/* Running EAP enumeration: spinner + elapsed clock in the AP side panel. */
+.eap-progress { display: flex; align-items: flex-start; gap: 10px; }
+.eap-progress > div { display: flex; flex-direction: column; gap: 2px; }
+.eap-progress strong { font-size: 13px; }
+.eap-progress .spinner { margin-top: 3px; flex: 0 0 auto; }
 .legend-toggle {
   display: flex; align-items: center; gap: 8px; width: 100%;
   background: none; border: none; color: var(--text); cursor: pointer;

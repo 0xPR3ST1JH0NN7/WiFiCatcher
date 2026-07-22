@@ -1164,20 +1164,49 @@ function openEapModal(info) {
   document.getElementById("op-title").textContent = "Enumerate EAP methods";
   document.getElementById("op-body").innerHTML = `
     <p>Probe which EAP methods <strong>${escapeHtml(info.essid || info.id)}</strong> accepts.</p>
-    <p class="hint">Active 802.1X authentication (several minutes). The live
-      capture is stopped first so its interface can be switched to
-      <strong>managed</strong> mode for the probe. Use a legitimate identity;
-      anonymous ones give unreliable results.</p>
-    <label>EAP identity</label>
+    <p class="hint">Active 802.1X authentication (several minutes). It needs the
+      adapter in <strong>managed</strong> mode, so if the chosen interface is
+      running a live capture it is stopped and switched back to managed first.
+      Use a real domain identity; anonymous ones give unreliable results.</p>
+    <label>Domain user (EAP identity)</label>
     <input id="op-identity" placeholder="DOMAIN\\user"/>
     <label>Interface</label>
-    <input id="op-iface" value="${escapeHtml(live.iface || "")}" placeholder="wlan0"/>
-    <label><input type="checkbox" id="op-dry"/> Dry run (build command only)</label>`;
+    <select id="op-iface"><option value="">loading interfaces…</option></select>
+    <label><input type="checkbox" id="op-dry"/> Dry run (build the command only, do not transmit)</label>`;
   const confirm = document.getElementById("op-confirm");
   confirm.textContent = "Run";
   confirm.classList.remove("danger");
   confirm.disabled = false;
   document.getElementById("op-modal").classList.remove("hidden");
+  fillEapInterfaces(live.iface);   // populate the picker, preferring the scanning adapter
+}
+
+// Fill the EAP interface picker from the detected adapters, preferring the one a
+// live capture is using (which EAP restores to managed mode before it runs).
+async function fillEapInterfaces(prefer) {
+  const sel = document.getElementById("op-iface");
+  if (!sel) return;
+  try {
+    const { interfaces } = await API.interfaces();
+    const items = interfaces.map((i) => ({ name: i.name, mode: i.mode }));
+    // While capturing, the base adapter appears as its monitor interface; make
+    // sure the capture's own interface stays selectable regardless.
+    if (prefer && !items.some((i) => i.name === prefer)) {
+      items.unshift({ name: prefer, mode: "in capture" });
+    }
+    if (!items.length) {
+      sel.innerHTML = '<option value="">no wireless interface found</option>';
+      return;
+    }
+    sel.innerHTML = items
+      .map((i) => `<option value="${escapeHtml(i.name)}">${escapeHtml(i.name)} (${escapeHtml(i.mode)})</option>`)
+      .join("");
+    if (prefer) sel.value = prefer;
+  } catch (e) {
+    sel.innerHTML = prefer
+      ? `<option value="${escapeHtml(prefer)}">${escapeHtml(prefer)}</option>`
+      : '<option value="">scan failed</option>';
+  }
 }
 
 document.getElementById("op-cancel").onclick = () => {
@@ -1270,34 +1299,55 @@ async function confirmEap() {
   const identity = document.getElementById("op-identity").value.trim();
   const iface = document.getElementById("op-iface").value.trim();
   const dry = document.getElementById("op-dry").checked;
-  if (!identity) return toast("Enter an EAP identity", "error");
-  if (!iface) return toast("Enter an interface", "error");
+  if (!identity) return toast("Enter a domain user (EAP identity)", "error");
+  if (!iface) return toast("Select an interface", "error");
   const essid = pendingOp.essid;
   document.getElementById("op-modal").classList.add("hidden");
   pendingOp = null;
   // EAP_buster drives the interface in managed mode, which fights a live monitor
   // capture. Free the radio by stopping the capture first (real runs only).
   if (!dry && live.running) {
-    toast("Stopping capture to free the interface…");
+    toast("Stopping capture and restoring managed mode…");
     try { await stopLive({ silent: true }); } catch (e) { /* ignore */ }
   }
   const box = document.getElementById("enterprise-result");
-  if (box && !dry) {
-    box.innerHTML = `<p class="hint">Running EAP enumeration on ${escapeHtml(iface)}.
-      This can take several minutes…</p>`;
-  }
+  // A real run blocks until EAP_buster finishes, so show a live spinner and a
+  // ticking elapsed timer in the side panel rather than a frozen "running" line.
+  let stopProgress = () => {};
+  if (box && !dry) stopProgress = startEapProgress(box, iface, essid);
   eapRunning = !dry;   // a real run streams its result into the panel; keep it open
   try {
     const res = await API.enterpriseEap({
       essid, identity, interface: iface, acknowledged: true, dry_run: dry,
     });
+    stopProgress();
     renderEap(res, dry);
   } catch (e) {
+    stopProgress();
     if (box) box.innerHTML = `<p class="hint" style="color:#ffb3ba">${escapeHtml(e.message)}</p>`;
     else toast(e.message, "error");
   } finally {
     eapRunning = false;
   }
+}
+
+// Live progress for a running EAP enumeration, shown in the AP's side panel. The
+// backend runs each method to completion before returning, so there is no true
+// percentage; a spinner plus an elapsed clock makes clear it is still working.
+function startEapProgress(box, iface, essid) {
+  const t0 = Date.now();
+  const paint = () => {
+    const s = Math.floor((Date.now() - t0) / 1000);
+    const clock = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+    box.innerHTML =
+      `<div class="eap-progress"><span class="spinner"></span>` +
+      `<div><strong>Enumerating EAP methods…</strong>` +
+      `<span class="hint">${escapeHtml(essid || "")} on ${escapeHtml(iface)} · ${clock} elapsed. ` +
+      `Each method is tried in turn; this can take several minutes.</span></div></div>`;
+  };
+  paint();
+  const id = setInterval(paint, 1000);
+  return () => clearInterval(id);
 }
 
 /* ----------------------------------------------------------- enterprise */
