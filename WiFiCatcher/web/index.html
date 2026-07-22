@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32.png?v=2"/>
   <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon-16.png?v=2"/>
   <link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png?v=2"/>
-  <link rel="stylesheet" href="/static/style.css?v=28"/>
+  <link rel="stylesheet" href="/static/style.css?v=29"/>
   <script src="/static/vendor/cytoscape.min.js"></script>
   <script src="/static/vendor/layout-base.js"></script>
   <script src="/static/vendor/cose-base.js"></script>
@@ -175,7 +175,7 @@
             <input id="replay-interval" class="mini-input" type="number" min="0.2" max="10"
                    step="0.1" value="1.2"/>
           </label>
-          <p class="hint" id="replay-hint">Import an airodump CSV to enable replay.</p>
+          <p class="hint" id="replay-hint">Import an airodump-ng CSV file (.csv) to enable replay.</p>
           <button class="btn primary" id="replay-toggle">Import capture</button>
         </div>
       </details>
@@ -281,7 +281,7 @@
           <img src="/static/img/cat_logo.png" alt="" class="empty-logo"/>
         </div>
         <h3>No capture loaded</h3>
-        <p>Import an airodump-ng CSV or start a live capture.</p>
+        <p>Import an airodump-ng CSV file (.csv) or start a live capture.</p>
         <label class="btn primary empty-import" for="file-input">Import capture</label>
       </div>
     </section>
@@ -377,6 +377,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="/static/app.js?v=33"></script>
+  <script src="/static/app.js?v=34"></script>
 </body>
 </html>

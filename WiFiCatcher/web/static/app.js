@@ -624,12 +624,12 @@ const ATTACK_DATA = {
     family: "WPA/WPA2-PSK",
     nodes: [
       {"id": "root", "parent": null, "label": "WPA/WPA2-PSK", "kind": "root"},
-      {"id": "g_wps", "parent": "root", "label": "WPS", "kind": "goal"},
-      {"id": "wps_online", "parent": "g_wps", "label": "Online PIN brute force", "kind": "attack", "desc": "Reaver repeatedly guesses the router's eight digit setup PIN over the air until it yields the passphrase."},
-      {"id": "wps_pixie", "parent": "g_wps", "label": "Offline Pixie Dust", "kind": "attack", "desc": "Pixiewps exploits weak random numbers in the router's setup exchange to compute the PIN offline almost instantly."},
       {"id": "g_psk", "parent": "root", "label": "Crack the passphrase", "kind": "goal"},
-      {"id": "hs", "parent": "g_psk", "label": "Four way handshake capture and crack", "kind": "attack", "desc": "Records the four way handshake as a client joins, often forcing a reconnect, then guesses passwords offline."},
-      {"id": "pmkid", "parent": "g_psk", "label": "PMKID capture and offline crack", "kind": "attack", "desc": "Pulls the PMKID value from the router without needing any client, then tries password guesses offline."},
+      {"id": "hs", "parent": "g_psk", "label": "4-way handshake capture and crack", "kind": "attack", "desc": "Capture the 4-way handshake when a client connects, or force it with deauth packets, then crack the password offline with a wordlist."},
+      {"id": "pmkid", "parent": "g_psk", "label": "PMKID capture and offline crack", "kind": "attack", "desc": "Capture the PMKID when a client connects, via deauth, or by exploiting vulnerable routers with a single association request using hcxdumptool, then crack it offline."},
+      {"id": "g_wps", "parent": "root", "label": "WPS", "kind": "goal"},
+      {"id": "wps_online", "parent": "g_wps", "label": "Online PIN brute force", "kind": "attack", "desc": "An interactive attack that keeps trying WPS PINs against the access point until it finds the valid one, using a tool such as Reaver."},
+      {"id": "wps_pixie", "parent": "g_wps", "label": "Offline Pixie Dust", "kind": "attack", "desc": "Exploits weak random values in the WPS setup exchange to recover the PIN offline in seconds, using a tool such as pixiewps."},
     ],
   },
   "wep": {
@@ -731,7 +731,7 @@ function attackAdvisorHtml(info) {
   const note = s.key === "wpa-psk" ? wpsNote(info) : "";
   const noteHtml = note ? `<p class="advisor-wps">${escapeHtml(note)}</p>` : "";
   return `<details class="subpanel attack-advisor">
-    <summary>Suggested attacks</summary>
+    <summary>Common attacks</summary>
     <div class="panel-body">
       <p class="advisor-family">${escapeHtml(s.data.family)}</p>
       ${noteHtml}
@@ -1636,7 +1636,7 @@ function refreshLiveButtons() {
     ? "Revealing the capture… press Stop to halt."
     : live.loaded
     ? "Replays the loaded capture node by node."
-    : "Import an airodump CSV to enable replay.";
+    : "Import an airodump-ng CSV file (.csv) to enable replay.";
 
   // Encryption / channel filters only carry meaning for an imported capture or
   // its replay — a live airodump session doesn't populate them, so hide them
