@@ -413,9 +413,11 @@ details.subpanel[open] > summary::after { transform: rotate(90deg); }
   transform: translateY(-50%); color: var(--muted); font-size: 11px;
 }
 .ms-trigger.active { border-color: var(--accent); color: var(--accent); }
+/* Fixed, not absolute: the menu is positioned from the trigger's screen rect on
+   open, so it floats above the panel instead of being clipped by its scroll box
+   (same way the browser's native select popup escapes its container). */
 .ms-menu {
-  position: absolute; z-index: 40; right: 0; top: calc(100% + 4px);
-  min-width: 100%; max-height: 220px; overflow-y: auto;
+  position: fixed; z-index: 60; max-height: 240px; overflow-y: auto;
   background: var(--panel); border: 1px solid var(--border);
   border-radius: 8px; padding: 4px; box-shadow: 0 8px 20px rgba(0, 0, 0, .35);
 }
@@ -426,6 +428,19 @@ details.subpanel[open] > summary::after { transform: rotate(90deg); }
 .ms-opt:hover { background: var(--bg); }
 .ms-opt input { accent-color: var(--accent); margin: 0; }
 .ms-empty { color: var(--muted); margin: 4px 7px; font-size: 12px; }
+
+/* Repeatable capture filter (Protocol / ESSID / BSSID): a stack of inputs each
+   with a +/- button so several values can be given, one airodump flag apiece. */
+.multi-field { display: flex; flex-direction: column; gap: 6px; min-width: 168px; }
+.mf-row { display: flex; gap: 6px; align-items: center; }
+.mf-row .mini-input, .mf-row select { flex: 1; min-width: 0; }
+.mf-btn {
+  flex: 0 0 auto; width: 26px; height: 26px; line-height: 1; cursor: pointer;
+  background: var(--panel); color: var(--text);
+  border: 1px solid var(--border); border-radius: 7px; font-size: 15px;
+}
+.mf-btn:hover { border-color: var(--accent); color: var(--accent); }
+.mf-btn:disabled { opacity: .5; cursor: default; }
 
 .live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
   background: #3a4a55; margin-left: 6px; vertical-align: middle; }

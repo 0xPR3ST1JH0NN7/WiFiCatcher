@@ -359,9 +359,11 @@ class LiveStartRequest(BaseModel):
     interface: str | None = None
     channel: str | None = None      # fixed channel; required to allow deauth
     band: str | None = None         # "2.4" | "5" | "both" (ignored if channel set)
-    encrypt: str | None = None      # WEP | WPA2 | WPA3 | OPN ...
-    essid: str | None = None        # capture one ESSID only
-    bssid: str | None = None        # capture one BSSID only
+    # Each accepts a single value or a list; every value becomes its own
+    # airodump-ng flag (e.g. two BSSIDs -> --bssid X --bssid Y).
+    encrypt: str | list[str] | None = None   # WEP | WPA2 | WPA3 | OPN ...
+    essid: str | list[str] | None = None     # capture these ESSIDs only
+    bssid: str | list[str] | None = None     # capture these BSSIDs only
     interval: float | None = None
     save: bool = False              # keep the capture files (default ./captures)
     save_path: str | None = None    # folder + base name for the saved capture
@@ -408,10 +410,11 @@ async def live_start(req: LiveStartRequest):
                     status_code=400,
                     detail="Choose an existing, writable folder and file name "
                            "(use Save as…) before starting.")
-        # Validate the optional BSSID filter up front: an invalid one would
+        # Validate every optional BSSID filter up front: an invalid one would
         # otherwise fail deep in the helper after the capture "started", leaving
         # an empty graph with no explanation.
-        if req.bssid and not normalize_mac(req.bssid):
+        bssids = req.bssid if isinstance(req.bssid, list) else ([req.bssid] if req.bssid else [])
+        if any(b and not normalize_mac(b) for b in bssids):
             raise HTTPException(
                 status_code=400,
                 detail="Invalid BSSID; use the AA:BB:CC:DD:EE:FF form.")

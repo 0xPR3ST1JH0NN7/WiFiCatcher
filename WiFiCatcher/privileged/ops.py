@@ -53,6 +53,14 @@ def _mac(params: dict, key: str, required: bool = True) -> str | None:
     return mac
 
 
+def _as_list(value) -> list[str]:
+    """Normalise a filter param (missing / single string / list) to a str list."""
+    if value is None:
+        return []
+    items = value if isinstance(value, (list, tuple)) else [value]
+    return [str(v).strip() for v in items if str(v).strip()]
+
+
 # --------------------------------------------------------------- handlers
 def _monitor_start(params: dict) -> dict:
     from WiFiCatcher.capture.interfaces import ensure_monitor_mode
@@ -150,14 +158,17 @@ def _build_airodump(params: dict, iface: str, prefix: str) -> list[str]:
         cmd += ["-c", ",".join(chans)]
     elif params.get("band") in _BAND_FLAGS:
         cmd += ["--band", _BAND_FLAGS[params["band"]]]
-    if params.get("encrypt"):
-        cmd += ["--encrypt", str(params["encrypt"])[:8]]
-    bssid = _mac(params, "bssid", required=False)
-    if bssid:
-        cmd += ["--bssid", bssid]
-    essid = params.get("essid")
-    if essid:
-        cmd += ["--essid", str(essid)[:_MAX_ESSID]]
+    # Protocol / ESSID / BSSID may each carry several values; airodump-ng takes
+    # one flag per value (repeated --encrypt / --essid / --bssid).
+    for enc in _as_list(params.get("encrypt")):
+        cmd += ["--encrypt", enc[:8]]
+    for raw in _as_list(params.get("bssid")):
+        mac = normalize_mac(raw)
+        if not mac:
+            raise OpError(f"Invalid BSSID: {raw!r}.")
+        cmd += ["--bssid", mac]
+    for essid in _as_list(params.get("essid")):
+        cmd += ["--essid", essid[:_MAX_ESSID]]
     cmd.append(iface)
     return cmd
 

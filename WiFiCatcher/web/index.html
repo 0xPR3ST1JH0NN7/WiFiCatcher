@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32.png?v=2"/>
   <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon-16.png?v=2"/>
   <link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png?v=2"/>
-  <link rel="stylesheet" href="/static/style.css?v=32"/>
+  <link rel="stylesheet" href="/static/style.css?v=33"/>
   <script src="/static/vendor/cytoscape.min.js"></script>
   <script src="/static/vendor/layout-base.js"></script>
   <script src="/static/vendor/cose-base.js"></script>
@@ -142,21 +142,15 @@
             <details class="subpanel">
               <summary>More options</summary>
               <div class="panel-body">
-                <label class="filter-row">Protocol
-                  <select id="live-encrypt">
-                    <option value="">any</option>
-                    <option value="WEP">WEP</option>
-                    <option value="WPA2">WPA2</option>
-                    <option value="WPA3">WPA3</option>
-                    <option value="OPN">Open</option>
-                  </select>
-                </label>
-                <label class="filter-row">ESSID
-                  <input id="live-essid" class="mini-input" placeholder="optional"/>
-                </label>
-                <label class="filter-row">BSSID
-                  <input id="live-bssid" class="mini-input" placeholder="optional"/>
-                </label>
+                <div class="filter-row">Protocol
+                  <div class="multi-field" id="live-encrypt" data-kind="proto"></div>
+                </div>
+                <div class="filter-row">ESSID
+                  <div class="multi-field" id="live-essid" data-kind="text" data-ph="optional"></div>
+                </div>
+                <div class="filter-row">BSSID
+                  <div class="multi-field" id="live-bssid" data-kind="mac" data-ph="AA:BB:CC:DD:EE:FF"></div>
+                </div>
                 <label class="filter-row">Interval (s)
                   <input id="live-interval" class="mini-input" type="number" min="0.2" max="10"
                          step="0.1" value="1.2"/>
@@ -264,15 +258,6 @@
                 <div class="multi-select" id="filter-bssid"></div>
               </div>
             </div>
-            <label class="filter-row">Layout
-              <select id="layout-select">
-                <option value="fcose">force (fcose)</option>
-                <option value="concentric">concentric</option>
-                <option value="breadthfirst">hierarchical</option>
-                <option value="circle">circle</option>
-                <option value="grid">grid</option>
-              </select>
-            </label>
           </div>
           <p class="legend-hint">Click an item to filter · click a node for details</p>
         </div>
@@ -383,6 +368,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="/static/app.js?v=39"></script>
+  <script src="/static/app.js?v=40"></script>
 </body>
 </html>

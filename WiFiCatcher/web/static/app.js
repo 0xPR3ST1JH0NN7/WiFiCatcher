@@ -370,15 +370,25 @@ function fillMultiSelect(id, values) {
     e.stopPropagation();
     const isOpen = !menu.classList.contains("hidden");
     document.querySelectorAll(".ms-menu").forEach((m) => m.classList.add("hidden"));
-    menu.classList.toggle("hidden", isOpen);
+    if (isOpen) return;
+    // Anchor the fixed menu under the trigger so it floats over the panel edge
+    // instead of being clipped by the panel's own scroll box.
+    const r = trigger.getBoundingClientRect();
+    menu.style.left = `${r.left}px`;
+    menu.style.top = `${r.bottom + 4}px`;
+    menu.style.minWidth = `${r.width}px`;
+    menu.classList.remove("hidden");
   };
   sync();
 }
 
-// Any outside click closes every open filter dropdown.
-document.addEventListener("click", () => {
+// An outside click or any scroll closes every open filter dropdown (a fixed menu
+// is positioned once on open, so scrolling would otherwise detach it).
+function closeFilterMenus() {
   document.querySelectorAll(".ms-menu").forEach((m) => m.classList.add("hidden"));
-});
+}
+document.addEventListener("click", closeFilterMenus);
+document.addEventListener("scroll", closeFilterMenus, true);
 
 /* ----------------------------------------------------------------- filters */
 // A legend row is "on" unless it carries the .off class (toggled by clicking it).
@@ -1574,10 +1584,6 @@ document.getElementById("clear-btn").onclick = async () => {
 };
 
 document.getElementById("details-close").onclick = closeDetails;
-document.getElementById("layout-select").onchange = (e) => runLayout(e.target.value);
-["filter-enc", "filter-chan"].forEach(
-  (id) => document.getElementById(id).addEventListener("change", applyFilters)
-);
 // Clickable legend rows toggle each node type on/off.
 document.querySelectorAll(".legend-toggle").forEach((btn) =>
   btn.addEventListener("click", () => { btn.classList.toggle("off"); applyFilters(); })
@@ -1656,8 +1662,58 @@ const AIRODUMP_OPT_IDS = ["live-iface", "live-iface-refresh", "live-band",
 function setDisabled(ids, disabled) {
   ids.forEach((id) => {
     const el = document.getElementById(id);
-    if (el) el.disabled = disabled;
+    if (!el) return;
+    el.disabled = disabled;
+    // Container fields (multi-field) hold the real controls as children.
+    el.querySelectorAll("input, select, button").forEach((c) => { c.disabled = disabled; });
   });
+}
+
+/* ----------------------------------------------------- repeatable fields */
+// The live-capture Protocol / ESSID / BSSID inputs can each hold several values
+// (one airodump-ng flag apiece). Each field is a stack of rows: the first row's
+// button adds another, later rows' buttons remove themselves.
+const PROTO_OPTS = [["", "any"], ["WEP", "WEP"], ["WPA2", "WPA2"],
+  ["WPA3", "WPA3"], ["OPN", "Open"]];
+
+function initMultiField(id) {
+  const host = document.getElementById(id);
+  if (!host) return;
+  const kind = host.dataset.kind;          // "proto" | "text" | "mac"
+  const ph = host.dataset.ph || "";
+  const makeRow = (first) => {
+    const row = document.createElement("div");
+    row.className = "mf-row";
+    let ctrl;
+    if (kind === "proto") {
+      ctrl = document.createElement("select");
+      ctrl.innerHTML = PROTO_OPTS
+        .map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
+    } else {
+      ctrl = document.createElement("input");
+      ctrl.placeholder = ph;
+    }
+    ctrl.className = "mini-input";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "mf-btn";
+    btn.textContent = first ? "+" : "−";      // + / minus sign
+    btn.title = first ? "Add another" : "Remove";
+    btn.onclick = first ? () => host.appendChild(makeRow(false)) : () => row.remove();
+    row.append(ctrl, btn);
+    return row;
+  };
+  host.innerHTML = "";
+  host.appendChild(makeRow(true));
+}
+
+// Non-empty, de-duplicated values of a repeatable field, in order.
+function collectMultiField(id) {
+  const host = document.getElementById(id);
+  if (!host) return [];
+  const vals = [...host.querySelectorAll("input, select")]
+    .map((c) => c.value.trim()).filter(Boolean);
+  return [...new Set(vals)];
 }
 
 // -------------------------------------------------------- channel picker
@@ -1721,6 +1777,7 @@ if (_liveBandSel) _liveBandSel.addEventListener("change", renderChannelChips);
 const _chanChips = document.getElementById("live-channel-chips");
 if (_chanChips) _chanChips.addEventListener("click", onChannelChipClick);
 renderChannelChips();
+["live-encrypt", "live-essid", "live-bssid"].forEach(initMultiField);
 
 function refreshLiveButtons() {
   const running = live.running, mode = live.mode;
@@ -1938,9 +1995,9 @@ async function startLive() {
     channel,
     band: document.getElementById("live-band").value || null,
     interval,
-    encrypt: document.getElementById("live-encrypt").value || null,
-    essid: document.getElementById("live-essid").value.trim() || null,
-    bssid: document.getElementById("live-bssid").value.trim() || null,
+    encrypt: collectMultiField("live-encrypt"),
+    essid: collectMultiField("live-essid"),
+    bssid: collectMultiField("live-bssid"),
     save: document.getElementById("live-save").checked,
     save_path: document.getElementById("live-save-path").value.trim() || null,
     acknowledged: true,

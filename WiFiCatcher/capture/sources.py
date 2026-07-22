@@ -87,6 +87,14 @@ class ReplaySource(Source):
 _BAND_FLAGS = {"2.4": "bg", "5": "a", "both": "abg"}
 
 
+def _flag_values(value) -> list[str]:
+    """A filter value (None / single / list) as a clean list, for repeated flags."""
+    if value is None:
+        return []
+    items = value if isinstance(value, (list, tuple)) else [value]
+    return [str(v).strip() for v in items if str(v).strip()]
+
+
 class AirodumpSource(Source):
     """Spawn airodump-ng and tail its rotating CSV (authorized use only).
 
@@ -98,9 +106,10 @@ class AirodumpSource(Source):
     """
 
     def __init__(self, interface: str, channel: Optional[str] = None,
-                 band: Optional[str] = None, encrypt: Optional[str] = None,
-                 essid: Optional[str] = None,
-                 bssid: Optional[str] = None,
+                 band: Optional[str] = None,
+                 encrypt: "str | list[str] | None" = None,
+                 essid: "str | list[str] | None" = None,
+                 bssid: "str | list[str] | None" = None,
                  monitor: Optional[MonitorHandle] = None, save: bool = False,
                  save_dir: Optional[str] = None):
         self.interface = interface
@@ -129,12 +138,13 @@ class AirodumpSource(Source):
             cmd += ["-c", str(self.channel)]
         elif self.band in _BAND_FLAGS:
             cmd += ["--band", _BAND_FLAGS[self.band]]
-        if self.encrypt:
-            cmd += ["--encrypt", str(self.encrypt)]
-        if self.bssid:
-            cmd += ["--bssid", str(self.bssid)]
-        if self.essid:
-            cmd += ["--essid", str(self.essid)]
+        # Each filter may be a single value or a list; one flag per value.
+        for enc in _flag_values(self.encrypt):
+            cmd += ["--encrypt", enc]
+        for bssid in _flag_values(self.bssid):
+            cmd += ["--bssid", bssid]
+        for essid in _flag_values(self.essid):
+            cmd += ["--essid", essid]
         cmd.append(self.interface)
         return cmd
 
@@ -220,8 +230,10 @@ class HelperAirodumpSource(Source):
     """
 
     def __init__(self, interface: str, channel: Optional[str] = None,
-                 band: Optional[str] = None, encrypt: Optional[str] = None,
-                 essid: Optional[str] = None, bssid: Optional[str] = None,
+                 band: Optional[str] = None,
+                 encrypt: "str | list[str] | None" = None,
+                 essid: "str | list[str] | None" = None,
+                 bssid: "str | list[str] | None" = None,
                  save: bool = False, save_dir: Optional[str] = None,
                  save_name: Optional[str] = None, acknowledged: bool = True):
         # The interface the user picked; becomes the monitor interface once the
