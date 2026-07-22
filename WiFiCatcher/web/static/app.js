@@ -339,6 +339,8 @@ function populateFilterOptions() {
 function fillMultiSelect(id, values) {
   const host = document.getElementById(id);
   if (!host) return;
+  // Rebuilding replaces the trigger/menu nodes; drop any open-menu state on them.
+  if (openMs && host.contains(openMs.menu)) closeMs();
   const sel = filterSel[id];
   [...sel].forEach((v) => { if (!values.includes(v)) sel.delete(v); });
   const opts = values
@@ -368,27 +370,38 @@ function fillMultiSelect(id, values) {
   });
   trigger.onclick = (e) => {
     e.stopPropagation();
-    const isOpen = !menu.classList.contains("hidden");
-    document.querySelectorAll(".ms-menu").forEach((m) => m.classList.add("hidden"));
-    if (isOpen) return;
-    // Anchor the fixed menu under the trigger so it floats over the panel edge
-    // instead of being clipped by the panel's own scroll box.
-    const r = trigger.getBoundingClientRect();
-    menu.style.left = `${r.left}px`;
-    menu.style.top = `${r.bottom + 4}px`;
-    menu.style.minWidth = `${r.width}px`;
+    const wasOpen = openMs && openMs.menu === menu;
+    closeMs();
+    if (wasOpen) return;      // clicking the open trigger just closes it
+    openMs = { menu, trigger };
     menu.classList.remove("hidden");
+    positionMs();
   };
   sync();
 }
 
-// An outside click or any scroll closes every open filter dropdown (a fixed menu
-// is positioned once on open, so scrolling would otherwise detach it).
-function closeFilterMenus() {
-  document.querySelectorAll(".ms-menu").forEach((m) => m.classList.add("hidden"));
+// The dropdown currently open (its menu + trigger), or null. A single source of
+// truth so clicking a trigger toggles reliably, and scrolling the panel just
+// repositions the fixed menu instead of closing it (closing on scroll made the
+// bar feel unresponsive — clicks landed mid-scroll and were swallowed).
+let openMs = null;
+function closeMs() {
+  if (!openMs) return;
+  openMs.menu.classList.add("hidden");
+  openMs = null;
 }
-document.addEventListener("click", closeFilterMenus);
-document.addEventListener("scroll", closeFilterMenus, true);
+function positionMs() {
+  if (!openMs) return;
+  // Anchor the fixed menu under the trigger so it floats over the panel edge
+  // instead of being clipped by the panel's own scroll box.
+  const r = openMs.trigger.getBoundingClientRect();
+  openMs.menu.style.left = `${r.left}px`;
+  openMs.menu.style.top = `${r.bottom + 4}px`;
+  openMs.menu.style.minWidth = `${r.width}px`;
+}
+document.addEventListener("click", closeMs);
+document.addEventListener("scroll", positionMs, true);
+window.addEventListener("resize", positionMs);
 
 /* ----------------------------------------------------------------- filters */
 // A legend row is "on" unless it carries the .off class (toggled by clicking it).
@@ -813,8 +826,8 @@ const ATTACK_DATA = {
 function wpsNote(info) {
   if (!info.wps) return "";
   return info.wps_locked
-    ? "WPS is present but locked on this AP, so the PIN attack is likely blocked."
-    : "WPS is enabled on this AP, so the PIN attack is worth trying first.";
+    ? "WPS is enabled but locked on this AP, so the WPS PIN brute-force is likely blocked."
+    : "Given that WPS is enabled, a WPS PIN brute-force attack should be the primary exploitation attempt on this AP.";
 }
 
 // The "Suggested attacks" panel block for an AP, or "" when nothing applies. It
@@ -1681,9 +1694,13 @@ function initMultiField(id) {
   if (!host) return;
   const kind = host.dataset.kind;          // "proto" | "text" | "mac"
   const ph = host.dataset.ph || "";
+  const label = host.dataset.label || "";  // repeated on every row, so each field is named
   const makeRow = (first) => {
     const row = document.createElement("div");
     row.className = "mf-row";
+    const lab = document.createElement("span");
+    lab.className = "mf-label";
+    lab.textContent = label;
     let ctrl;
     if (kind === "proto") {
       ctrl = document.createElement("select");
@@ -1700,7 +1717,7 @@ function initMultiField(id) {
     btn.textContent = first ? "+" : "−";      // + / minus sign
     btn.title = first ? "Add another" : "Remove";
     btn.onclick = first ? () => host.appendChild(makeRow(false)) : () => row.remove();
-    row.append(ctrl, btn);
+    row.append(lab, ctrl, btn);
     return row;
   };
   host.innerHTML = "";
@@ -1918,8 +1935,6 @@ function handleLiveMessage(msg) {
     applyPatch(msg);
   } else if (msg.type === "handshake") {
     markHandshake(msg);
-  } else if (msg.type === "wps") {
-    markWps(msg);
   } else if (msg.type === "cert") {
     markCert(msg);
   } else if (msg.type === "stopped") {
@@ -1936,13 +1951,6 @@ function markHandshake(msg) {
   }
   celebrateCat();   // cat + key hop 5 times on every captured WPA handshake
   toast(`WPA handshake captured: ${name}`, "ok");
-}
-
-function markWps(msg) {
-  const name = msg.essid || msg.bssid;
-  const v = msg.version ? ` v${msg.version}` : "";
-  const lock = msg.locked ? " 🔒" : "";
-  toast(`WPS enabled: ${name}${v}${lock}`, "ok");
 }
 
 function markCert(msg) {

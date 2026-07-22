@@ -429,11 +429,13 @@ details.subpanel[open] > summary::after { transform: rotate(90deg); }
 .ms-opt input { accent-color: var(--accent); margin: 0; }
 .ms-empty { color: var(--muted); margin: 4px 7px; font-size: 12px; }
 
-/* Repeatable capture filter (Protocol / ESSID / BSSID): a stack of inputs each
-   with a +/- button so several values can be given, one airodump flag apiece. */
-.multi-field { display: flex; flex-direction: column; gap: 6px; min-width: 168px; }
-.mf-row { display: flex; gap: 6px; align-items: center; }
-.mf-row .mini-input, .mf-row select { flex: 1; min-width: 0; }
+/* Repeatable capture filter (Protocol / ESSID / BSSID): a stack of rows, each
+   carrying its own label, input and a +/- button so several values can be given
+   (one airodump flag apiece). Rows are centred and every added row is labelled. */
+.multi-field { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
+.mf-row { display: flex; gap: 6px; align-items: center; justify-content: center; }
+.mf-label { flex: 0 0 62px; text-align: right; color: var(--muted); font-size: 12px; }
+.mf-row .mini-input, .mf-row select { flex: 0 1 140px; min-width: 0; }
 .mf-btn {
   flex: 0 0 auto; width: 26px; height: 26px; line-height: 1; cursor: pointer;
   background: var(--panel); color: var(--text);
