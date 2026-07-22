@@ -203,7 +203,8 @@ def _capture_stream(params: dict):
     from WiFiCatcher.capture.interfaces import ensure_monitor_mode, restore_managed_mode
     from WiFiCatcher.capture.wps import parse_wps, wps_fields, wps_filter
     from WiFiCatcher.operations.enterprise import (
-        hexfields_to_der, parse_certificates_from_der_list)
+        EAP_ID_FIELDS, EAP_ID_FILTER, hexfields_to_der,
+        parse_certificates_from_der_list, parse_eap_identities)
 
     handle = ensure_monitor_mode(
         _iface(params), acknowledged=bool(params.get("acknowledged", True)))
@@ -238,6 +239,7 @@ def _capture_stream(params: dict):
     seen_hs: set[str] = set()
     wps_prev: dict = {}
     seen_certs: set[str] = set()
+    eap_prev: dict = {}
     tick = 0
     have_tshark = shutil.which("tshark") is not None
     # Resolve the WPS filter / fields once against the local tshark; names it
@@ -319,6 +321,31 @@ def _capture_stream(params: dict):
                             fresh[bssid] = certs
                     if fresh:
                         yield {"cert": fresh}
+                except (OSError, subprocess.SubprocessError):
+                    pass
+            # Enterprise EAP identity: the username a client presents in its EAP
+            # Response/Identity (often DOMAIN\user when not tunnelled), keyed by AP.
+            if caps and tick % 5 == 2:
+                try:
+                    out = subprocess.run(
+                        ["tshark", "-r", caps[-1], "-n", "-Y", EAP_ID_FILTER,
+                         "-T", "fields"]
+                        + [arg for f in EAP_ID_FIELDS for arg in ("-e", f)]
+                        + ["-E", "separator=|"],
+                        capture_output=True, text=True, timeout=20,
+                        check=False).stdout
+                    by_bssid: dict = {}
+                    for row in parse_eap_identities(out):
+                        if not row["bssid"]:
+                            continue
+                        entry = {"identity": row["identity"], "client": row["client"]}
+                        ids = by_bssid.setdefault(row["bssid"], [])
+                        if entry not in ids:
+                            ids.append(entry)
+                    delta = {b: v for b, v in by_bssid.items() if eap_prev.get(b) != v}
+                    if delta:
+                        eap_prev.update(delta)
+                        yield {"eap_identity": delta}
                 except (OSError, subprocess.SubprocessError):
                     pass
             time.sleep(1.0)

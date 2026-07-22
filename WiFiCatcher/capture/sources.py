@@ -254,6 +254,7 @@ class HelperAirodumpSource(Source):
         self._handshakes: set[str] = set()
         self._wps: dict[str, dict] = {}
         self._certs: dict[str, list] = {}
+        self._eap_ids: dict[str, list] = {}
         self._lock = threading.Lock()
         self._parser = AirodumpCsvParser()
 
@@ -305,6 +306,9 @@ class HelperAirodumpSource(Source):
             elif event and "cert" in event:
                 with self._lock:
                     self._certs.update(event["cert"] or {})
+            elif event and "eap_identity" in event:
+                with self._lock:
+                    self._eap_ids.update(event["eap_identity"] or {})
             elif "ok" in msg or msg.get("done"):
                 break
 
@@ -338,6 +342,11 @@ class HelperAirodumpSource(Source):
         """Per-BSSID RADIUS/EAP server certificates the helper has parsed so far."""
         with self._lock:
             return dict(self._certs)
+
+    def eap_identities(self) -> dict:
+        """Per-BSSID EAP Response/Identity usernames the helper has seen so far."""
+        with self._lock:
+            return dict(self._eap_ids)
 
     async def stop(self) -> None:
         sock, self._sock = self._sock, None

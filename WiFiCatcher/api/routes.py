@@ -102,6 +102,9 @@ def get_node(node_id: str):
         certs = CAPTURE.radius_certs(node_id)
         if certs:
             info = {**info, "radius_certs": certs}
+        eap_ids = CAPTURE.eap_identities(node_id)
+        if eap_ids:
+            info = {**info, "eap_identities": eap_ids}
     return info
 
 
@@ -229,6 +232,31 @@ async def operations_enterprise_cert_upload(
         with os.fdopen(fd, "wb") as fh:
             fh.write(raw)
         return enterprise.extract_radius_cert(
+            cap_path=path, ap_bssid=(ap_bssid or None))
+    except OperationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+
+
+@router.post("/operations/enterprise/eap-identity/upload")
+async def operations_enterprise_eap_identity_upload(
+        file: UploadFile = File(...), ap_bssid: str | None = Form(None)):
+    """Read EAP Response/Identity usernames (DOMAIN\\user) from an uploaded capture.
+
+    Read-only. The upload is written to a temp file, scanned with tshark, deleted.
+    """
+    raw = await file.read(uploads.MAX_UPLOAD_BYTES + 1)
+    uploads.validate_capture(raw, file.filename or "", file.content_type)
+    suffix = uploads.safe_capture_suffix(file.filename or "")
+    fd, path = tempfile.mkstemp(prefix="WiFiCatcher-up-", suffix=suffix)
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(raw)
+        return enterprise.extract_eap_identities(
             cap_path=path, ap_bssid=(ap_bssid or None))
     except OperationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

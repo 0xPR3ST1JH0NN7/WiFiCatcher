@@ -136,6 +136,8 @@ class CaptureController:
         self._seen_wps: set[str] = set()
         self._certs: dict[str, list] = {}
         self._seen_certs: set[str] = set()
+        self._eap_ids: dict[str, list] = {}
+        self._seen_eap: set[str] = set()
         self.running = False
         self.mode: Optional[str] = None
         # Where the most recent capture was kept, if "save" was requested.
@@ -158,6 +160,8 @@ class CaptureController:
         self._seen_wps = set()
         self._certs = {}
         self._seen_certs = set()
+        self._eap_ids = {}
+        self._seen_eap = set()
         self.last_saved_path = None
         if interval:
             self._interval = interval
@@ -216,6 +220,7 @@ class CaptureController:
             await self._poll_handshakes()
             await self._poll_wps()
             await self._poll_certs()
+            await self._poll_eap_identities()
             await asyncio.sleep(self._interval)
 
     def _apply_wps(self, scan) -> None:
@@ -272,6 +277,30 @@ class CaptureController:
     def radius_certs(self, bssid: str):
         """Parsed RADIUS server certificate(s) captured live for an AP, if any."""
         return self._certs.get((bssid or "").upper())
+
+    async def _poll_eap_identities(self) -> None:
+        """Pull EAP Response/Identity usernames from the source; announce each once."""
+        getter = getattr(self._source, "eap_identities", None)
+        if not callable(getter):
+            return
+        try:
+            self._eap_ids = getter()
+        except Exception:
+            return
+        for bssid, ids in self._eap_ids.items():
+            if bssid in self._seen_eap or not ids:
+                continue
+            self._seen_eap.add(bssid)
+            node = self._graph.node(bssid)
+            essid = node.get("essid") if node else None
+            await self._broadcast({
+                "type": "eap_identity", "bssid": bssid, "essid": essid,
+                "identity": ids[0].get("identity"),
+            })
+
+    def eap_identities(self, bssid: str):
+        """EAP Response/Identity usernames captured live for an AP, if any."""
+        return self._eap_ids.get((bssid or "").upper())
 
     async def _poll_handshakes(self) -> None:
         if not self._handshakes:

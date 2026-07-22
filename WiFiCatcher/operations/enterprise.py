@@ -273,6 +273,74 @@ def extract_radius_cert(cap_path: str, ap_bssid: str | None = None,
     }
 
 
+# tshark fields for EAP Response/Identity extraction, in this order.
+EAP_ID_FIELDS = ("wlan.bssid", "wlan.sa", "eap.identity")
+# A client's EAP Response (code 2) Identity carries the username it presented; a
+# Request/Identity (code 1) is the authenticator's prompt, so filter to code 2.
+EAP_ID_FILTER = "eap.identity && eap.code == 2"
+
+
+def parse_eap_identities(tshark_output: str, sep: str = "|") -> list[dict]:
+    """Parse ``bssid|client|identity`` rows into a de-duplicated list of dicts.
+
+    Each row is one EAP Response/Identity frame; the identity is the username the
+    supplicant sent (often ``DOMAIN\\user`` when not tunnelled). Rows with no
+    identity are dropped; ``(bssid, client, identity)`` triples are unique.
+    """
+    seen: set = set()
+    out: list[dict] = []
+    for line in tshark_output.splitlines():
+        parts = line.split(sep)
+        if len(parts) < 3:
+            continue
+        bssid = normalize_mac(parts[0]) or None
+        client = normalize_mac(parts[1]) or None
+        identity = parts[2].strip()
+        if not identity:
+            continue
+        key = (bssid, client, identity)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({"bssid": bssid, "client": client, "identity": identity})
+    return out
+
+
+def extract_eap_identities(cap_path: str, ap_bssid: str | None = None) -> dict:
+    """Read EAP Response/Identity usernames (``DOMAIN\\user``) from a capture.
+
+    Read-only: no radio, no root, just ``tshark`` over the file. ``ap_bssid``
+    scopes the search to one AP. ``status`` is ``"empty"`` (not an error) when the
+    capture holds no cleartext identity (none captured, or all identities are the
+    anonymous outer id of a tunnelled method).
+    """
+    if not cap_path or not os.path.isfile(cap_path):
+        raise OperationError("Capture file not found.")
+    bssid = normalize_mac(ap_bssid) if ap_bssid else None
+    if ap_bssid and not bssid:
+        raise OperationError("Invalid AP BSSID.")
+    require_tools("tshark", hint="Install Wireshark/tshark.")
+    disp = EAP_ID_FILTER + (f" && wlan.bssid == {bssid}" if bssid else "")
+    cmd = ["tshark", "-r", cap_path, "-n", "-Y", disp, "-T", "fields",
+           *[arg for f in EAP_ID_FIELDS for arg in ("-e", f)],
+           "-E", "separator=|"]
+    logger.info("EAP identity extraction: %s", " ".join(cmd))
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True,
+                              timeout=CERT_TIMEOUT, check=False)
+    except FileNotFoundError as exc:
+        raise OperationError(str(exc)) from exc
+    except subprocess.TimeoutExpired as exc:
+        raise OperationError(
+            "EAP identity extraction timed out; scope it to one AP (BSSID).") from exc
+    identities = parse_eap_identities(proc.stdout)
+    return {
+        "status": "ok" if identities else "empty",
+        "identities": identities,
+        "returncode": proc.returncode,
+    }
+
+
 # --------------------------------------------------------- EAP enumeration
 def enumerate_eap_methods(interface: str, essid: str, identity: str,
                           script_path: str = EAP_BUSTER,

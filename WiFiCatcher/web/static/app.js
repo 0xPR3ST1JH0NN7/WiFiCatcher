@@ -45,6 +45,12 @@ const API = {
     if (bssid) fd.append("ap_bssid", bssid);
     return fetchJSON("/api/operations/enterprise/cert/upload", { method: "POST", body: fd });
   },
+  enterpriseEapIdentityUpload: (file, bssid) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    if (bssid) fd.append("ap_bssid", bssid);
+    return fetchJSON("/api/operations/enterprise/eap-identity/upload", { method: "POST", body: fd });
+  },
 };
 
 async function fetchJSON(url, opts) {
@@ -710,6 +716,11 @@ function buildDetailFields(info) {
     row("Auth", info.authentication);
     row("WPS", info.wps ? (info.wps_version || "Yes") : "Not detected");
     if (info.wps) row("WPS locked", info.wps_locked ? "Yes" : "No");
+    // EAP Response/Identity usernames captured live for this enterprise AP.
+    if (info.eap_identities && info.eap_identities.length) {
+      const names = [...new Set(info.eap_identities.map((e) => e.identity))];
+      row("EAP identity", names.join(", "));
+    }
     row("Signal", info.power != null ? `${info.power} dBm` : null);
     row("Beacons", info.beacons);
     row("Data", info.data);
@@ -1178,34 +1189,35 @@ function openEapModal(info) {
   confirm.classList.remove("danger");
   confirm.disabled = false;
   document.getElementById("op-modal").classList.remove("hidden");
-  fillEapInterfaces(live.iface);   // populate the picker, preferring the scanning adapter
+  fillEapInterfaces();   // populate from the present adapters, preferring the capturing one
 }
 
-// Fill the EAP interface picker from the detected adapters, preferring the one a
-// live capture is using (which EAP restores to managed mode before it runs).
-async function fillEapInterfaces(prefer) {
+// Fill the EAP interface picker from the actually-present adapters. Prefer the
+// interface the live capture is running on (its monitor vif): picking it stops
+// the capture and hands the restored managed adapter to EAP.
+async function fillEapInterfaces() {
   const sel = document.getElementById("op-iface");
   if (!sel) return;
+  const prefer = live.monitorIface;   // the capture's monitor vif, if capturing
   try {
     const { interfaces } = await API.interfaces();
-    const items = interfaces.map((i) => ({ name: i.name, mode: i.mode }));
-    // While capturing, the base adapter appears as its monitor interface; make
-    // sure the capture's own interface stays selectable regardless.
-    if (prefer && !items.some((i) => i.name === prefer)) {
-      items.unshift({ name: prefer, mode: "in capture" });
-    }
-    if (!items.length) {
+    if (!interfaces.length) {
       sel.innerHTML = '<option value="">no wireless interface found</option>';
       return;
     }
-    sel.innerHTML = items
-      .map((i) => `<option value="${escapeHtml(i.name)}">${escapeHtml(i.name)} (${escapeHtml(i.mode)})</option>`)
+    sel.innerHTML = interfaces
+      .map((i) => {
+        const capturing = i.name === prefer ? ", in capture" : "";
+        return `<option value="${escapeHtml(i.name)}">${escapeHtml(i.name)} (${escapeHtml(i.mode)}${capturing})</option>`;
+      })
       .join("");
-    if (prefer) sel.value = prefer;
+    // Default to the capturing adapter, else the first managed one, else the first.
+    const managed = interfaces.find((i) => i.mode === "managed");
+    sel.value = (prefer && interfaces.some((i) => i.name === prefer))
+      ? prefer
+      : (managed ? managed.name : interfaces[0].name);
   } catch (e) {
-    sel.innerHTML = prefer
-      ? `<option value="${escapeHtml(prefer)}">${escapeHtml(prefer)}</option>`
-      : '<option value="">scan failed</option>';
+    sel.innerHTML = '<option value="">scan failed</option>';
   }
 }
 
@@ -1304,21 +1316,25 @@ async function confirmEap() {
   const essid = pendingOp.essid;
   document.getElementById("op-modal").classList.add("hidden");
   pendingOp = null;
-  // EAP_buster drives the interface in managed mode, which fights a live monitor
-  // capture. Free the radio by stopping the capture first (real runs only).
-  if (!dry && live.running) {
+  // EAP_buster needs a managed interface. If the chosen one is the live capture's
+  // monitor vif, stop the capture (which restores its managed base) and run EAP
+  // on that base name; the monitor vif itself disappears once the capture stops.
+  let eapIface = iface;
+  if (!dry && live.running && iface === live.monitorIface) {
     toast("Stopping capture and restoring managed mode…");
+    const base = live.iface;
     try { await stopLive({ silent: true }); } catch (e) { /* ignore */ }
+    if (base) eapIface = base;
   }
   const box = document.getElementById("enterprise-result");
   // A real run blocks until EAP_buster finishes, so show a live spinner and a
   // ticking elapsed timer in the side panel rather than a frozen "running" line.
   let stopProgress = () => {};
-  if (box && !dry) stopProgress = startEapProgress(box, iface, essid);
+  if (box && !dry) stopProgress = startEapProgress(box, eapIface, essid);
   eapRunning = !dry;   // a real run streams its result into the panel; keep it open
   try {
     const res = await API.enterpriseEap({
-      essid, identity, interface: iface, acknowledged: true, dry_run: dry,
+      essid, identity, interface: eapIface, acknowledged: true, dry_run: dry,
     });
     stopProgress();
     renderEap(res, dry);
@@ -1570,6 +1586,39 @@ document.getElementById("cert-file").addEventListener("change", async (e) => {
   }
 });
 
+// Read EAP Response/Identity usernames from an uploaded .cap (offline, no root).
+document.getElementById("eapid-file").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const box = document.getElementById("eapid-result");
+  box.innerHTML = `<p class="hint">Reading ${escapeHtml(file.name)}…</p>`;
+  try {
+    renderEapIdentities(await API.enterpriseEapIdentityUpload(file), box);
+  } catch (err) {
+    box.innerHTML = `<p class="hint" style="color:#ffb3ba">${escapeHtml(err.message)}</p>`;
+  } finally {
+    e.target.value = "";
+  }
+});
+
+// Render a list of captured EAP identities into a container.
+function renderEapIdentities(res, box) {
+  const ids = (res && res.identities) || [];
+  if (!ids.length) {
+    box.innerHTML = `<p class="hint">No EAP identity found. The capture may hold ` +
+      `none, or the identities are the anonymous outer id of a tunnelled method ` +
+      `(PEAP / EAP-TTLS), where the real username stays inside the TLS tunnel.</p>`;
+    return;
+  }
+  box.innerHTML =
+    `<div class="eapid-list">` +
+    ids.map((e) =>
+      `<div class="detail-row"><span class="k copyable" title="Click to copy">${escapeHtml(e.identity)}</span>` +
+      `<span class="v">${escapeHtml(e.client || "")}</span></div>`).join("") +
+    `</div>`;
+  box.querySelectorAll(".k.copyable").forEach((el) => { el.onclick = () => copyText(el.textContent); });
+}
+
 // Persistent: it only closes via the × button (clicking the backdrop won't
 // dismiss it), so the certificate stays up while you read it.
 document.getElementById("cert-modal-close").onclick = closeCertModal;
@@ -1716,7 +1765,8 @@ sidebarPanels.forEach((d) =>
 
 /* ------------------------------------------------------------- live capture */
 const live = { ws: null, running: false, fitDone: false, layoutTimer: null,
-               mode: null, channel: null, canDeauth: false, loaded: false };
+               mode: null, channel: null, canDeauth: false, loaded: false,
+               iface: null, monitorIface: null };
 
 // Clients with no edges are "unassociated"; recompute after live changes.
 function recomputeUnassoc() {
@@ -2001,6 +2051,8 @@ function handleLiveMessage(msg) {
     applyPatch(msg);
   } else if (msg.type === "handshake") {
     markHandshake(msg);
+  } else if (msg.type === "eap_identity") {
+    markEapIdentity(msg);
   } else if (msg.type === "cert") {
     markCert(msg);
   } else if (msg.type === "stopped") {
@@ -2022,6 +2074,13 @@ function markHandshake(msg) {
 function markCert(msg) {
   const name = msg.essid || msg.bssid;
   toast(`RADIUS certificate captured: ${name}. Open the AP to read it.`, "ok");
+}
+
+function markEapIdentity(msg) {
+  const name = msg.essid || msg.bssid;
+  toast(`EAP identity captured on ${name}: ${msg.identity}`, "ok");
+  // Refresh the AP panel if it is open so the captured identity shows there too.
+  if (detailNodeId === msg.bssid) openNode(msg.bssid);
 }
 
 function openLiveSocket() {
@@ -2098,6 +2157,9 @@ async function startLive() {
     const res = await API.liveStart(payload);
     live.mode = "airodump";
     live.channel = channel;
+    // The base adapter now runs as a monitor vif (e.g. wlan0 -> wlan0mon); keep
+    // both so EAP can map the monitor interface back to its managed base.
+    live.monitorIface = (res && res.interface) || null;
     // Deauth needs a single fixed channel; a comma list makes airodump hop.
     live.canDeauth = !!channel && channel.split(",").filter((s) => s.trim()).length === 1;
     openLiveSocket();
@@ -2151,6 +2213,7 @@ async function stopLive(opts = {}) {
   live.mode = null;
   live.channel = null;
   live.canDeauth = false;
+  live.monitorIface = null;
   setLiveUI(false);
   if (!opts.silent) {
     if (saved) toast(`Capture saved to ${saved}`, "ok");
