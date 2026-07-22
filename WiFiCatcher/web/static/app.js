@@ -56,12 +56,6 @@ const API = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     }),
-  enterpriseEap: (payload) =>
-    fetchJSON("/api/operations/enterprise/eap-methods", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    }),
 };
 
 async function fetchJSON(url, opts) {
@@ -1203,8 +1197,7 @@ function openEapModal(info) {
     <input id="op-identity" placeholder="DOMAIN\\user"/>
     ${suggest}
     <label>Interface</label>
-    <select id="op-iface"><option value="">loading interfaces…</option></select>
-    <label><input type="checkbox" id="op-dry"/> Dry run (build the command only, do not transmit)</label>`;
+    <select id="op-iface"><option value="">loading interfaces…</option></select>`;
   const confirm = document.getElementById("op-confirm");
   confirm.textContent = "Run";
   confirm.classList.remove("danger");
@@ -1334,7 +1327,6 @@ async function confirmDeauth() {
 async function confirmEap() {
   const identity = document.getElementById("op-identity").value.trim();
   const iface = document.getElementById("op-iface").value.trim();
-  const dry = document.getElementById("op-dry").checked;
   if (!identity) return toast("Enter a domain user (EAP identity)", "error");
   if (!iface) return toast("Select an interface", "error");
   const essid = pendingOp.essid;
@@ -1346,25 +1338,14 @@ async function confirmEap() {
   // the interfering services), then run EAP_buster on that monitor vif — the same
   // "EAP_buster.sh <essid> <identity> wlan0mon" the tool expects.
   let eapIface = iface;
-  if (!dry && live.running && iface === live.monitorIface) {
+  if (live.running && iface === live.monitorIface) {
     toast("Stopping capture, keeping monitor mode for EAP…");
     const base = live.iface;
     await stopLive({ silent: true, eapBase: base });
     eapIface = live.eapMonitorIface || iface || base;
   }
   const box = document.getElementById("enterprise-result");
-  // Dry run just echoes the command; nothing streams.
-  if (dry) {
-    try {
-      renderEap(await API.enterpriseEap({
-        essid, identity, interface: eapIface, acknowledged: true, dry_run: true }), true);
-    } catch (e) {
-      if (box) box.innerHTML = `<p class="hint" style="color:#ffb3ba">${escapeHtml(e.message)}</p>`;
-      else toast(e.message, "error");
-    }
-    return;
-  }
-  // Real run: start it server-side (returns immediately) and poll for progress,
+  // Start it server-side (returns immediately) and poll for progress,
   // so the request is never held open for the minutes EAP_buster takes (which
   // fails the fetch with a NetworkError while the tool keeps running).
   eapRunning = true;
@@ -1422,7 +1403,7 @@ async function pollEap(essid, iface, t0, fails) {
     if (box) box.innerHTML = `<p class="hint" style="color:#ffb3ba">${escapeHtml(st.error)}</p>`;
     else toast(st.error, "error");
   } else {
-    renderEap({ status: "ok", essid, methods: st.methods }, false);
+    renderEap({ status: "ok", essid, methods: st.methods });
   }
 }
 
@@ -1630,14 +1611,9 @@ function exportCertImage(res) {
   }, "image/png");
 }
 
-function renderEap(res, dry) {
+function renderEap(res) {
   const box = document.getElementById("enterprise-result");
   if (!box) return;
-  if (dry || res.status === "dry-run") {
-    box.innerHTML = `<h4>EAP enumeration (dry run)</h4>` +
-      `<p class="hint">Would run: <code>${escapeHtml((res.command || []).join(" "))}</code></p>`;
-    return;
-  }
   const rank = { yes: 0, maybe: 1, no: 2 };
   const dot = (s) => (s === "yes" ? "🟢" : s === "maybe" ? "🟡" : "⚪");
   const methods = (res.methods || []).slice()
