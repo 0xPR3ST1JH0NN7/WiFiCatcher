@@ -13,6 +13,11 @@ const API = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     }),
+  liveStopForEap: (iface) =>
+    fetchJSON("/api/live/stop-for-eap", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ interface: iface }),
+    }),
   liveStart: (payload) =>
     fetchJSON("/api/live/start", {
       method: "POST",
@@ -1316,15 +1321,17 @@ async function confirmEap() {
   const essid = pendingOp.essid;
   document.getElementById("op-modal").classList.add("hidden");
   pendingOp = null;
-  // EAP_buster needs a managed interface. If the chosen one is the live capture's
-  // monitor vif, stop the capture (which restores its managed base) and run EAP
-  // on that base name; the monitor vif itself disappears once the capture stops.
+  // EAP_buster takes over the interface (setting it managed itself) but needs it
+  // free of NetworkManager. If the chosen interface is the live capture's monitor
+  // vif, stop the capture and keep the adapter in monitor mode (airmon-ng kills
+  // the interfering services), then run EAP_buster on that monitor vif — the same
+  // "EAP_buster.sh <essid> <identity> wlan0mon" the tool expects.
   let eapIface = iface;
   if (!dry && live.running && iface === live.monitorIface) {
-    toast("Stopping capture and restoring managed mode…");
+    toast("Stopping capture, keeping monitor mode for EAP…");
     const base = live.iface;
-    try { await stopLive({ silent: true }); } catch (e) { /* ignore */ }
-    if (base) eapIface = base;
+    await stopLive({ silent: true, eapBase: base });
+    eapIface = live.eapMonitorIface || iface || base;
   }
   const box = document.getElementById("enterprise-result");
   // A real run blocks until EAP_buster finishes, so show a live spinner and a
@@ -1599,6 +1606,7 @@ document.getElementById("eapid-open-btn").onclick = () =>
 function renderEapIdentities(res, box) {
   const ids = (res && res.identities) || [];
   if (!ids.length) {
+    toast("No EAP identity found in the capture.", "ok");
     box.innerHTML = `<p class="hint">No EAP identity found. The capture may hold ` +
       `none, or the identities are the anonymous outer id of a tunnelled method ` +
       `(PEAP / EAP-TTLS), where the real username stays inside the TLS tunnel.</p>`;
@@ -1744,7 +1752,7 @@ sidebarPanels.forEach((d) =>
 /* ------------------------------------------------------------- live capture */
 const live = { ws: null, running: false, fitDone: false, layoutTimer: null,
                mode: null, channel: null, canDeauth: false, loaded: false,
-               iface: null, monitorIface: null };
+               iface: null, monitorIface: null, eapMonitorIface: null };
 
 // Clients with no edges are "unassociated"; recompute after live changes.
 function recomputeUnassoc() {
@@ -2183,10 +2191,16 @@ async function stopLive(opts = {}) {
     btn.innerHTML = '<span class="spinner"></span>Stopping…';
   }
   let saved = null;
+  live.eapMonitorIface = null;
   try {
-    const res = await API.liveStop();
+    // For an EAP handoff, stop but keep the adapter in monitor mode (NM-free) and
+    // learn the monitor interface to run EAP_buster on; otherwise a normal stop.
+    const res = opts.eapBase
+      ? await API.liveStopForEap(opts.eapBase)
+      : await API.liveStop();
     saved = res && res.saved_path;
-  } catch (e) { /* ignore */ }
+    if (opts.eapBase) live.eapMonitorIface = res && res.monitor_interface;
+  } catch (e) { if (opts.eapBase) toast(e.message, "error"); }
   if (live.ws) { live.ws.close(); live.ws = null; }
   live.mode = null;
   live.channel = null;
@@ -2197,11 +2211,12 @@ async function stopLive(opts = {}) {
     if (saved) toast(`Capture saved to ${saved}`, "ok");
     else toast(wasReplay ? "Replay stopped" : "Live capture stopped", "ok");
   }
-  if (OFFENSIVE && !wasReplay) {
+  if (OFFENSIVE && !wasReplay && !opts.eapBase) {
     // The helper restores managed mode + restarts NetworkManager asynchronously
     // after we disconnect, so auto-refresh the interface list now and a few times
     // shortly after: the adapter shows back in managed mode without the user
-    // having to hit "rescan" manually.
+    // having to hit "rescan" manually. (Skipped for an EAP handoff, which
+    // deliberately keeps the adapter in monitor mode.)
     loadInterfaces(live.iface);
     [1500, 3000, 5000].forEach((ms) => setTimeout(() => loadInterfaces(live.iface), ms));
   }

@@ -7,6 +7,7 @@ import os
 import signal
 import tempfile
 import threading
+import time
 
 from fastapi import (
     APIRouter,
@@ -525,6 +526,51 @@ async def live_start(req: LiveStartRequest):
 async def live_stop():
     await CAPTURE.stop()
     return {"status": "stopped", "saved_path": CAPTURE.last_saved_path}
+
+
+class EapHandoffRequest(BaseModel):
+    interface: str          # the base adapter the capture is running on (e.g. wlan0)
+
+
+@router.post("/live/stop-for-eap")
+async def live_stop_for_eap(req: EapHandoffRequest):
+    """Stop the live capture and re-establish a monitor vif for EAP_buster.
+
+    EAP_buster takes the interface into managed mode itself but needs it free of
+    NetworkManager, so we stop airodump and put the adapter back into monitor mode
+    (airmon-ng kills the interfering services). The helper restores managed
+    asynchronously after we disconnect, so monitor.start is retried until the base
+    interface has settled. Returns the monitor interface name to run EAP on.
+    """
+    iface = (req.interface or "").strip()
+    if not iface:
+        raise HTTPException(status_code=400,
+                            detail="A wireless interface is required.")
+    await CAPTURE.stop()
+
+    def _reenable_monitor():
+        last: Exception | None = None
+        for _ in range(8):   # ~8s for the helper's airodump kill + managed restore
+            try:
+                return PrivClient().call("monitor.start", iface=iface)
+            except PrivUnavailable:
+                raise                 # helper down: not transient, do not retry
+            except PrivError as exc:
+                last = exc            # base iface not back yet; wait and retry
+                time.sleep(1.0)
+        if last:
+            raise last
+        raise PrivError("Could not enable monitor mode.")
+
+    try:
+        mon = await asyncio.get_event_loop().run_in_executor(None, _reenable_monitor)
+    except PrivUnavailable as exc:
+        raise HTTPException(status_code=503,
+                            detail=f"Privileged helper unavailable: {exc}") from exc
+    except PrivError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"status": "stopped", "saved_path": CAPTURE.last_saved_path,
+            "monitor_interface": mon.get("interface")}
 
 
 @router.get("/live/status")
