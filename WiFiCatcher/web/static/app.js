@@ -255,24 +255,59 @@ function updateStats(s) {
   document.getElementById("stat-hidden").textContent = s.hidden_aps ?? 0;
 }
 
-// A user-facing WiFi technology label for an AP, so the graph filter groups by
-// real technology (e.g. WPA2-Enterprise vs WPA/WPA2-PSK) rather than the raw
-// airodump privacy string. Order matters: enterprise and WPA3 come first.
-function apTechLabel(d) {
+// Canonical WiFi technology token for an AP. Pure WPA3 (SAE only) is kept
+// distinct from a WPA2/WPA3 transition network, since they don't share attacks.
+function apTech(d) {
   const priv = (d.privacy || "").toUpperCase();
-  if (d.enterprise || priv.includes("MGT")) return "WPA2-Enterprise";
-  if (priv.includes("WEP")) return "WEP";
-  if (priv.includes("WPA3")) return "WPA3";
-  if (priv.includes("WPA")) return "WPA/WPA2-PSK";
-  if (priv.includes("OPN") || priv.includes("OPEN")) return "Open";
-  return d.privacy || "Unknown";
+  if (d.enterprise || priv.includes("MGT")) return "enterprise";
+  if (priv.includes("WEP")) return "wep";
+  const wpa3 = priv.includes("WPA3");
+  const wpa2 = priv.includes("WPA2") || (priv.includes("WPA") && !wpa3);
+  if (wpa3 && wpa2) return "wpa2-wpa3";
+  if (wpa3) return "wpa3";
+  if (priv.includes("WPA")) return "wpa-psk";
+  if (priv.includes("OPN") || priv.includes("OPEN")) return "open";
+  return "unknown";
 }
 
-// Technology label -> a CSS class suffix for the coloured detail-panel badge.
-const TECH_CLASS = {
-  "WPA/WPA2-PSK": "psk", "WEP": "wep", "Open": "open",
-  "WPA3": "wpa3", "WPA2-Enterprise": "ent",
+const TECH_LABEL = {
+  enterprise: "WPA2-Enterprise", wep: "WEP", wpa3: "WPA3",
+  "wpa2-wpa3": "WPA2/WPA3", "wpa-psk": "WPA/WPA2-PSK", open: "Open",
 };
+const TECH_BADGE_CLASS = {
+  enterprise: "ent", wep: "wep", wpa3: "wpa3", "wpa-psk": "psk", open: "open",
+};
+
+// User-facing technology label for the graph filter (groups real technology
+// instead of the raw airodump privacy string).
+function apTechLabel(d) {
+  const t = apTech(d);
+  return t === "unknown" ? (d.privacy || "Unknown") : TECH_LABEL[t];
+}
+
+// The coloured badge(s) for the detail panel. A WPA2/WPA3 network gets two.
+function techTags(info) {
+  const t = apTech(info);
+  if (t === "wpa2-wpa3") return [{ label: "WPA2", cls: "wpa3" }, { label: "WPA3", cls: "wpa3" }];
+  if (t === "unknown") return [{ label: info.privacy || "Unknown", cls: "psk" }];
+  return [{ label: TECH_LABEL[t], cls: TECH_BADGE_CLASS[t] }];
+}
+
+// The ATTACK_DATA keys that apply to an AP. WPA2/WPA3 gets both WPA2 and WPA3.
+function techKeysFor(info) {
+  if (!info || info.kind !== "ap") return [];
+  const t = apTech(info);
+  if (t === "wpa2-wpa3") return ["wpa-psk", "wpa3"];
+  if (t === "enterprise") return ["wpa-enterprise"];
+  return ["wep", "wpa3", "wpa-psk", "open"].includes(t) ? [t] : [];
+}
+
+// [{key, data}] of every attack-data set that applies to this AP.
+function attackDataFor(info) {
+  return techKeysFor(info)
+    .map((k) => (ATTACK_DATA[k] ? { key: k, data: ATTACK_DATA[k] } : null))
+    .filter(Boolean);
+}
 
 function populateFilterOptions() {
   const encs = new Set();
@@ -707,23 +742,15 @@ const ATTACK_DATA = {
       {"id": "mitm", "parent": "twin", "label": "Man in The Middle", "kind": "attack", "desc": "The attacker reroutes the victim's traffic through their own device, letting them read or alter data while both sides suspect nothing."},
     ],
   },
-};;;
-
-// Classify a selected AP into an ATTACK_DATA key, or null when we don't advise.
-function classifyTech(info) {
-  const priv = (info.privacy || "").toUpperCase();
-  if (info.enterprise || priv.includes("MGT")) return "wpa-enterprise";
-  if (priv.includes("WEP")) return "wep";
-  if (priv.includes("WPA")) return "wpa-psk";
-  if (priv.includes("OPN") || priv.includes("OPEN")) return "open";
-  return null;
-}
-
-// Advisor payload for an AP: {key, data} or null when nothing applies.
-function suggestAttacks(info) {
-  const key = info.kind === "ap" ? classifyTech(info) : null;
-  return key ? { key, data: ATTACK_DATA[key] } : null;
-}
+  "wpa3": {
+    family: "WPA3",
+    nodes: [
+      {"id": "root", "parent": null, "label": "WPA3", "kind": "root"},
+      {"id": "g_soon", "parent": "root", "label": "To be added", "kind": "goal"},
+      {"id": "soon", "parent": "g_soon", "label": "WPA3 attacks", "kind": "attack", "desc": "WPA3 uses SAE, which resists the offline dictionary attacks that break WPA2. Specific WPA3 techniques will be added here."},
+    ],
+  },
+};
 
 // One line about this AP's own WPS state, shown for WPA/WPA2 PSK.
 function wpsNote(info) {
@@ -737,33 +764,34 @@ function wpsNote(info) {
 // mirrors the attack path graph: one block per category, then its attacks with a
 // one-line description. Open by default; the button opens the full graph.
 function attackAdvisorHtml(info) {
-  const s = suggestAttacks(info);
-  if (!s) return "";
-  const nodes = s.data.nodes;
-  const root = nodes.find((n) => n.parent === null) || nodes[0];
-  const childrenOf = (id) => nodes.filter((n) => n.parent === id);
+  const datas = attackDataFor(info);
+  if (!datas.length) return "";
   // Each attack is its own little "bubble" card with its name and description.
   const card = (a) =>
     `<div class="atk-card"><span class="atk-name">${escapeHtml(a.label)}</span>` +
     (a.desc ? `<span class="atk-desc">${escapeHtml(a.desc)}</span>` : "") + `</div>`;
-  // Render attacks preserving the tree: a chained attack (e.g. captive portal
-  // under evil twin) is nested and indented under its parent, so it reads as a
-  // continuation rather than a sibling.
-  const renderTree = (pid) => childrenOf(pid).filter((n) => n.kind === "attack").map((c) => {
-    const inner = renderTree(c.id);
-    return card(c) + (inner ? `<div class="atk-children">${inner}</div>` : "");
+  // One family block (title, its categories and attacks) per applicable
+  // technology — a WPA2/WPA3 network shows both the WPA2 and the WPA3 block.
+  const blocks = datas.map(({ key, data }) => {
+    const nodes = data.nodes;
+    const root = nodes.find((n) => n.parent === null) || nodes[0];
+    const childrenOf = (id) => nodes.filter((n) => n.parent === id);
+    // Chained attacks (e.g. captive portal under evil twin) stay nested.
+    const renderTree = (pid) => childrenOf(pid).filter((n) => n.kind === "attack").map((c) => {
+      const inner = renderTree(c.id);
+      return card(c) + (inner ? `<div class="atk-children">${inner}</div>` : "");
+    }).join("");
+    const cats = childrenOf(root.id).filter((n) => n.kind === "goal").map((cat) =>
+      `<p class="advisor-cat-name">${escapeHtml(cat.label)}</p>${renderTree(cat.id)}`
+    ).join("");
+    const note = key === "wpa-psk" ? wpsNote(info) : "";
+    const noteHtml = note ? `<p class="advisor-wps">${escapeHtml(note)}</p>` : "";
+    return `<p class="advisor-family">${escapeHtml(data.family)}</p>${noteHtml}${cats}`;
   }).join("");
-  const cats = childrenOf(root.id).filter((n) => n.kind === "goal").map((cat) =>
-    `<p class="advisor-cat-name">${escapeHtml(cat.label)}</p>${renderTree(cat.id)}`
-  ).join("");
-  const note = s.key === "wpa-psk" ? wpsNote(info) : "";
-  const noteHtml = note ? `<p class="advisor-wps">${escapeHtml(note)}</p>` : "";
   return `<details class="subpanel attack-advisor">
     <summary>Common attacks</summary>
     <div class="panel-body">
-      <p class="advisor-family">${escapeHtml(s.data.family)}</p>
-      ${noteHtml}
-      ${cats}
+      ${blocks}
       <button class="btn" id="attack-tree-btn">View attack paths</button>
       <p class="advisor-note">Guidance only. Use exclusively on networks you are authorized to test.</p>
     </div>
@@ -777,30 +805,41 @@ let attackCy = null;
 function _cssVar(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "#888";
 }
-function openAttackModal(key) {
-  const data = ATTACK_DATA[key];
-  if (!data || typeof cytoscape === "undefined") return;
-  document.getElementById("attack-modal-title").textContent = "Attack paths: " + data.family;
-  // Left to right tidy tree: x is set by depth, y is packed by leaves and each
-  // parent sits at the midpoint of its children. Rendered with a preset layout so
-  // the shape is exactly this, not an auto layout that drifts.
-  const root = data.nodes.find((n) => n.parent === null) || data.nodes[0];
-  const kids = {};
-  for (const n of data.nodes) if (n.parent) (kids[n.parent] = kids[n.parent] || []).push(n.id);
-  const XS = 300, YS = 72, pos = {};
-  let leaf = 0;
-  (function place(id, depth) {
-    const cs = kids[id] || [];
-    if (!cs.length) { pos[id] = { x: depth * XS, y: leaf++ * YS }; return; }
-    cs.forEach((c) => place(c, depth + 1));
-    const ys = cs.map((c) => pos[c].y);
-    pos[id] = { x: depth * XS, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
-  })(root.id, 0);
-
+function openAttackModal(info) {
+  const datas = attackDataFor(info);
+  if (!datas.length || typeof cytoscape === "undefined") return;
+  document.getElementById("attack-modal-title").textContent =
+    "Attack paths: " + datas.map((d) => d.data.family).join(" / ");
+  // Left to right tidy tree per technology: x is set by depth, y is packed by
+  // leaves and each parent sits at the midpoint of its children. When more than
+  // one technology applies (WPA2/WPA3), the trees are stacked vertically. Node
+  // ids are namespaced by technology so the two roots never collide.
+  const XS = 300, YS = 72;
   const elements = [];
-  for (const n of data.nodes) {
-    elements.push({ data: { id: n.id, label: n.label, kind: n.kind }, position: pos[n.id] });
-    if (n.parent) elements.push({ data: { id: n.parent + ">" + n.id, source: n.parent, target: n.id } });
+  let yOffset = 0;
+  for (const { key, data } of datas) {
+    const nodes = data.nodes;
+    const root = nodes.find((n) => n.parent === null) || nodes[0];
+    const kids = {};
+    for (const n of nodes) if (n.parent) (kids[n.parent] = kids[n.parent] || []).push(n.id);
+    const pos = {};
+    let leaf = 0;
+    (function place(id, depth) {
+      const cs = kids[id] || [];
+      if (!cs.length) { pos[id] = { x: depth * XS, y: leaf++ * YS }; return; }
+      cs.forEach((c) => place(c, depth + 1));
+      const ys = cs.map((c) => pos[c].y);
+      pos[id] = { x: depth * XS, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
+    })(root.id, 0);
+    const nid = (id) => key + ":" + id;
+    let maxY = yOffset;
+    for (const n of nodes) {
+      const p = { x: pos[n.id].x, y: pos[n.id].y + yOffset };
+      if (p.y > maxY) maxY = p.y;
+      elements.push({ data: { id: nid(n.id), label: n.label, kind: n.kind }, position: p });
+      if (n.parent) elements.push({ data: { id: nid(n.parent) + ">" + nid(n.id), source: nid(n.parent), target: nid(n.id) } });
+    }
+    yOffset = maxY + YS * 2;   // gap before the next technology's tree
   }
   document.getElementById("attack-modal").classList.remove("hidden");
   if (attackCy) { attackCy.destroy(); attackCy = null; }
@@ -867,7 +906,8 @@ function showDetails(info) {
   // A technology badge on every AP (coloured to match its icon), so enterprise
   // is not the only kind that gets a tag.
   const techBadge = isAp
-    ? `<span class="tech-badge tech-${TECH_CLASS[apTechLabel(info)] || "psk"}">${escapeHtml(apTechLabel(info))}</span>`
+    ? techTags(info).map((t) =>
+        `<span class="tech-badge tech-${t.cls}">${escapeHtml(t.label)}</span>`).join("")
     : "";
   // The RADIUS cert button appears only once the helper has actually captured
   // the certificate live for this AP (it rides along in the node details).
@@ -912,7 +952,7 @@ function showDetails(info) {
   const eapBtn = document.getElementById("op-eap-btn");
   if (eapBtn) eapBtn.onclick = () => openEapModal(info);
   const treeBtn = document.getElementById("attack-tree-btn");
-  if (treeBtn) treeBtn.onclick = () => openAttackModal(classifyTech(info));
+  if (treeBtn) treeBtn.onclick = () => openAttackModal(info);
 
   // The panel docks on the right and shrinks the graph area; reflow Cytoscape
   // into the new size and, when it just opened, keep the node beside the panel.
