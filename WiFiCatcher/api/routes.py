@@ -389,6 +389,47 @@ async def live_choose_save():
     return {"path": os.path.join(directory, base)}
 
 
+@router.get("/fs/list")
+def fs_list(path: str | None = None):
+    """List a directory for the in-app save-location picker. Read-only.
+
+    Returns the resolved ``path``, its ``parent`` (``None`` at the root),
+    whether it is ``writable`` (so the UI can gate "save here"), and its visible
+    entries (dot-entries hidden) with directories first. WiFiCatcher runs locally
+    and the user already chooses arbitrary save paths, so browsing their own
+    filesystem is in the same trust model; it only ever lists names, never reads
+    file contents. Defaults to the user's home directory.
+    """
+    base = os.path.abspath(os.path.expanduser(path or "~"))
+    if not os.path.isdir(base):
+        raise HTTPException(status_code=400, detail="Not a directory.")
+    try:
+        names = os.listdir(base)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403,
+                            detail="Permission denied for that folder.") from exc
+    except OSError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    entries = []
+    for name in names:
+        if name.startswith("."):
+            continue
+        try:
+            is_dir = os.path.isdir(os.path.join(base, name))
+        except OSError:
+            continue
+        entries.append({"name": name, "is_dir": is_dir})
+    # Directories first, then files, each case-insensitively sorted.
+    entries.sort(key=lambda e: (not e["is_dir"], e["name"].lower()))
+    parent = None if base == "/" else (os.path.dirname(base) or "/")
+    return {
+        "path": base,
+        "parent": parent,
+        "writable": os.access(base, os.W_OK),
+        "entries": entries,
+    }
+
+
 class LiveStartRequest(BaseModel):
     mode: str = "replay"            # "replay" | "airodump"
     interface: str | None = None

@@ -27,6 +27,8 @@ const API = {
   liveStop: () => fetchJSON("/api/live/stop", { method: "POST" }),
   interfaces: () => fetchJSON("/api/live/interfaces"),
   chooseSave: () => fetchJSON("/api/live/choose-save", { method: "POST" }),
+  fsList: (path) =>
+    fetchJSON("/api/fs/list" + (path ? "?path=" + encodeURIComponent(path) : "")),
   enterpriseCert: (payload) =>
     fetchJSON("/api/operations/enterprise/cert", {
       method: "POST",
@@ -2251,22 +2253,79 @@ if (liveSaveChk) liveSaveChk.addEventListener("change", () =>
 // desktop (a browser can't do it), and fills the path field from what the user
 // picks. Empty means cancelled or no desktop dialog available -> falls back to
 // ./captures with a timestamped name.
-const saveBrowseBtn = document.getElementById("live-save-browse");
-if (saveBrowseBtn) saveBrowseBtn.addEventListener("click", async () => {
-  saveBrowseBtn.disabled = true;
+/* --------------------------------------------------- in-app save picker */
+// A themed folder browser (served by the backend) for choosing where to save a
+// live capture. The browser file picker can't hand the server a writable path,
+// so we list the server's own filesystem and let the user navigate + name the
+// file. fsCurrent is the folder currently shown; fsWritable gates "Save here".
+let fsCurrent = null;
+let fsWritable = false;
+const fsModal = document.getElementById("fs-modal");
+
+async function fsNavigate(path) {
+  let data;
   try {
-    const { path } = await API.chooseSave();
-    if (path) {
-      document.getElementById("live-save-path").value = path;
-      toast("Save location set", "ok");
-    } else {
-      toast("No file chosen (or no desktop dialog available); using ./captures");
-    }
+    data = await API.fsList(path);
   } catch (e) {
     toast(e.message, "error");
-  } finally {
-    saveBrowseBtn.disabled = false;
+    return;
   }
+  fsCurrent = data.path;
+  fsWritable = data.writable;
+  document.getElementById("fs-path").textContent = data.path;
+  const join = (name) => (data.path === "/" ? "/" + name : data.path + "/" + name);
+  const rows = [];
+  if (data.parent !== null) {
+    rows.push(`<button class="fs-row fs-up" data-path="${escapeHtml(data.parent)}"><span class="fs-ico">↑</span>..</button>`);
+  }
+  for (const e of data.entries) {
+    if (e.is_dir) {
+      rows.push(`<button class="fs-row fs-dir" data-path="${escapeHtml(join(e.name))}"><span class="fs-ico">📁</span>${escapeHtml(e.name)}</button>`);
+    } else {
+      rows.push(`<div class="fs-row fs-file"><span class="fs-ico">📄</span>${escapeHtml(e.name)}</div>`);
+    }
+  }
+  const list = document.getElementById("fs-list");
+  list.innerHTML = rows.join("") || `<p class="fs-empty">Empty folder</p>`;
+  list.querySelectorAll(".fs-dir, .fs-up").forEach((el) => {
+    el.onclick = () => fsNavigate(el.dataset.path);
+  });
+  const chooseBtn = document.getElementById("fs-choose");
+  chooseBtn.disabled = !fsWritable;
+  document.getElementById("fs-hint").textContent = fsWritable
+    ? "airodump-ng appends -01.cap to the name you enter."
+    : "This folder is not writable — pick another.";
+}
+
+async function openFsPicker() {
+  const current = document.getElementById("live-save-path").value.trim();
+  // Start in the current path's folder (if any), prefilling its base name.
+  const slash = current.lastIndexOf("/");
+  const startDir = slash > 0 ? current.slice(0, slash) : (slash === 0 ? "/" : null);
+  document.getElementById("fs-name").value = slash >= 0 ? current.slice(slash + 1) : current;
+  await fsNavigate(startDir);
+  fsModal.classList.remove("hidden");
+}
+
+function fsChoose() {
+  const name = document.getElementById("fs-name").value.trim();
+  if (!name) return toast("Enter a file name", "error");
+  if (!fsWritable) return toast("This folder is not writable", "error");
+  // airodump appends -01.cap, so store the base path without an extension.
+  const base = name.replace(/\.(cap|pcap|pcapng|csv)$/i, "");
+  document.getElementById("live-save-path").value =
+    fsCurrent === "/" ? "/" + base : fsCurrent + "/" + base;
+  fsModal.classList.add("hidden");
+  toast("Save location set", "ok");
+}
+
+const saveBrowseBtn = document.getElementById("live-save-browse");
+if (saveBrowseBtn) saveBrowseBtn.addEventListener("click", openFsPicker);
+document.getElementById("fs-close").onclick = () => fsModal.classList.add("hidden");
+document.getElementById("fs-cancel").onclick = () => fsModal.classList.add("hidden");
+document.getElementById("fs-choose").onclick = fsChoose;
+fsModal.addEventListener("click", (e) => {
+  if (e.target.id === "fs-modal") fsModal.classList.add("hidden");
 });
 
 /* -------------------------------------------------------------- resizing */
