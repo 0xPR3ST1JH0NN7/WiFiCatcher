@@ -564,6 +564,13 @@ button.fs-row:hover { background: var(--panel-2); }
 .fs-name-row input { flex: 1; min-width: 0; }
 .fs-hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
 
+/* Captured domain users offered as one-click fills in the EAP dialog. */
+.eapid-suggest-label { margin: 8px 0 4px; }
+.eapid-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.eapid-chip { cursor: pointer; font: inherit; padding: 4px 9px; border-radius: 999px;
+  background: var(--panel); color: var(--text); border: 1px solid var(--border); }
+.eapid-chip:hover { border-color: var(--accent); color: var(--accent); }
+
 /* Running EAP enumeration: spinner + elapsed clock in the AP side panel. */
 .eap-progress { display: flex; align-items: flex-start; gap: 10px; }
 .eap-progress > div { display: flex; flex-direction: column; gap: 2px; }

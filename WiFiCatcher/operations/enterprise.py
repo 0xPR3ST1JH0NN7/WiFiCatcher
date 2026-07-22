@@ -295,7 +295,9 @@ def parse_eap_identities(tshark_output: str, sep: str = "|") -> list[dict]:
             continue
         bssid = normalize_mac(parts[0]) or None
         client = normalize_mac(parts[1]) or None
-        identity = parts[2].strip()
+        # Collapse a doubled backslash (some tshark builds escape it) so a domain
+        # identity reads as LAB\user, not LAB\\user.
+        identity = parts[2].strip().replace("\\\\", "\\")
         if not identity:
             continue
         key = (bssid, client, identity)
@@ -411,6 +413,63 @@ def enumerate_eap_methods(interface: str, essid: str, identity: str,
         "methods": methods,
         "stdout": proc.stdout[-8000:],
         "stderr": proc.stderr[-4000:],
+    }
+
+
+def stream_eap_methods(interface: str, essid: str, identity: str,
+                       script_path: str = EAP_BUSTER,
+                       acknowledged: bool = False):
+    """Generator variant of :func:`enumerate_eap_methods` for live progress.
+
+    Same guardrails and private-copy setup, but runs EAP_buster with ``Popen`` and
+    yields ``{"line": <text>}`` for each stdout line as the tool tries a method,
+    then a final ``{"done": True, "methods": [...], "returncode": int}``. Lets the
+    caller show per-method progress instead of blocking for minutes.
+    """
+    require_authorization(acknowledged)
+    require_tools("wpa_supplicant",
+                  hint="Install wpa_supplicant (apt install wpasupplicant).")
+    if not os.path.isfile(script_path):
+        raise OperationError(f"EAP_buster.sh was not found at {script_path}.")
+    interface = (interface or "").strip()
+    if not interface:
+        raise OperationError("A wireless interface is required.")
+    if not essid or not essid.strip():
+        raise OperationError("An ESSID is required.")
+    if not identity or not _IDENTITY_RE.match(identity):
+        raise OperationError(
+            "A legitimate EAP identity is required (e.g. 'DOMAIN\\\\user').")
+
+    src_dir = os.path.dirname(os.path.abspath(script_path))
+    workdir = tempfile.mkdtemp(prefix="wificatcher-eap-")
+    lines: list[str] = []
+    proc = None
+    try:
+        run_dir = os.path.join(workdir, "EAP_buster")
+        shutil.copytree(src_dir, run_dir)
+        run_script = os.path.join(run_dir, os.path.basename(script_path))
+        os.chmod(run_script, 0o755)
+        proc = subprocess.Popen(
+            [run_script, essid, identity, interface],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, bufsize=1)
+        for raw in iter(proc.stdout.readline, ""):
+            lines.append(raw)
+            yield {"line": raw.rstrip("\n")}
+        proc.wait(timeout=30)
+    finally:
+        if proc is not None and proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except Exception:
+                proc.kill()
+        shutil.rmtree(workdir, ignore_errors=True)
+
+    yield {
+        "done": True,
+        "returncode": proc.returncode if proc is not None else None,
+        "methods": parse_eap_buster("".join(lines), mark_untested_as_maybe=True),
     }
 
 

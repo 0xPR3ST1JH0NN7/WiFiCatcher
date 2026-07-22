@@ -370,7 +370,22 @@ def _capture_stream(params: dict):
             pass
 
 
+def _eap_stream(params: dict):
+    """Stream EAP_buster output line by line for live per-method progress."""
+    from WiFiCatcher.operations.enterprise import stream_eap_methods
+    essid = (params.get("essid") or "").strip()
+    if not essid or len(essid) > _MAX_ESSID:
+        raise OpError("A valid ESSID (1-32 chars) is required.")
+    identity = (params.get("identity") or "").strip()
+    if not identity:
+        raise OpError("An EAP identity is required.")
+    yield from stream_eap_methods(
+        interface=_iface(params), essid=essid, identity=identity,
+        acknowledged=bool(params.get("acknowledged")))
+
+
 # op name -> generator yielding event dicts.
 STREAMERS: dict[str, Callable[[dict], Any]] = {
     "capture.stream": _capture_stream,
+    "eap.stream": _eap_stream,
 }

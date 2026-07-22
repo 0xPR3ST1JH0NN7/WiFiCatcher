@@ -13,6 +13,12 @@ const API = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     }),
+  eapStart: (payload) =>
+    fetchJSON("/api/operations/enterprise/eap-methods/start", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  eapStatus: () => fetchJSON("/api/operations/enterprise/eap-methods/status"),
   liveStopForEap: (iface) =>
     fetchJSON("/api/live/stop-for-eap", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -721,10 +727,11 @@ function buildDetailFields(info) {
     row("Auth", info.authentication);
     row("WPS", info.wps ? (info.wps_version || "Yes") : "Not detected");
     if (info.wps) row("WPS locked", info.wps_locked ? "Yes" : "No");
-    // EAP Response/Identity usernames captured live for this enterprise AP.
+    // EAP Response/Identity usernames captured live for this enterprise AP; one
+    // click-to-copy row each so a domain user can be grabbed directly.
     if (info.eap_identities && info.eap_identities.length) {
       const names = [...new Set(info.eap_identities.map((e) => e.identity))];
-      row("EAP identity", names.join(", "));
+      names.forEach((n) => rowCopy("EAP identity", n));
     }
     row("Signal", info.power != null ? `${info.power} dBm` : null);
     row("Beacons", info.beacons);
@@ -1002,7 +1009,7 @@ function showDetails(info) {
   if (enterprise && liveActive) {
     if (certReady)
       entBtns += `<button class="btn" id="op-cert-btn">Read RADIUS cert</button>`;
-    entBtns += `<button class="btn" id="op-eap-btn">Enumerate EAP methods…</button>`;
+    entBtns += `<button class="btn" id="op-eap-btn">Enumerate EAP methods</button>`;
   }
 
   // Attack advisor is informational and static per AP, so it lives outside
@@ -1178,14 +1185,23 @@ function openDeauthModal(info) {
 function openEapModal(info) {
   pendingOp = { type: "eap", essid: info.essid || "" };
   document.getElementById("op-title").textContent = "Enumerate EAP methods";
+  // Domain users already captured on this AP's handshakes, offered as one-click
+  // fills for the identity field.
+  const caught = [...new Set((info.eap_identities || []).map((e) => e.identity))];
+  const suggest = caught.length
+    ? `<p class="hint eapid-suggest-label">Captured on this AP (click to use):</p>
+       <div class="eapid-chips">${caught.map((n) =>
+         `<button type="button" class="eapid-chip" data-id="${escapeHtml(n)}">${escapeHtml(n)}</button>`).join("")}</div>`
+    : "";
   document.getElementById("op-body").innerHTML = `
     <p>Probe which EAP methods <strong>${escapeHtml(info.essid || info.id)}</strong> accepts.</p>
     <p class="hint">Active 802.1X authentication (several minutes). It needs the
-      adapter in <strong>managed</strong> mode, so if the chosen interface is
-      running a live capture it is stopped and switched back to managed first.
-      Use a real domain identity; anonymous ones give unreliable results.</p>
+      adapter free of NetworkManager, so if the chosen interface is running a live
+      capture it is stopped and kept in <strong>monitor</strong> mode for the
+      probe. Use a real domain identity; anonymous ones give unreliable results.</p>
     <label>Domain user (EAP identity)</label>
     <input id="op-identity" placeholder="DOMAIN\\user"/>
+    ${suggest}
     <label>Interface</label>
     <select id="op-iface"><option value="">loading interfaces…</option></select>
     <label><input type="checkbox" id="op-dry"/> Dry run (build the command only, do not transmit)</label>`;
@@ -1193,6 +1209,9 @@ function openEapModal(info) {
   confirm.textContent = "Run";
   confirm.classList.remove("danger");
   confirm.disabled = false;
+  document.querySelectorAll("#op-body .eapid-chip").forEach((b) => {
+    b.onclick = () => { document.getElementById("op-identity").value = b.dataset.id; };
+  });
   document.getElementById("op-modal").classList.remove("hidden");
   fillEapInterfaces();   // populate from the present adapters, preferring the capturing one
 }
@@ -1334,43 +1353,95 @@ async function confirmEap() {
     eapIface = live.eapMonitorIface || iface || base;
   }
   const box = document.getElementById("enterprise-result");
-  // A real run blocks until EAP_buster finishes, so show a live spinner and a
-  // ticking elapsed timer in the side panel rather than a frozen "running" line.
-  let stopProgress = () => {};
-  if (box && !dry) stopProgress = startEapProgress(box, eapIface, essid);
-  eapRunning = !dry;   // a real run streams its result into the panel; keep it open
+  // Dry run just echoes the command; nothing streams.
+  if (dry) {
+    try {
+      renderEap(await API.enterpriseEap({
+        essid, identity, interface: eapIface, acknowledged: true, dry_run: true }), true);
+    } catch (e) {
+      if (box) box.innerHTML = `<p class="hint" style="color:#ffb3ba">${escapeHtml(e.message)}</p>`;
+      else toast(e.message, "error");
+    }
+    return;
+  }
+  // Real run: start it server-side (returns immediately) and poll for progress,
+  // so the request is never held open for the minutes EAP_buster takes (which
+  // fails the fetch with a NetworkError while the tool keeps running).
+  eapRunning = true;
+  setEapButtonBusy(true);
   try {
-    const res = await API.enterpriseEap({
-      essid, identity, interface: eapIface, acknowledged: true, dry_run: dry,
-    });
-    stopProgress();
-    renderEap(res, dry);
+    await API.eapStart({ essid, identity, interface: eapIface, acknowledged: true });
   } catch (e) {
-    stopProgress();
+    eapRunning = false;
+    setEapButtonBusy(false);
     if (box) box.innerHTML = `<p class="hint" style="color:#ffb3ba">${escapeHtml(e.message)}</p>`;
     else toast(e.message, "error");
-  } finally {
-    eapRunning = false;
+    return;
+  }
+  clearTimeout(eapPollTimer);
+  pollEap(essid, eapIface, Date.now(), 0);
+}
+
+// Toggle the detail-panel "Enumerate EAP methods" button between idle and a
+// disabled, spinning "Enumerating EAP methods…" state.
+function setEapButtonBusy(busy) {
+  const btn = document.getElementById("op-eap-btn");
+  if (!btn) return;
+  btn.disabled = busy;
+  btn.innerHTML = busy
+    ? '<span class="spinner"></span>Enumerating EAP methods…'
+    : "Enumerate EAP methods";
+}
+
+let eapPollTimer = null;
+// Poll the streaming enumeration, painting each method as EAP_buster resolves it.
+async function pollEap(essid, iface, t0, fails) {
+  let st;
+  try {
+    st = await API.eapStatus();
+  } catch (e) {
+    const box = document.getElementById("enterprise-result");
+    if (fails >= 4) {   // give up after a few consecutive poll failures
+      eapRunning = false;
+      setEapButtonBusy(false);
+      if (box) box.innerHTML = `<p class="hint" style="color:#ffb3ba">${escapeHtml(e.message)}</p>`;
+      return;
+    }
+    eapPollTimer = setTimeout(() => pollEap(essid, iface, t0, fails + 1), 2500);
+    return;
+  }
+  if (!st.done) {
+    renderEapLive(st, iface, essid, t0);
+    eapPollTimer = setTimeout(() => pollEap(essid, iface, t0, 0), 2500);
+    return;
+  }
+  eapRunning = false;
+  setEapButtonBusy(false);
+  if (st.error) {
+    const box = document.getElementById("enterprise-result");
+    if (box) box.innerHTML = `<p class="hint" style="color:#ffb3ba">${escapeHtml(st.error)}</p>`;
+    else toast(st.error, "error");
+  } else {
+    renderEap({ status: "ok", essid, methods: st.methods }, false);
   }
 }
 
-// Live progress for a running EAP enumeration, shown in the AP's side panel. The
-// backend runs each method to completion before returning, so there is no true
-// percentage; a spinner plus an elapsed clock makes clear it is still working.
-function startEapProgress(box, iface, essid) {
-  const t0 = Date.now();
-  const paint = () => {
-    const s = Math.floor((Date.now() - t0) / 1000);
-    const clock = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
-    box.innerHTML =
-      `<div class="eap-progress"><span class="spinner"></span>` +
-      `<div><strong>Enumerating EAP methods…</strong>` +
-      `<span class="hint">${escapeHtml(essid || "")} on ${escapeHtml(iface)} · ${clock} elapsed. ` +
-      `Each method is tried in turn; this can take several minutes.</span></div></div>`;
-  };
-  paint();
-  const id = setInterval(paint, 1000);
-  return () => clearInterval(id);
+// The in-progress panel: spinner, elapsed clock, count, and the methods so far.
+function renderEapLive(st, iface, essid, t0) {
+  const box = document.getElementById("enterprise-result");
+  if (!box) return;
+  const s = Math.floor((Date.now() - t0) / 1000);
+  const clock = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  const dot = (v) => (v === "yes" ? "🟢" : v === "maybe" ? "🟡" : "⚪");
+  const done = (st.methods || []).map((m) =>
+    `<div class="detail-row"><span class="k">${dot(m.supported)} ${escapeHtml(m.method)}</span>` +
+    `<span class="v">${escapeHtml(m.supported)}</span></div>`).join("");
+  box.innerHTML =
+    `<div class="eap-progress"><span class="spinner"></span>` +
+    `<div><strong>Enumerating EAP methods…</strong>` +
+    `<span class="hint">${escapeHtml(essid || "")} on ${escapeHtml(iface)} · ${clock} elapsed · ` +
+    `${(st.methods || []).length} tested. Each method is tried in turn.</span></div></div>` +
+    done;
 }
 
 /* ----------------------------------------------------------- enterprise */

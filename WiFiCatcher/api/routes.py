@@ -213,6 +213,40 @@ def operations_deauth(req: DeauthRequest):
 # EAP enumeration seizes the radio for minutes; only allow one at a time.
 _EAP_LOCK = threading.Lock()
 
+# Live state for a streaming EAP enumeration, updated by a background consumer of
+# the helper's eap.stream. A long-held HTTP request would time out (the fetch
+# fails with a NetworkError while EAP_buster keeps running), so the frontend
+# starts the run then polls this state and shows methods as they resolve.
+_EAP_STATE_LOCK = threading.Lock()
+_EAP_STATE: dict = {"running": False, "done": False, "stdout": "", "methods": [],
+                    "error": None, "essid": None, "interface": None}
+
+
+def _run_eap_stream(iface: str, essid: str, identity: str) -> None:
+    """Consume the helper's eap.stream in a background thread, updating _EAP_STATE."""
+    try:
+        stream = PrivClient(timeout=None).stream(
+            "eap.stream", iface=iface, essid=essid, identity=identity,
+            acknowledged=True)
+        for event in stream:
+            if "line" in event:
+                with _EAP_STATE_LOCK:
+                    _EAP_STATE["stdout"] += event["line"] + "\n"
+            elif event.get("done"):
+                with _EAP_STATE_LOCK:
+                    _EAP_STATE["methods"] = event.get("methods", [])
+    except (PrivError, PrivUnavailable) as exc:
+        with _EAP_STATE_LOCK:
+            _EAP_STATE["error"] = str(exc)
+    except Exception as exc:                       # never leave the lock held
+        with _EAP_STATE_LOCK:
+            _EAP_STATE["error"] = str(exc)
+    finally:
+        with _EAP_STATE_LOCK:
+            _EAP_STATE["running"] = False
+            _EAP_STATE["done"] = True
+        _EAP_LOCK.release()
+
 
 class CertRequest(BaseModel):
     cap_path: str | None = None     # defaults to the live capture's pcap
@@ -356,6 +390,49 @@ def operations_enterprise_eap(req: EapMethodsRequest):
         return _run()
     finally:
         _EAP_LOCK.release()
+
+
+@router.post("/operations/enterprise/eap-methods/start")
+def operations_enterprise_eap_start(req: EapMethodsRequest):
+    """Begin a live EAP enumeration in the background; poll /status for progress.
+
+    Returns immediately so the HTTP request is never held for the minutes the run
+    takes (which would fail the fetch). The background thread streams EAP_buster
+    output into _EAP_STATE, which /status reports (methods resolve one by one).
+    """
+    interface = (req.interface or "").strip()
+    if not interface:
+        raise HTTPException(status_code=400,
+                            detail="A wireless interface is required.")
+    if not _EAP_LOCK.acquire(blocking=False):
+        raise HTTPException(status_code=409,
+                            detail="An EAP enumeration is already running.")
+    with _EAP_STATE_LOCK:
+        _EAP_STATE.update({"running": True, "done": False, "stdout": "",
+                           "methods": [], "error": None, "essid": req.essid,
+                           "interface": interface})
+    threading.Thread(target=_run_eap_stream,
+                     args=(interface, req.essid, req.identity),
+                     daemon=True).start()
+    return {"status": "started", "essid": req.essid, "interface": interface}
+
+
+@router.get("/operations/enterprise/eap-methods/status")
+def operations_enterprise_eap_status():
+    """Current EAP enumeration progress: methods resolved so far, running/done."""
+    with _EAP_STATE_LOCK:
+        st = dict(_EAP_STATE)
+    # While running, parse the partial output for methods decided so far; once
+    # done, use the tool's final parse (which also marks untested methods).
+    if st["done"] and st["methods"]:
+        methods = st["methods"]
+    else:
+        methods = enterprise.parse_eap_buster(
+            st["stdout"], mark_untested_as_maybe=False) if st["stdout"] else []
+    return {
+        "running": st["running"], "done": st["done"], "error": st["error"],
+        "essid": st["essid"], "interface": st["interface"], "methods": methods,
+    }
 
 
 # ----------------------------------------------------------------- live capture
