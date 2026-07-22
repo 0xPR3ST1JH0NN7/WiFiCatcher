@@ -183,7 +183,9 @@ body { font-size: 14px; }   /* design baseline; the size setting zooms the whole
 .cat-key {
   flex-shrink: 0; color: var(--accent);
   display: flex; align-items: center; padding-bottom: 3px;
-  animation: cat-flee .5s ease-in-out infinite;
+  /* Stepped (not ease): a few discrete hops per loop instead of a 60fps repaint,
+     which is the biggest CPU saving while keeping the key lively. */
+  animation: cat-flee .8s steps(3) infinite;
 }
 .cat-key svg { display: block; width: 20px; height: 12px; shape-rendering: crispedges; }
 @keyframes cat-flee {
@@ -197,30 +199,18 @@ body { font-size: 14px; }   /* design baseline; the size setting zooms the whole
   position: absolute; left: 0; right: 0; bottom: 3px; height: 2px; opacity: .55;
   background-image: repeating-linear-gradient(90deg, var(--muted) 0 6px, transparent 6px 14px);
   background-size: 14px 2px;
-  /* steps() instead of linear: the road jumps in a few discrete frames per loop
-     (fitting the pixel/dino look) rather than repainting every frame, so the
-     running cat stays cheap on a software renderer. */
-  animation: cat-scroll .5s steps(7) infinite;
+  /* Few, slow discrete steps (fitting the pixel/dino look): the fewer repaints
+     per second, the cheaper the road is on a software renderer. */
+  animation: cat-scroll .9s steps(4) infinite;
 }
 @keyframes cat-scroll { to { background-position-x: -14px; } }
 
-/* little speed puffs trailing the cat */
-.cat-dust {
-  position: absolute; left: 48px; bottom: 8px; width: 8px; height: 2px; color: var(--accent);
-}
-.cat-dust::before, .cat-dust::after {
-  content: ""; position: absolute; height: 2px; background: currentColor; opacity: 0;
-}
-.cat-dust::before { width: 6px; bottom: 0; animation: cat-puff .48s steps(4) infinite; }
-.cat-dust::after { width: 4px; bottom: 5px; animation: cat-puff .48s steps(4) .24s infinite; }
-@keyframes cat-puff {
-  0% { opacity: .5; transform: translateX(0); }
-  100% { opacity: 0; transform: translateX(-10px); }
-}
+/* Dust puffs removed to cut CPU: the element stays but no longer animates. */
+.cat-dust { display: none; }
 
-/* The runner walks continuously (its gait, road and dust loop the whole time).
-   The steps()-based keyframes keep it cheap on a software renderer, and the tab
-   still costs nothing while backgrounded thanks to .anim-paused below. */
+/* The runner walks continuously (gait and road loop the whole time). Every loop
+   is stepped, so it stays cheap on a software renderer, and the tab still costs
+   nothing while backgrounded thanks to .anim-paused below. */
 .cat-track { pointer-events: auto; }
 
 /* keep the toolbar usable where a running mascot would crowd it */
