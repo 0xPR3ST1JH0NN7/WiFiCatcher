@@ -556,6 +556,7 @@ code { background: var(--panel); padding: 1px 5px; border-radius: 4px; font-size
 button.fs-row { cursor: pointer; }
 button.fs-row:hover { background: var(--panel-2); }
 .fs-row.fs-file { color: var(--muted); }
+.fs-row.fs-pick.selected { background: var(--accent); color: #fff; }
 .fs-ico { flex: 0 0 18px; text-align: center; }
 .fs-empty { color: var(--muted); text-align: center; padding: 14px; }
 .fs-name-row { display: flex; align-items: center; gap: 10px; margin: 12px 0 2px; }

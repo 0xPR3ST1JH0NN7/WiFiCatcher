@@ -47,18 +47,24 @@ CAPTURE = CaptureController()
 
 # --------------------------------------------------------------------- import
 @router.post("/import")
-async def import_capture(file: UploadFile = File(...)):
-    raw = await file.read(uploads.MAX_UPLOAD_BYTES + 1)
-    uploads.validate_csv(raw, file.filename or "", file.content_type)
+class LocalFileRequest(BaseModel):
+    # An absolute path chosen with the in-app file browser; the server reads it.
+    path: str
+    ap_bssid: str | None = None
+
+
+def _load_capture(raw: bytes, filename: str, content_type: str | None) -> dict:
+    """Validate, parse and load capture bytes into STATE; shared by upload + local."""
+    uploads.validate_csv(raw, filename, content_type)
     text = raw.decode("utf-8-sig", errors="ignore")
-    parser = parsers.detect_parser(text, file.filename or "")
+    parser = parsers.detect_parser(text, filename)
     if parser is None:
         raise HTTPException(
             status_code=415,
             detail="Unrecognized capture format. Supported: "
             + ", ".join(p.name for p in parsers.all_parsers()),
         )
-    scan = parser.parse(text, file.filename or "")
+    scan = parser.parse(text, filename)
     oui.enrich_scan(scan)  # vendors are cheap and offline, so do it on import
     STATE.load(scan)
     return {
@@ -66,6 +72,23 @@ async def import_capture(file: UploadFile = File(...)):
         "parser": parser.id,
         **STATE.to_cytoscape(),
     }
+
+
+async def import_capture(file: UploadFile = File(...)):
+    raw = await file.read(uploads.MAX_UPLOAD_BYTES + 1)
+    return _load_capture(raw, file.filename or "", file.content_type)
+
+
+@router.post("/import/local")
+def import_local(req: LocalFileRequest):
+    """Import a capture the user picked with the in-app browser, read from disk."""
+    path = _validate_local_path(req.path)
+    try:
+        with open(path, "rb") as fh:
+            raw = fh.read(uploads.MAX_UPLOAD_BYTES + 1)
+    except OSError as exc:
+        raise HTTPException(status_code=400, detail="Cannot read that file.") from exc
+    return _load_capture(raw, os.path.basename(path), None)
 
 
 # ---------------------------------------------------------------------- reads
@@ -242,6 +265,28 @@ async def operations_enterprise_cert_upload(
             pass
 
 
+@router.post("/operations/enterprise/cert/local")
+def operations_enterprise_cert_local(req: LocalFileRequest):
+    """Inspect the RADIUS certificate in a locally-picked .cap/.pcap. Read-only."""
+    path = _validate_local_path(req.path)
+    try:
+        return enterprise.extract_radius_cert(
+            cap_path=path, ap_bssid=(req.ap_bssid or None))
+    except OperationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/operations/enterprise/eap-identity/local")
+def operations_enterprise_eap_identity_local(req: LocalFileRequest):
+    """Read EAP Response/Identity usernames from a locally-picked capture. Read-only."""
+    path = _validate_local_path(req.path)
+    try:
+        return enterprise.extract_eap_identities(
+            cap_path=path, ap_bssid=(req.ap_bssid or None))
+    except OperationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.post("/operations/enterprise/eap-identity/upload")
 async def operations_enterprise_eap_identity_upload(
         file: UploadFile = File(...), ap_bssid: str | None = Form(None)):
@@ -323,70 +368,22 @@ def live_interfaces():
     return {"interfaces": list_wireless_interfaces()}
 
 
-def _pick_save_path() -> str:
-    """Open a native "Save As" dialog on the host and return the chosen absolute
-    file path (``""`` if cancelled or no dialog / desktop is available).
+def _validate_local_path(path: str) -> str:
+    """Resolve and check a file path chosen with the in-app picker for reading.
 
-    Lets the user pick the folder AND the file name in one go. A browser can't
-    hand a real filesystem path to the server, but WiFiCatcher runs locally, so
-    we pop the OS dialog on the user's own desktop. This is the same GTK/Qt file
-    chooser the browser opens for uploads, so it looks identical when a native
-    one is present. We try, in order, the GTK chooser (``zenity``, then its Qt
-    clone ``qarma`` and ``yad``), the KDE chooser (``kdialog``), and only as a
-    last resort a Tk fallback in its own process so it owns the main thread.
-    Blocking, so callers run it in a thread.
+    WiFiCatcher runs locally, so the server can read a file the user pointed it at
+    (no re-upload). Guards: it must be an existing regular file within the upload
+    size limit.
     """
-    import shutil
-    import subprocess
-    import sys
-
-    default = os.path.join(os.path.expanduser("~"), "wificatcher-capture.cap")
-    gtk_args = ["--file-selection", "--save", "--confirm-overwrite",
-                "--title=Save capture as", f"--filename={default}"]
-    for cmd in (["zenity", *gtk_args],
-                ["qarma", *gtk_args],                    # Qt drop-in for zenity
-                ["yad", "--file", "--save", "--confirm-overwrite",
-                 "--title=Save capture as", f"--filename={default}"],
-                ["kdialog", "--getsavefilename", default, "*.cap *.pcap"]):
-        if not shutil.which(cmd[0]):
-            continue
-        try:
-            res = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
-        except (OSError, subprocess.SubprocessError):
-            continue
-        return res.stdout.strip() if res.returncode == 0 else ""
-
-    tk = ("import tkinter as tk\n"
-          "from tkinter import filedialog\n"
-          "r = tk.Tk(); r.withdraw(); r.attributes('-topmost', True)\n"
-          "print(filedialog.asksaveasfilename(title='Save capture as') or '')\n")
+    p = os.path.abspath(os.path.expanduser((path or "").strip()))
+    if not p or not os.path.isfile(p):
+        raise HTTPException(status_code=400, detail="File not found.")
     try:
-        res = subprocess.run([sys.executable, "-c", tk],
-                             capture_output=True, text=True, timeout=180)
-        if res.returncode == 0:
-            return res.stdout.strip()
-    except (OSError, subprocess.SubprocessError):
-        pass
-    return ""
-
-
-@router.post("/live/choose-save")
-async def live_choose_save():
-    """Open a native Save As dialog; return ``{dir, name}`` split for the form.
-
-    ``name`` is the base name without extension (airodump appends ``-01.cap``).
-    Both empty when cancelled or no desktop dialog is available.
-    """
-    path = await asyncio.get_event_loop().run_in_executor(None, _pick_save_path)
-    if not path:
-        return {"path": ""}
-    directory = os.path.dirname(path)
-    if not os.path.isdir(directory):
-        raise HTTPException(status_code=400,
-                            detail="The selected folder does not exist.")
-    # Drop the extension: airodump appends -01.cap to this base path.
-    base = os.path.splitext(os.path.basename(path))[0]
-    return {"path": os.path.join(directory, base)}
+        if os.path.getsize(p) > uploads.MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail="File is too large.")
+    except OSError as exc:
+        raise HTTPException(status_code=400, detail="Cannot read that file.") from exc
+    return p
 
 
 @router.get("/fs/list")

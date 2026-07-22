@@ -2,11 +2,6 @@
 "use strict";
 
 const API = {
-  async import(file) {
-    const fd = new FormData();
-    fd.append("file", file);
-    return fetchJSON("/api/import", { method: "POST", body: fd });
-  },
   node: (id) => fetchJSON(`/api/node/${encodeURIComponent(id)}`),
   search: (q) => fetchJSON(`/api/search?q=${encodeURIComponent(q)}`),
   config: () => fetchJSON("/api/config"),
@@ -26,9 +21,24 @@ const API = {
     }),
   liveStop: () => fetchJSON("/api/live/stop", { method: "POST" }),
   interfaces: () => fetchJSON("/api/live/interfaces"),
-  chooseSave: () => fetchJSON("/api/live/choose-save", { method: "POST" }),
   fsList: (path) =>
     fetchJSON("/api/fs/list" + (path ? "?path=" + encodeURIComponent(path) : "")),
+  // Read a file the user picked with the in-app browser, straight off disk.
+  importLocal: (path) =>
+    fetchJSON("/api/import/local", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
+    }),
+  certLocal: (path, bssid) =>
+    fetchJSON("/api/operations/enterprise/cert/local", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path, ap_bssid: bssid || null }),
+    }),
+  eapIdentityLocal: (path, bssid) =>
+    fetchJSON("/api/operations/enterprise/eap-identity/local", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path, ap_bssid: bssid || null }),
+    }),
   enterpriseCert: (payload) =>
     fetchJSON("/api/operations/enterprise/cert", {
       method: "POST",
@@ -41,18 +51,6 @@ const API = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     }),
-  enterpriseCertUpload: (file, bssid) => {
-    const fd = new FormData();
-    fd.append("file", file);
-    if (bssid) fd.append("ap_bssid", bssid);
-    return fetchJSON("/api/operations/enterprise/cert/upload", { method: "POST", body: fd });
-  },
-  enterpriseEapIdentityUpload: (file, bssid) => {
-    const fd = new FormData();
-    fd.append("file", file);
-    if (bssid) fd.append("ap_bssid", bssid);
-    return fetchJSON("/api/operations/enterprise/eap-identity/upload", { method: "POST", body: fd });
-  },
 };
 
 async function fetchJSON(url, opts) {
@@ -1574,34 +1572,28 @@ function renderEap(res, dry) {
       .join("");
 }
 
-// Inspect the RADIUS certificate from an uploaded .cap (offline, no root).
-document.getElementById("cert-file").addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  showCertModal(`<p class="hint">Inspecting ${escapeHtml(file.name)}…</p>`);
-  try {
-    renderCert(await API.enterpriseCertUpload(file));
-  } catch (err) {
-    showCertModal(`<p class="hint" style="color:#ffb3ba">${escapeHtml(err.message)}</p>`);
-  } finally {
-    e.target.value = "";
-  }
-});
+// Inspect the RADIUS certificate from a locally-picked .cap (offline, no root).
+document.getElementById("cert-open-btn").onclick = () =>
+  openFsOpen("Open capture", [".cap", ".pcap", ".pcapng"], async (path) => {
+    showCertModal(`<p class="hint">Inspecting ${escapeHtml(path)}…</p>`);
+    try {
+      renderCert(await API.certLocal(path));
+    } catch (err) {
+      showCertModal(`<p class="hint" style="color:#ffb3ba">${escapeHtml(err.message)}</p>`);
+    }
+  });
 
-// Read EAP Response/Identity usernames from an uploaded .cap (offline, no root).
-document.getElementById("eapid-file").addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const box = document.getElementById("eapid-result");
-  box.innerHTML = `<p class="hint">Reading ${escapeHtml(file.name)}…</p>`;
-  try {
-    renderEapIdentities(await API.enterpriseEapIdentityUpload(file), box);
-  } catch (err) {
-    box.innerHTML = `<p class="hint" style="color:#ffb3ba">${escapeHtml(err.message)}</p>`;
-  } finally {
-    e.target.value = "";
-  }
-});
+// Read EAP Response/Identity usernames from a locally-picked .cap (offline, no root).
+document.getElementById("eapid-open-btn").onclick = () =>
+  openFsOpen("Open capture", [".cap", ".pcap", ".pcapng"], async (path) => {
+    const box = document.getElementById("eapid-result");
+    box.innerHTML = `<p class="hint">Reading ${escapeHtml(path)}…</p>`;
+    try {
+      renderEapIdentities(await API.eapIdentityLocal(path), box);
+    } catch (err) {
+      box.innerHTML = `<p class="hint" style="color:#ffb3ba">${escapeHtml(err.message)}</p>`;
+    }
+  });
 
 // Render a list of captured EAP identities into a container.
 function renderEapIdentities(res, box) {
@@ -1670,23 +1662,7 @@ cy.on("tap", (evt) => {
 // graph is reloaded.
 cy.on("dragfree", "node", (evt) => evt.target.addClass("user-moved"));
 
-document.getElementById("file-input").addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  if (live.running) await stopLive();   // offline import replaces any live session
-  try {
-    toast("Parsing capture…");
-    const payload = await API.import(file);
-    renderGraph(payload);
-    live.loaded = true;            // a capture is now available to replay
-    refreshLiveButtons();
-    toast(`Loaded ${payload.summary.access_points} APs / ${payload.summary.clients} clients`, "ok");
-  } catch (err) {
-    toast(err.message, "error");
-  } finally {
-    e.target.value = "";
-  }
-});
+document.getElementById("empty-import-btn").onclick = importFromPicker;
 
 // Wipe the loaded capture from the view and the server (a fresh start).
 function clearGraph() {
@@ -2238,7 +2214,7 @@ document.getElementById("live-toggle").onclick = () =>
 document.getElementById("replay-toggle").onclick = () => {
   if (live.running && live.mode === "replay") return stopLive();
   // No capture yet → this button doubles as the import entry point.
-  if (!live.loaded) return document.getElementById("file-input").click();
+  if (!live.loaded) return importFromPicker();
   return startReplay();
 };
 
@@ -2249,18 +2225,23 @@ const liveSaveChk = document.getElementById("live-save");
 if (liveSaveChk) liveSaveChk.addEventListener("change", () =>
   document.getElementById("save-path-row").classList.toggle("hidden", !liveSaveChk.checked));
 
-// "Save as…" asks the server to open a native Save As dialog on this machine's
-// desktop (a browser can't do it), and fills the path field from what the user
-// picks. Empty means cancelled or no desktop dialog available -> falls back to
-// ./captures with a timestamped name.
-/* --------------------------------------------------- in-app save picker */
-// A themed folder browser (served by the backend) for choosing where to save a
-// live capture. The browser file picker can't hand the server a writable path,
-// so we list the server's own filesystem and let the user navigate + name the
-// file. fsCurrent is the folder currently shown; fsWritable gates "Save here".
-let fsCurrent = null;
-let fsWritable = false;
+/* ------------------------------------------------------- in-app file picker */
+// A themed filesystem browser (served by the backend) used both to choose where
+// to SAVE a live capture and to OPEN a capture off disk — no OS dialog, and no
+// re-upload, since WiFiCatcher runs locally and the server reads the path.
+// Modes: "save" (navigate + name a file) and "open" (pick an existing file).
+let fsCurrent = null;      // folder currently shown
+let fsWritable = false;    // is fsCurrent writable (save mode)
+let fsMode = "save";
+let fsExts = null;         // allowed extensions in open mode (lowercase, with dot)
+let fsSelected = null;     // chosen file path in open mode
+let fsOnPick = null;       // callback(path) in open mode
 const fsModal = document.getElementById("fs-modal");
+
+function fsExtOk(name) {
+  const l = name.toLowerCase();
+  return !!fsExts && fsExts.some((x) => l.endsWith(x));
+}
 
 async function fsNavigate(path) {
   let data;
@@ -2272,6 +2253,7 @@ async function fsNavigate(path) {
   }
   fsCurrent = data.path;
   fsWritable = data.writable;
+  fsSelected = null;
   document.getElementById("fs-path").textContent = data.path;
   const join = (name) => (data.path === "/" ? "/" + name : data.path + "/" + name);
   const rows = [];
@@ -2281,6 +2263,8 @@ async function fsNavigate(path) {
   for (const e of data.entries) {
     if (e.is_dir) {
       rows.push(`<button class="fs-row fs-dir" data-path="${escapeHtml(join(e.name))}"><span class="fs-ico">📁</span>${escapeHtml(e.name)}</button>`);
+    } else if (fsMode === "open" && fsExtOk(e.name)) {
+      rows.push(`<button class="fs-row fs-pick" data-path="${escapeHtml(join(e.name))}"><span class="fs-ico">📄</span>${escapeHtml(e.name)}</button>`);
     } else {
       rows.push(`<div class="fs-row fs-file"><span class="fs-ico">📄</span>${escapeHtml(e.name)}</div>`);
     }
@@ -2290,16 +2274,40 @@ async function fsNavigate(path) {
   list.querySelectorAll(".fs-dir, .fs-up").forEach((el) => {
     el.onclick = () => fsNavigate(el.dataset.path);
   });
-  const chooseBtn = document.getElementById("fs-choose");
-  chooseBtn.disabled = !fsWritable;
-  document.getElementById("fs-hint").textContent = fsWritable
-    ? "airodump-ng appends -01.cap to the name you enter."
-    : "This folder is not writable — pick another.";
+  list.querySelectorAll(".fs-pick").forEach((el) => {
+    el.onclick = () => {
+      fsSelected = el.dataset.path;
+      list.querySelectorAll(".fs-pick").forEach((x) => x.classList.remove("selected"));
+      el.classList.add("selected");
+      document.getElementById("fs-choose").disabled = false;
+      document.getElementById("fs-hint").textContent = "Selected: " + fsSelected;
+    };
+  });
+  fsSyncFooter();
 }
 
-async function openFsPicker() {
+// Footer state (button label/enabled + hint) depends on the mode.
+function fsSyncFooter() {
+  const chooseBtn = document.getElementById("fs-choose");
+  const hint = document.getElementById("fs-hint");
+  if (fsMode === "save") {
+    chooseBtn.disabled = !fsWritable;
+    hint.textContent = fsWritable
+      ? "airodump-ng appends -01.cap to the name you enter."
+      : "This folder is not writable — pick another.";
+  } else {
+    chooseBtn.disabled = !fsSelected;
+    if (!fsSelected) hint.textContent = "Pick a " + fsExts.join(" / ") + " file.";
+  }
+}
+
+// Open the picker to choose a save location for the live capture.
+async function openFsSave() {
+  fsMode = "save"; fsExts = null; fsOnPick = null;
+  document.getElementById("fs-title").textContent = "Choose save location";
+  document.getElementById("fs-name-row").classList.remove("hidden");
+  document.getElementById("fs-choose").textContent = "Save here";
   const current = document.getElementById("live-save-path").value.trim();
-  // Start in the current path's folder (if any), prefilling its base name.
   const slash = current.lastIndexOf("/");
   const startDir = slash > 0 ? current.slice(0, slash) : (slash === 0 ? "/" : null);
   document.getElementById("fs-name").value = slash >= 0 ? current.slice(slash + 1) : current;
@@ -2307,7 +2315,24 @@ async function openFsPicker() {
   fsModal.classList.remove("hidden");
 }
 
+// Open the picker to select an existing file (import / cert / EAP identity).
+async function openFsOpen(title, exts, onPick) {
+  fsMode = "open"; fsExts = exts.map((e) => e.toLowerCase()); fsOnPick = onPick;
+  document.getElementById("fs-title").textContent = title;
+  document.getElementById("fs-name-row").classList.add("hidden");
+  document.getElementById("fs-choose").textContent = "Open";
+  await fsNavigate(null);   // start in the home directory
+  fsModal.classList.remove("hidden");
+}
+
 function fsChoose() {
+  if (fsMode === "open") {
+    if (!fsSelected) return;
+    const cb = fsOnPick, path = fsSelected;
+    fsModal.classList.add("hidden");
+    if (cb) cb(path);
+    return;
+  }
   const name = document.getElementById("fs-name").value.trim();
   if (!name) return toast("Enter a file name", "error");
   if (!fsWritable) return toast("This folder is not writable", "error");
@@ -2320,13 +2345,30 @@ function fsChoose() {
 }
 
 const saveBrowseBtn = document.getElementById("live-save-browse");
-if (saveBrowseBtn) saveBrowseBtn.addEventListener("click", openFsPicker);
+if (saveBrowseBtn) saveBrowseBtn.addEventListener("click", openFsSave);
 document.getElementById("fs-close").onclick = () => fsModal.classList.add("hidden");
 document.getElementById("fs-cancel").onclick = () => fsModal.classList.add("hidden");
 document.getElementById("fs-choose").onclick = fsChoose;
 fsModal.addEventListener("click", (e) => {
   if (e.target.id === "fs-modal") fsModal.classList.add("hidden");
 });
+
+// Import a capture chosen with the in-app browser (read from disk, no upload).
+async function importFromPicker() {
+  openFsOpen("Open capture", [".csv", ".txt"], async (path) => {
+    if (live.running) await stopLive();
+    try {
+      toast("Parsing capture…");
+      const payload = await API.importLocal(path);
+      renderGraph(payload);
+      live.loaded = true;
+      refreshLiveButtons();
+      toast(`Loaded ${payload.summary.access_points} APs / ${payload.summary.clients} clients`, "ok");
+    } catch (err) {
+      toast(err.message, "error");
+    }
+  });
+}
 
 /* -------------------------------------------------------------- resizing */
 // Drag a handle to resize the panel it sits beside. The sidebar (left) grows

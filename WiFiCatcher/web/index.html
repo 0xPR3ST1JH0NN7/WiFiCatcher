@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32.png?v=2"/>
   <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon-16.png?v=2"/>
   <link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png?v=2"/>
-  <link rel="stylesheet" href="/static/style.css?v=38"/>
+  <link rel="stylesheet" href="/static/style.css?v=39"/>
   <script src="/static/vendor/cytoscape.min.js"></script>
   <script src="/static/vendor/layout-base.js"></script>
   <script src="/static/vendor/cose-base.js"></script>
@@ -87,7 +87,6 @@
     <div class="topbar-actions">
       <button class="btn ghost icon-btn" id="settings-btn" title="Appearance settings" aria-label="Appearance settings">⚙</button>
       <button class="btn ghost" id="clear-btn" title="Remove the loaded capture">Clear</button>
-      <input id="file-input" type="file" accept=".csv,.txt" hidden/>
     </div>
   </header>
 
@@ -177,8 +176,7 @@
         <div class="panel-body">
           <p class="hint">Read the RADIUS server certificate from an enterprise
             <code>.cap</code> / <code>.pcap</code>.</p>
-          <label class="btn" for="cert-file">Upload .cap / .pcap</label>
-          <input id="cert-file" type="file" accept=".cap,.pcap,.pcapng" hidden/>
+          <button class="btn" id="cert-open-btn">Open .cap / .pcap</button>
         </div>
       </details>
 
@@ -193,8 +191,7 @@
           <p class="hint">Read the EAP Response/Identity username (often
             <code>DOMAIN\user</code>) from an enterprise <code>.cap</code> /
             <code>.pcap</code>.</p>
-          <label class="btn" for="eapid-file">Upload .cap / .pcap</label>
-          <input id="eapid-file" type="file" accept=".cap,.pcap,.pcapng" hidden/>
+          <button class="btn" id="eapid-open-btn">Open .cap / .pcap</button>
           <div id="eapid-result"></div>
         </div>
       </details>
@@ -286,7 +283,7 @@
         </div>
         <h3>No capture loaded</h3>
         <p>Import an airodump-ng CSV file (.csv) or start a live capture.</p>
-        <label class="btn primary empty-import" for="file-input">Import capture</label>
+        <button class="btn primary empty-import" id="empty-import-btn">Import capture</button>
       </div>
     </section>
 
@@ -406,10 +403,10 @@
   <div id="fs-modal" class="modal hidden">
     <div class="modal-card fs-card">
       <button class="details-close" id="fs-close" aria-label="Close">&times;</button>
-      <h3>Choose save location</h3>
+      <h3 id="fs-title">Choose save location</h3>
       <div class="fs-path" id="fs-path"></div>
       <div class="fs-list" id="fs-list"></div>
-      <div class="fs-name-row">
+      <div class="fs-name-row" id="fs-name-row">
         <label for="fs-name">File name</label>
         <input id="fs-name" class="mini-input" placeholder="wificatcher-capture"/>
       </div>
@@ -423,6 +420,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="/static/app.js?v=45"></script>
+  <script src="/static/app.js?v=46"></script>
 </body>
 </html>
