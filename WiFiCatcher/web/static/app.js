@@ -622,93 +622,64 @@ function refreshDetails(info) {
 const ATTACK_DATA = {
   "wpa-psk": {
     family: "WPA and WPA2 PSK",
-    list: [
-      "If WPS is enabled, attack the WPS PIN to recover the passphrase: brute force it online with Reaver or Bully, or use Pixie Dust offline when the access point is vulnerable.",
-      "Capture the four way handshake (wait passively, send a deauth to force a reconnect, or lure clients with an evil twin or MANA rogue access point), then crack the PSK offline with a wordlist or brute force using aircrack ng or hashcat.",
-      "Run a PMKID attack: request the PMKID from an access point that includes it and capture it with hcxdumptool, then crack it offline with hashcat. This works even when no client is connected.",
-    ],
-    toasts: ["WPS PIN brute force", "Pixie Dust on WPS", "Handshake capture then offline crack", "PMKID offline crack"],
+    toasts: ["WPS PIN brute force","Pixie Dust on WPS","Handshake capture then offline crack","PMKID offline crack"],
     nodes: [
       {"id": "root", "parent": null, "label": "WPA/WPA2 PSK", "kind": "root"},
       {"id": "g_wps", "parent": "root", "label": "WPS", "kind": "goal"},
-      {"id": "wps_online", "parent": "g_wps", "label": "Online PIN brute force", "kind": "attack"},
-      {"id": "wps_pixie", "parent": "g_wps", "label": "Offline Pixie Dust", "kind": "attack"},
+      {"id": "wps_online", "parent": "g_wps", "label": "Online PIN brute force", "kind": "attack", "desc": "Reaver repeatedly guesses the router's eight digit setup PIN over the air until it yields the passphrase."},
+      {"id": "wps_pixie", "parent": "g_wps", "label": "Offline Pixie Dust", "kind": "attack", "desc": "Pixiewps exploits weak random numbers in the router's setup exchange to compute the PIN offline almost instantly."},
       {"id": "g_psk", "parent": "root", "label": "Crack the passphrase", "kind": "goal"},
-      {"id": "hs", "parent": "g_psk", "label": "Four way handshake capture and crack", "kind": "attack"},
-      {"id": "pmkid", "parent": "g_psk", "label": "PMKID capture and offline crack", "kind": "attack"},
+      {"id": "hs", "parent": "g_psk", "label": "Four way handshake capture and crack", "kind": "attack", "desc": "Records the four way handshake as a client joins, often forcing a reconnect, then guesses passwords offline."},
+      {"id": "pmkid", "parent": "g_psk", "label": "PMKID capture and offline crack", "kind": "attack", "desc": "Pulls the PMKID value from the router without needing any client, then tries password guesses offline."},
     ],
   },
   "wep": {
     family: "WEP (Wired Equivalent Privacy)",
-    list: [
-      "ARP request replay: captured ARP requests are reinjected so the access point answers them over and over, flooding the air with fresh initialization vectors and sharply cutting the time needed to recover the key.",
-      "Fragmentation attack: a small amount of keystream is recovered from a single captured packet, then used to forge valid packets whose injection makes the access point emit large volumes of initialization vectors.",
-      "KoreK ChopChop attack: an encrypted packet is peeled one byte at a time to reveal its plaintext and keystream without knowing the key, which then lets an attacker forge traffic to gather more initialization vectors.",
-      "Caffe Latte attack: a lone client is targeted instead of the access point and coaxed into producing usable initialization vectors, so the key can be cracked far away from the real network.",
-      "KoreK statistical cracking: once enough initialization vectors are collected, the key is derived statistically by exploiting known weaknesses in how RC4 turns the key into keystream.",
-      "Brute force cracking: candidate keys are tried exhaustively, useful only as a fallback when the key space is small or part of the key is already known.",
-    ],
-    toasts: ["ARP replay IV flood", "Fragmentation keystream attack", "ChopChop packet decrypt", "Caffe Latte client attack", "KoreK statistical crack"],
+    toasts: ["ARP replay IV flood","Fragmentation keystream attack","ChopChop packet decrypt","Caffe Latte client attack","KoreK statistical crack"],
     nodes: [
       {"id": "root", "parent": null, "label": "WEP", "kind": "root"},
       {"id": "g_ivs", "parent": "root", "label": "Collect IVs", "kind": "goal"},
-      {"id": "arp", "parent": "g_ivs", "label": "ARP request replay", "kind": "attack"},
-      {"id": "frag", "parent": "g_ivs", "label": "Fragmentation attack", "kind": "attack"},
-      {"id": "chop", "parent": "g_ivs", "label": "ChopChop attack", "kind": "attack"},
+      {"id": "arp", "parent": "g_ivs", "label": "ARP request replay", "kind": "attack", "desc": "Captures one encrypted ARP request and rebroadcasts it repeatedly, making the access point emit many fresh initialization vectors for cracking."},
+      {"id": "frag", "parent": "g_ivs", "label": "Fragmentation attack", "kind": "attack", "desc": "Uses a small recovered keystream to send fragmented packets, tricking the access point into revealing enough keystream to forge traffic."},
+      {"id": "chop", "parent": "g_ivs", "label": "ChopChop attack", "kind": "attack", "desc": "Repeatedly strips and guesses the last encrypted byte of a captured packet, gradually recovering its keystream without knowing the WEP key."},
       {"id": "g_client", "parent": "root", "label": "Attack a client", "kind": "goal"},
-      {"id": "caffe", "parent": "g_client", "label": "Caffe Latte attack", "kind": "attack"},
+      {"id": "caffe", "parent": "g_client", "label": "Caffe Latte attack", "kind": "attack", "desc": "Targets a lone client away from its network, replaying modified ARP packets so it generates traffic exposing its stored WEP key."},
       {"id": "g_crack", "parent": "root", "label": "Crack the key", "kind": "goal"},
-      {"id": "korek", "parent": "g_crack", "label": "KoreK statistical crack", "kind": "attack"},
-      {"id": "brute", "parent": "g_crack", "label": "Brute force key crack", "kind": "attack"},
+      {"id": "korek", "parent": "g_crack", "label": "KoreK statistical crack", "kind": "attack", "desc": "Analyzes many collected initialization vectors and applies statistical correlations to recover the WEP key faster than trying every possibility."},
+      {"id": "brute", "parent": "g_crack", "label": "Brute force key crack", "kind": "attack", "desc": "Systematically tries every possible key against captured traffic until one correctly decrypts it, revealing the WEP key."},
     ],
   },
   "wpa-enterprise": {
     family: "WPA2 Enterprise (802.1X)",
-    list: [
-      "Password spray and brute force the 802.1X login, trying a few common passwords across many domain users or many passwords against a single account, to guess valid credentials against the RADIUS server.",
-      "Stand up an evil twin access point backed by a rogue RADIUS server, using tools such as eaphammer or hostapd wpe, so clients authenticate to you and reveal their EAP identity along with their MSCHAPv2 challenge and response.",
-      "Steer the client onto a weaker EAP method during authentication, for example downgrading it to EAP GTC so the password arrives in the clear instead of as an MSCHAPv2 hash, which makes it far easier to capture and reuse.",
-      "Crack a captured MSCHAPv2 challenge and response offline with asleap or hashcat to recover the user password, or run a PEAP relay that forwards the victim inner authentication to the real RADIUS in real time to log in as them.",
-      "Capture a legacy EAP MD5 challenge and response off the air and crack the password offline, since EAP MD5 offers no server authentication and no protective tunnel.",
-      "Attack EAP TLS client certificate authentication by abusing a stolen or exported client certificate together with its private key to impersonate a legitimate user.",
-    ],
-    toasts: ["Password spray the login", "Rogue RADIUS evil twin", "EAP downgrade attack", "MSCHAPv2 offline crack", "EAP MD5 capture and crack"],
+    toasts: ["Password spray the login","Rogue RADIUS evil twin","EAP downgrade attack","MSCHAPv2 offline crack","EAP MD5 capture and crack"],
     nodes: [
       {"id": "root", "parent": null, "label": "WPA2-Enterprise", "kind": "root"},
       {"id": "g_guess", "parent": "root", "label": "Guess the password", "kind": "goal"},
-      {"id": "spray", "parent": "g_guess", "label": "Password spraying or bruteforcing", "kind": "attack"},
+      {"id": "spray", "parent": "g_guess", "label": "Password spraying or bruteforcing", "kind": "attack", "desc": "The attacker tries common passwords across many accounts or many passwords against one, hoping weak credentials eventually grant network access."},
       {"id": "g_twin", "parent": "root", "label": "Evil twin", "kind": "goal"},
-      {"id": "mschap", "parent": "g_twin", "label": "Capture and crack MSCHAPv2", "kind": "attack"},
-      {"id": "downgrade", "parent": "g_twin", "label": "EAP downgrade", "kind": "attack"},
-      {"id": "peap", "parent": "g_twin", "label": "PEAP relay", "kind": "attack"},
+      {"id": "mschap", "parent": "g_twin", "label": "Capture and crack MSCHAPv2", "kind": "attack", "desc": "A rogue access point with a fake authentication server captures the MSCHAPv2 challenge and response, letting the password be cracked offline."},
+      {"id": "downgrade", "parent": "g_twin", "label": "EAP downgrade", "kind": "attack", "desc": "The rogue access point pushes the client to negotiate a weaker EAP method, exposing credentials that a stronger method would protect."},
+      {"id": "peap", "parent": "g_twin", "label": "PEAP relay", "kind": "attack", "desc": "The attacker relays PEAP messages between the victim and the real server, hijacking the session to gain authenticated network access."},
       {"id": "g_method", "parent": "root", "label": "Break the EAP method", "kind": "goal"},
-      {"id": "eaptls", "parent": "g_method", "label": "EAP TLS certificate attack", "kind": "attack"},
-      {"id": "eapmd5", "parent": "g_method", "label": "EAP MD5 capture and crack", "kind": "attack"},
+      {"id": "eaptls", "parent": "g_method", "label": "EAP TLS certificate attack", "kind": "attack", "desc": "The attacker presents a fraudulent server certificate that clients fail to verify, tricking them into trusting a malicious authentication server."},
+      {"id": "eapmd5", "parent": "g_method", "label": "EAP MD5 capture and crack", "kind": "attack", "desc": "The attacker sniffs the EAP MD5 challenge and hashed response, then cracks it offline since this method lacks server authentication."},
     ],
   },
   "open": {
     family: "Open network",
-    list: [
-      "Passively capture traffic on the open network, reading unencrypted packets to recover sessions, cookies and browsing activity.",
-      "Stand up an evil twin that clones the network name, then deauthenticate clients so they reconnect to the attacker access point.",
-      "Run a rogue access point with a stronger signal to lure clients away from the legitimate network.",
-      "Present a captive portal with a fake login page to harvest credentials from victims.",
-      "Sit in the middle of client traffic with ARP spoofing, then use DNS spoofing or SSL stripping to redirect victims and read protected data.",
-    ],
-    toasts: ["Passive traffic capture", "Evil twin access point", "Rogue AP lure", "Captive portal phishing", "Man in the middle redirect"],
+    toasts: ["Passive traffic capture","Evil twin access point","Rogue AP lure","Captive portal phishing","Man in the middle redirect"],
     nodes: [
       {"id": "root", "parent": null, "label": "Open network", "kind": "root"},
-      {"id": "g_capture", "parent": "root", "label": "Read the traffic", "kind": "goal"},
-      {"id": "sniff", "parent": "g_capture", "label": "Passive traffic capture", "kind": "attack"},
+      {"id": "g_read", "parent": "root", "label": "Read the traffic", "kind": "goal"},
+      {"id": "sniff", "parent": "g_read", "label": "Passive traffic capture", "kind": "attack", "desc": "Because an open network sends data unencrypted, anyone nearby can silently record packets and read the victim's browsing traffic."},
       {"id": "g_imp", "parent": "root", "label": "Impersonate the network", "kind": "goal"},
-      {"id": "twin", "parent": "g_imp", "label": "Evil twin access point", "kind": "attack"},
-      {"id": "rogue", "parent": "g_imp", "label": "Rogue AP lure", "kind": "attack"},
-      {"id": "g_harvest", "parent": "root", "label": "Harvest credentials", "kind": "goal"},
-      {"id": "portal", "parent": "g_harvest", "label": "Captive portal phishing", "kind": "attack"},
-      {"id": "mitm", "parent": "g_harvest", "label": "Man in the middle", "kind": "attack"},
+      {"id": "twin", "parent": "g_imp", "label": "Evil twin access point", "kind": "attack", "desc": "The attacker broadcasts a fake access point using the same network name, tricking devices into connecting so their traffic is intercepted."},
+      {"id": "portal", "parent": "twin", "label": "Captive portal phishing", "kind": "attack", "desc": "A fake login page appears after connecting, tricking users into entering passwords or personal details that the attacker quietly steals."},
+      {"id": "mitm", "parent": "twin", "label": "Man in the middle", "kind": "attack", "desc": "The attacker reroutes the victim's traffic through their own device, letting them read or alter data while both sides suspect nothing."},
+      {"id": "rogue", "parent": "g_imp", "label": "Rogue AP lure", "kind": "attack", "desc": "A tempting open network with an inviting name is planted in a public place to attract victims and capture whatever they send."},
     ],
   },
-};
+};;
 
 // Classify a selected AP into an ATTACK_DATA key, or null when we don't advise.
 function classifyTech(info) {
@@ -734,12 +705,33 @@ function wpsNote(info) {
     : "WPS is enabled on this AP, so the PIN attack is worth trying first.";
 }
 
-// The "Suggested attacks" panel block for an AP, or "" when nothing applies. Open
-// by default for visibility; the button opens the attack path graph.
+// The "Suggested attacks" panel block for an AP, or "" when nothing applies. It
+// mirrors the attack path graph: one block per category, then its attacks with a
+// one-line description. Open by default; the button opens the full graph.
 function attackAdvisorHtml(info) {
   const s = suggestAttacks(info);
   if (!s) return "";
-  const lis = s.data.list.map((t) => `<li>${escapeHtml(t)}</li>`).join("");
+  const nodes = s.data.nodes;
+  const root = nodes.find((n) => n.parent === null) || nodes[0];
+  const childrenOf = (id) => nodes.filter((n) => n.parent === id);
+  // Every attack under a category, in tree order (descends through chained ones).
+  const attacksUnder = (id) => {
+    const out = [];
+    (function walk(pid) {
+      for (const c of childrenOf(pid)) {
+        if (c.kind === "attack") out.push(c);
+        walk(c.id);
+      }
+    })(id);
+    return out;
+  };
+  const cats = childrenOf(root.id).filter((n) => n.kind === "goal").map((cat) => {
+    const items = attacksUnder(cat.id).map((a) =>
+      `<li><span class="atk-name">${escapeHtml(a.label)}</span>` +
+      (a.desc ? `<span class="atk-desc">${escapeHtml(a.desc)}</span>` : "") + `</li>`
+    ).join("");
+    return `<p class="advisor-cat-name">${escapeHtml(cat.label)}</p><ul class="advisor-list">${items}</ul>`;
+  }).join("");
   const note = s.key === "wpa-psk" ? wpsNote(info) : "";
   const noteHtml = note ? `<p class="advisor-wps">${escapeHtml(note)}</p>` : "";
   return `<details class="subpanel attack-advisor" open>
@@ -747,7 +739,7 @@ function attackAdvisorHtml(info) {
     <div class="panel-body">
       <p class="advisor-family">${escapeHtml(s.data.family)}</p>
       ${noteHtml}
-      <ul class="advisor-list">${lis}</ul>
+      ${cats}
       <button class="btn" id="attack-tree-btn">View attack paths</button>
       <p class="advisor-note">Guidance only. Use exclusively on networks you are authorized to test.</p>
     </div>

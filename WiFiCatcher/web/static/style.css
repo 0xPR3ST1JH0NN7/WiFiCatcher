@@ -353,16 +353,24 @@ details.subpanel[open] > summary::after { transform: rotate(90deg); }
   margin: 0 0 8px; font-size: 12px; color: var(--text);
   border-left: 2px solid var(--accent); padding-left: 8px;
 }
-.attack-advisor .advisor-list { margin: 0 0 12px; padding-left: 18px; }
-.attack-advisor .advisor-list li { margin: 5px 0; font-size: 13px; line-height: 1.45; }
-.attack-advisor .btn { width: 100%; }
+/* One block per attack-path category, mirroring the graph: the category name in
+   the same client blue, then its attacks (name + one-line description). */
+.attack-advisor .advisor-cat-name {
+  margin: 12px 0 4px; font-weight: 700; color: var(--client);
+  font-size: 12px; text-transform: uppercase; letter-spacing: .5px;
+}
+.attack-advisor .advisor-list { margin: 0 0 6px; padding-left: 16px; }
+.attack-advisor .advisor-list li { margin: 6px 0; line-height: 1.4; }
+.attack-advisor .atk-name { display: block; font-weight: 600; font-size: 13px; }
+.attack-advisor .atk-desc { display: block; font-size: 12px; color: var(--muted); margin-top: 1px; }
+.attack-advisor .btn { width: 100%; margin-top: 6px; }
 .attack-advisor .advisor-note { margin: 10px 0 0; font-size: 11px; color: var(--muted); }
 
-/* Attack path graph modal: a wide card holding an on-demand Cytoscape tree. The
-   tree fans out wide, so give it room; drag/scroll pans and zooms the rest. */
-.attack-card { width: min(1040px, 95vw); }
+/* Attack path graph modal: a near full page card holding an on-demand Cytoscape
+   tree, so the whole path is easy to read; drag/scroll pans and zooms. */
+.attack-card { width: 96vw; max-width: 1700px; padding: 16px; }
 #attack-graph {
-  width: 100%; height: 64vh; min-height: 340px;
+  width: 100%; height: 82vh; min-height: 340px;
   background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
 }
 /* Give the Start live capture button room to breathe below More options. */
