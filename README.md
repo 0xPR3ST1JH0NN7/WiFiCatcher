@@ -3,6 +3,8 @@
   <p><em>A simplified tool for fast Wi-Fi assessment.</em></p>
 </div>
 
+WiFiCatcher was born to make Wi-Fi assessment faster and to make life easier for newcomers. Under the hood it is a wrapper around the best-known tools already out there, bringing them together behind one simple, visual interface.
+
 ## Hardware requirements
 
 Some features (live capture and deauthentication) need a Wi-Fi adapter that supports monitor mode and packet injection, which many built-in laptop adapters do not; a compatible external adapter is usually the safe choice. Everything else works on any machine, since it reads a capture file rather than the radio.
@@ -14,7 +16,7 @@ git clone https://github.com/0xPR3ST1JH0NN7/WiFiCatcher
 cd WiFiCatcher
 
 # system dependencies
-sudo apt install aircrack-ng tshark zenity
+sudo apt install aircrack-ng tshark wpasupplicant
 
 # python dependencies (the app runs from this venv)
 python3 -m venv .venv && source .venv/bin/activate
@@ -58,7 +60,11 @@ For WPA-Enterprise networks WiFiCatcher works with the 802.1X access points. You
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details. The MIT license covers WiFiCatcher's own code only.
+
+## Third-party software
+
+WiFiCatcher drives well-known tools such as aircrack-ng, Wireshark's tshark and wpa_supplicant. You install those yourself and WiFiCatcher runs them as separate programs, so their licenses stay with them and do not extend to WiFiCatcher's code. A few components are also bundled in the repository under their own licenses. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the full list and terms.
 
 ## Authors
 
