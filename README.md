@@ -45,13 +45,10 @@ Press Enter (or Ctrl+C) in the terminal to stop. WiFiCatcher checks for the help
 
 - **WPA2-Enterprise**. Spots 802.1X networks, inspects and exports the RADIUS server certificate, and enumerates which EAP methods a network accepts.
 
-> ⚠️ Use WiFiCatcher only on networks you own or are authorized to test.
-
-## Troubleshooting
-If you experience issues putting your adapter into monitor mode, network managers running in the background might be interfering. You can resolve these conflicts by running sudo airmon-ng check kill before starting a live capture.
-
 ## License
 This project is licensed under the MIT License. See the LICENSE file for details.
+
+> ⚠️ Use WiFiCatcher only on networks you own or are authorized to test.
 
 ## Authors
 
