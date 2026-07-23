@@ -1,12 +1,8 @@
 """Validated privileged operations, executed warden-side (as root).
 
-Each handler receives the request ``params`` (an untrusted dict from the app),
-validates every field, then calls the existing WiFiCatcher operation. Building
-the argv from validated fields — never from raw client strings — is what keeps
-a compromised app from injecting arguments or reaching other binaries.
-
-Handlers here are **unary** (request in, result out). Live capture is a stream
-and is handled in :mod:`WiFiCatcher.privileged.server`.
+Handlers validate every field of the untrusted request ``params`` and build argv
+only from validated values — never raw client strings — so a compromised app
+can't inject arguments or reach other binaries. Streaming ops are further down.
 """
 
 from __future__ import annotations
@@ -18,9 +14,8 @@ from typing import Any, Callable
 
 from WiFiCatcher.models import normalize_mac
 
-# Interface names: short, from a known charset — reject anything odd before it
-# ever reaches a tool. Real wireless ifaces are additionally checked against
-# /sys/class/net by ensure_monitor_mode / the capture code.
+# Iface names: short, known charset, rejected before reaching a tool. Real
+# ifaces are additionally checked against /sys/class/net by the capture code.
 _IFACE_RE = re.compile(r"^[A-Za-z0-9._-]{1,32}$")
 _MAX_ESSID = 32          # 802.11 SSID max length
 _MAX_COUNT = 64          # mirrors operations.deauth.MAX_COUNT
@@ -165,16 +160,11 @@ def _safe_capture_name(name) -> str:
 def _capture_stream(params: dict):
     """Own a live capture end-to-end (as root) and stream it back.
 
-    Ensures monitor mode, emits a first event with the monitor interface (and the
-    save path when saving), then yields ``{"csv": ...}`` as airodump rewrites its
-    CSV and ``{"handshake": {"bssid": ...}}`` when a WPA handshake is detected in
-    the pcap. When the caller closes the generator (stop / disconnect), airodump
-    is killed and the interface restored to managed mode; a requested capture is
-    kept and chowned to the caller, otherwise it is deleted. Cleanup happens even
-    if the app crashes.
-
-    NOTE: radio-dependent path; needs real hardware + aircrack-ng to run for
-    real. The streaming/save/cleanup plumbing is covered by tests with a fake.
+    Ensures monitor mode, emits a first event with the monitor interface, then
+    yields csv/handshake/wps/cert/eap_identity events. On generator close
+    (stop/disconnect) airodump is killed and the interface restored; a requested
+    capture is chowned to the caller, else deleted. Cleanup runs even if the app
+    crashes. Radio-dependent; the plumbing is covered by tests with a fake.
     """
     import glob
     import shutil
@@ -195,10 +185,8 @@ def _capture_stream(params: dict):
     save_dir = params.get("save_dir")
     peer_uid = params.get("_peer_uid")
     if save and save_dir and os.path.isdir(save_dir):
-        # Write straight into the folder the user chose (no subfolder). airodump
-        # uses this as the filename prefix, so files land as
-        # <folder>/<name>-01.cap / -01.csv. Use the user's name if given
-        # (sanitized to a safe basename), else a timestamped default.
+        # Write into the user's chosen folder; airodump uses this as the filename
+        # prefix (<folder>/<name>-01.cap/.csv). User name if given, else timestamped.
         workdir = None
         name = _safe_capture_name(params.get("save_name")) or (
             "wificatcher-" + time.strftime("%Y%m%d-%H%M%S"))
@@ -269,9 +257,8 @@ def _capture_stream(params: dict):
                         yield {"wps": delta}
                 except (OSError, subprocess.SubprocessError):
                     pass
-            # Enterprise RADIUS certificate: pull the server cert out of the EAP
-            # handshake so it can be read live. Done once per BSSID (it costs a
-            # full TLS-reassembly pass), keyed by the AP that sent it (wlan.sa).
+            # Enterprise RADIUS cert: pull the server cert from the EAP handshake,
+            # once per BSSID (a full TLS-reassembly pass), keyed by the AP (wlan.sa).
             if caps and tick % 8 == 0:
                 try:
                     out = subprocess.run(

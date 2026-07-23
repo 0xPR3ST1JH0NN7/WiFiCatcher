@@ -1,7 +1,5 @@
-"""Graph model built on top of networkx.
-
-The :class:`WifiGraph` holds the current scan, exposes search / neighbour /
-path queries, and serialises to Cytoscape.js element JSON for the frontend.
+"""Graph model on networkx: holds the current scan, exposes search/neighbour
+queries, and serialises to Cytoscape.js element JSON for the frontend.
 """
 
 from __future__ import annotations

@@ -1,24 +1,8 @@
 """WPA2-Enterprise (802.1X) assessment helpers.
 
-Two authorized-testing features for enterprise networks:
-
-* **RADIUS server certificate extraction** from a capture's ``.cap``/``.pcap``.
-  This only *reads a file* (no radio), so it carries no privilege gate, just a
-  dependency check, exactly like WPA handshake detection. It prefers
-  ``pcapFilter.sh -C`` when present and otherwise drives ``tshark`` directly,
-  decoding the X.509 certificate(s) with :mod:`cryptography`.
-
-* **EAP-method enumeration** via ``EAP_buster.sh``. That script performs *real*
-  802.1X authentication attempts against a live AP (it takes the interface to
-  managed mode itself), so it gets the full offensive guardrails: root and an
-  explicit per-request acknowledgement.
-
-The parsing helpers (``parse_eap_buster``, ``parse_certificates_*``) are pure
-and unit-tested; the subprocess calls are best-effort and degrade with a clear
-:class:`OperationError` when a tool is missing.
-
-Authorized use only: run these against networks you own or are explicitly
-permitted to assess.
+Certificate/EAP-identity extraction only reads a capture file (no radio, no
+privilege gate); EAP-method enumeration does live 802.1X auth, so it needs root
+and per-request acknowledgement. Authorized use only.
 """
 
 from __future__ import annotations
@@ -82,11 +66,9 @@ EAP_METHODS = [
 def parse_eap_buster(stdout: str, mark_untested_as_maybe: bool = True) -> list[dict]:
     """Parse ``EAP_buster.sh`` output into ``[{"method", "supported"}]``.
 
-    ``supported`` is ``"yes"`` / ``"no"`` for methods the tool actually probed.
-    ``"maybe"`` is **synthetic**: it never comes from the tool, it marks methods
-    in :data:`EAP_METHODS` the run did not report on (e.g. ones with no shipped
-    config). The tool colours lines and rewrites a progress line with ``\\r``;
-    we keep only the text after the last carriage return and strip ANSI codes.
+    ``supported`` is ``"yes"``/``"no"`` for probed methods; ``"maybe"`` is
+    synthetic, marking :data:`EAP_METHODS` the run never reported on. Lines are
+    stripped of ANSI codes and kept only after the last ``\\r`` (progress rewrite).
     """
     results: list[dict] = []
     seen: set[str] = set()
@@ -132,11 +114,9 @@ def _cert_to_dict(cert) -> dict:
 
 
 def parse_certificates_from_der_list(der_blobs: list[bytes]) -> list[dict]:
-    """Decode raw DER certificate blobs into structured dicts, leaf first.
+    """Decode raw DER certificate blobs into dicts, leaf (server) cert first.
 
-    The leaf (server) certificate is the one whose subject differs from its
-    issuer; it is sorted first so callers can read ``certs[0]`` as the RADIUS
-    server certificate.
+    Leaf = subject != issuer; sorted first so ``certs[0]`` is the RADIUS cert.
     """
     if not _HAVE_CRYPTO:
         raise OperationError(
@@ -145,8 +125,7 @@ def parse_certificates_from_der_list(der_blobs: list[bytes]) -> list[dict]:
     certs = []
     seen: set[bytes] = set()
     for der in der_blobs:
-        # The same certificate repeats once per handshake in a capture, which
-        # would otherwise show as dozens of identical copies. Keep each DER once.
+        # The same cert repeats once per handshake in a capture; keep each DER once.
         if der in seen:
             continue
         seen.add(der)
@@ -161,8 +140,8 @@ def parse_certificates_from_der_list(der_blobs: list[bytes]) -> list[dict]:
 def hexfields_to_der(field_output: str) -> list[bytes]:
     """Turn a ``tls.handshake.certificate`` ``-T fields`` dump into DER blobs.
 
-    tshark prints the field as colon-separated hex, one packet per line, with
-    commas joining multiple certificates inside a packet. Bad tokens are skipped.
+    tshark prints colon-separated hex, one packet per line, commas joining
+    multiple certs in a packet; bad tokens are skipped.
     """
     blobs: list[bytes] = []
     for token in field_output.split():
@@ -199,11 +178,9 @@ def extract_radius_cert(cap_path: str, ap_bssid: str | None = None,
                         dry_run: bool = False) -> dict:
     """Pull the RADIUS/EAP server certificate(s) out of a capture file.
 
-    Read-only: no radio, no root. Uses ``pcapFilter.sh -C`` when available,
-    otherwise ``tshark``. ``ap_bssid`` scopes the search to one AP
-    (``wlan.sa == BSSID``). Returns ``status: "empty"`` (not an error) when the
-    capture contains no certificate (truncated capture, non-enterprise AP, or a
-    TLS 1.3 handshake that encrypts the certificate).
+    Read-only (no radio/root); ``pcapFilter.sh -C`` if available else ``tshark``,
+    scoped to one AP by ``ap_bssid``. ``status: "empty"`` (not an error) means no
+    cert found (truncated, non-enterprise, or TLS 1.3 encrypts the cert).
     """
     if not cap_path or not os.path.isfile(cap_path):
         raise OperationError("Capture file not found.")
@@ -244,9 +221,8 @@ def extract_radius_cert(cap_path: str, ap_bssid: str | None = None,
             "shrink the work.") from exc
 
     if use_pf:
-        # pcapFilter writes raw DER to /tmp/certs/; decode those (most reliable),
-        # falling back to scraping the PEM it prints. Only read files it just
-        # wrote, to avoid stale certs from a previous run.
+        # pcapFilter writes raw DER to /tmp/certs/; decode those (else scrape its
+        # PEM). Only read files it just wrote, to avoid stale certs from a prior run.
         ders = []
         for der_file in sorted(glob.glob("/tmp/certs/*")):
             try:
@@ -282,9 +258,8 @@ EAP_ID_FILTER = "eap.identity && eap.code == 2"
 def parse_eap_identities(tshark_output: str, sep: str = "|") -> list[dict]:
     """Parse ``bssid|client|identity`` rows into a de-duplicated list of dicts.
 
-    Each row is one EAP Response/Identity frame; the identity is the username the
-    supplicant sent (often ``DOMAIN\\user`` when not tunnelled). Rows with no
-    identity are dropped; ``(bssid, client, identity)`` triples are unique.
+    Identity is the username the supplicant sent (often ``DOMAIN\\user`` when not
+    tunnelled); empty-identity rows dropped, ``(bssid, client, identity)`` unique.
     """
     seen: set = set()
     out: list[dict] = []
@@ -310,10 +285,9 @@ def parse_eap_identities(tshark_output: str, sep: str = "|") -> list[dict]:
 def extract_eap_identities(cap_path: str, ap_bssid: str | None = None) -> dict:
     """Read EAP Response/Identity usernames (``DOMAIN\\user``) from a capture.
 
-    Read-only: no radio, no root, just ``tshark`` over the file. ``ap_bssid``
-    scopes the search to one AP. ``status`` is ``"empty"`` (not an error) when the
-    capture holds no cleartext identity (none captured, or all identities are the
-    anonymous outer id of a tunnelled method).
+    Read-only (``tshark`` over the file), scoped to one AP by ``ap_bssid``.
+    ``status: "empty"`` (not an error) means no cleartext identity (none, or all
+    anonymous outer ids of a tunnelled method).
     """
     if not cap_path or not os.path.isfile(cap_path):
         raise OperationError("Capture file not found.")
@@ -348,12 +322,9 @@ def stream_eap_methods(interface: str, essid: str, identity: str,
                        acknowledged: bool = False):
     """Run ``EAP_buster.sh`` and stream its progress for a live enumeration.
 
-    Active 802.1X auth against the AP, so it needs root and acknowledgement. The
-    script takes the interface to managed mode itself and edits files in place, so
-    it runs from a private copy. Yields ``{"line": <text>}`` per stdout line as the
-    tool tries each method, then a final ``{"done": True, "methods": [...],
-    "returncode": int}`` (methods parsed by :func:`parse_eap_buster`). Streaming
-    lets the caller show per-method progress instead of blocking for minutes.
+    Active 802.1X auth, so it needs root and acknowledgement. The script edits
+    files in place, so it runs from a private copy. Yields ``{"line": ...}`` per
+    stdout line, then a final ``{"done": True, "methods": [...], "returncode": int}``.
     """
     require_authorization(acknowledged)
     require_tools("wpa_supplicant",

@@ -1,16 +1,8 @@
 """Parser for airodump-ng CSV files.
 
-airodump-ng writes two CSV sections in one file:
-
-  BSSID, First time seen, Last time seen, channel, Speed, Privacy, Cipher,
-  Authentication, Power, # beacons, # IV, LAN IP, ID-length, ESSID, Key
-
-  (blank line)
-
-  Station MAC, First time seen, Last time seen, Power, # packets, BSSID, Probed ESSIDs
-
-Quoting matters (ESSIDs and probe lists can contain commas), so we use the
-``csv`` module rather than a naive ``str.split(',')``.
+One file holds two sections — an AP table (BSSID, ..., ESSID, Key) then a blank
+line and a station table (Station MAC, ..., BSSID, Probed ESSIDs). ESSIDs and
+probe lists can contain commas, so we use the ``csv`` module, not ``str.split``.
 """
 
 from __future__ import annotations

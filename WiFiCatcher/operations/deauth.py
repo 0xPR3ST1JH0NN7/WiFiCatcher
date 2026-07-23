@@ -1,11 +1,7 @@
-"""Deauthentication operation via aireplay-ng (authorized testing only).
+"""Deauthentication via aireplay-ng (authorized testing only).
 
-This sends 802.11 deauth frames toward an AP (optionally targeting a single
-client). It is a standard, well known technique used in *authorized* WiFi
-penetration tests, for example to capture a WPA handshake for offline auditing
-of a network you own or are contracted to assess.
-
-All guardrails in :mod:`WiFiCatcher.operations.base` apply.
+Sends 802.11 deauth frames at an AP (optionally one client), e.g. to capture a
+WPA handshake. All guardrails in :mod:`WiFiCatcher.operations.base` apply.
 """
 
 from __future__ import annotations
@@ -36,8 +32,8 @@ def deauth(
 ) -> dict:
     """Send ``count`` deauth bursts at ``bssid`` (optionally one ``client``).
 
-    Returns a dict describing what was run. Raises :class:`OperationError`
-    (or its subclasses) if any guardrail or validation fails.
+    Returns a dict describing what was run; raises :class:`OperationError` on any
+    guardrail or validation failure.
     """
     require_authorization(acknowledged)
     require_tools("aireplay-ng", hint="Install the aircrack-ng suite.")

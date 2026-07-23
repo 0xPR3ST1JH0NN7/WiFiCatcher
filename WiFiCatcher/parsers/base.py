@@ -1,8 +1,6 @@
-"""Parser interface and registry.
-
-A parser turns raw capture bytes/text into a :class:`~WiFiCatcher.models.Scan`.
-New formats (Kismet netxml, pcap, JSON ...) only need to subclass :class:`Parser`
-and register themselves via :func:`register`.
+"""Parser interface and registry. A parser turns raw capture text into a
+:class:`~WiFiCatcher.models.Scan`; new formats subclass :class:`Parser` and
+register via :func:`register`.
 """
 
 from __future__ import annotations

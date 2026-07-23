@@ -1,22 +1,6 @@
-"""Command-line entry point.
-
-Run WiFiCatcher (always unprivileged, never as root):
-
-    python -m WiFiCatcher
-    .venv/bin/python -m WiFiCatcher
-
-Live radio capture and deauth run through a privileged warden that you install
-once with ``sudo ./packaging/install-warden.sh``. systemd starts the warden on
-demand and stops it when idle, so the app itself never needs root. The warden is
-required: if it is not reachable, WiFiCatcher refuses to start and tells you how
-to install it.
-
-Stop a running server gracefully from another terminal (no Ctrl+C needed):
-
-    python -m WiFiCatcher stop       # add --port if you changed it
-
-By default the server runs quietly (no per-request logging). Pass ``--debug``
-to see verbose request and framework logs.
+"""Command-line entry point. Runs the app unprivileged; live capture/deauth go
+through a privileged warden that must be installed and reachable. ``stop`` shuts
+a running server down gracefully; ``--debug`` enables verbose logging.
 """
 
 from __future__ import annotations
@@ -56,11 +40,8 @@ def print_banner() -> None:
 
 
 def _install_stdin_quit() -> None:
-    """Stop the server when Enter (or EOF / Ctrl+D) is pressed in the terminal.
-
-    A daemon thread waits on stdin and raises SIGINT on the process, which
-    uvicorn handles as a clean shutdown (same path as Ctrl+C). Only attached
-    when stdin is a real TTY, so piped / headless runs are unaffected.
+    """Stop the server on Enter/EOF: a daemon thread raises SIGINT (uvicorn's
+    clean-shutdown path). Only attached on a real TTY, so headless runs are unaffected.
     """
     if not (sys.stdin and sys.stdin.isatty()):
         return
@@ -76,10 +57,8 @@ def _install_stdin_quit() -> None:
 
 
 def _open_browser_when_ready(host: str, port: int, url: str) -> None:
-    """Open the browser only once the server actually accepts connections.
-
-    Opening it before uvicorn binds the port shows a 'connection refused' page;
-    wait (a few seconds at most) for the port to come up in a daemon thread.
+    """Open the browser only once the server accepts connections; opening before
+    uvicorn binds the port shows a 'connection refused' page.
     """
     connect_host = "127.0.0.1" if host in ("0.0.0.0", "::", "") else host
 
@@ -105,9 +84,8 @@ def _serve(args: argparse.Namespace) -> int:
     print(_paint("Provided as is, without warranty. The authors accept no liability for "
                  "misuse or any damage.", _DIM))
 
-    # Verify every required tool and library is present before doing anything.
-    # The check always runs: a missing dependency aborts the launch here with a
-    # clear message rather than letting the app start and crash later.
+    # Verify required tools/libraries are present; a missing dependency aborts
+    # here with a clear message rather than crashing later.
     if not preflight.run():
         return 1
 
@@ -118,8 +96,7 @@ def _serve(args: argparse.Namespace) -> int:
               file=sys.stderr)
         return 1
 
-    # The privileged warden is required: WiFiCatcher runs as one mode, the full
-    # app. If the warden is not reachable, don't start a crippled session.
+    # The warden is required; don't start a crippled session without it.
     from WiFiCatcher.privileged import warden_available
     if not warden_available():
         print(_paint("[!] cannot start: the privileged warden is not reachable.",
@@ -143,8 +120,7 @@ def _serve(args: argparse.Namespace) -> int:
     if not args.no_browser:
         _open_browser_when_ready(args.host, args.port, url)
 
-    # Quiet by default: hide per-request access logs and framework chatter.
-    # --debug brings them all back.
+    # Quiet by default; --debug restores per-request and framework logs.
     uvicorn.run(
         "WiFiCatcher.server:app",
         host=args.host,
@@ -197,8 +173,7 @@ def build_parser() -> argparse.ArgumentParser:
                         version=f"WiFiCatcher {__version__}")
     _add_serve_flags(parser)
 
-    # Running the web app is the default action, so there is no explicit
-    # 'serve' subcommand. The only subcommand is 'stop'.
+    # Running the app is the default action; the only subcommand is 'stop'.
     sub = parser.add_subparsers(dest="command")
     stop = sub.add_parser(
         "stop", help="Tell a running server to shut down gracefully (no Ctrl+C).")

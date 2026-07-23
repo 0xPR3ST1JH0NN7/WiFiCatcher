@@ -105,9 +105,8 @@ def get_parsers():
 
 @router.get("/node/{node_id}")
 def get_node(node_id: str):
-    # While a live capture runs, prefer its graph: a stale imported STATE node
-    # with the same BSSID (which carries no live WPS/handshake data) must not
-    # shadow the live one. Otherwise fall back to STATE for imported/replay data.
+    # Prefer the live graph while capturing: a stale imported STATE node with the
+    # same BSSID carries no live WPS/handshake data and must not shadow the live one.
     if CAPTURE.running:
         info = CAPTURE.node(node_id) or STATE.node(node_id)
     else:
@@ -150,12 +149,10 @@ def clear_state():
 # --------------------------------------------------------------- server control
 @router.post("/shutdown")
 def shutdown_server():
-    """Stop the server gracefully, so there is no need to Ctrl+C the terminal.
+    """Stop the server gracefully (also reachable via ``python -m WiFiCatcher stop``).
 
-    A SIGTERM is scheduled just after this response is sent; uvicorn handles it
-    as a clean shutdown (running the app's shutdown hook, which stops any live
-    capture and restores the wireless interface to managed mode). Reachable from
-    the CLI with ``python -m WiFiCatcher stop``.
+    Schedules a SIGTERM just after this response flushes; uvicorn's clean shutdown
+    hook stops any live capture and restores the interface to managed mode.
     """
     def _terminate() -> None:
         os.kill(os.getpid(), signal.SIGTERM)
@@ -207,10 +204,8 @@ def operations_deauth(req: DeauthRequest):
 # EAP enumeration seizes the radio for minutes; only allow one at a time.
 _EAP_LOCK = threading.Lock()
 
-# Live state for a streaming EAP enumeration, updated by a background consumer of
-# the warden's eap.stream. A long-held HTTP request would time out (the fetch
-# fails with a NetworkError while EAP_buster keeps running), so the frontend
-# starts the run then polls this state and shows methods as they resolve.
+# Live state for a streaming EAP enumeration, fed by a background consumer of the
+# warden's eap.stream. A long-held HTTP request would time out, so the frontend polls.
 _EAP_STATE_LOCK = threading.Lock()
 _EAP_STATE: dict = {"running": False, "done": False, "stdout": "", "methods": [],
                     "error": None, "essid": None, "interface": None}
@@ -252,9 +247,8 @@ class CertRequest(BaseModel):
 def operations_enterprise_cert(req: CertRequest):
     """Extract the RADIUS server certificate from a capture. Read-only, no root.
 
-    Uses the running live-capture pcap when ``cap_path`` is omitted (the deauth
-    "reuse the live capture" pattern). Returns ``status: "empty"`` (HTTP 200)
-    when the capture holds no certificate.
+    Uses the live-capture pcap when ``cap_path`` is omitted; returns
+    ``status: "empty"`` (HTTP 200) when the capture holds no certificate.
     """
     cap = req.cap_path or CAPTURE.latest_cap()
     if not cap:
@@ -272,10 +266,7 @@ def operations_enterprise_cert(req: CertRequest):
 @router.post("/operations/enterprise/cert/upload")
 async def operations_enterprise_cert_upload(
         file: UploadFile = File(...), ap_bssid: str | None = Form(None)):
-    """Inspect the RADIUS certificate in an uploaded .cap/.pcap. Read-only.
-
-    The upload is written to a temporary file, scanned, then deleted.
-    """
+    """Inspect the RADIUS certificate in an uploaded .cap/.pcap (temp file, then deleted). Read-only."""
     raw = await file.read(uploads.MAX_UPLOAD_BYTES + 1)
     uploads.validate_capture(raw, file.filename or "", file.content_type)
     suffix = uploads.safe_capture_suffix(file.filename or "")
@@ -319,10 +310,7 @@ def operations_enterprise_eap_identity_local(req: LocalFileRequest):
 @router.post("/operations/enterprise/eap-identity/upload")
 async def operations_enterprise_eap_identity_upload(
         file: UploadFile = File(...), ap_bssid: str | None = Form(None)):
-    """Read EAP Response/Identity usernames (DOMAIN\\user) from an uploaded capture.
-
-    Read-only. The upload is written to a temp file, scanned with tshark, deleted.
-    """
+    """Read EAP Response/Identity usernames (DOMAIN\\user) from an uploaded capture (temp file, then deleted). Read-only."""
     raw = await file.read(uploads.MAX_UPLOAD_BYTES + 1)
     uploads.validate_capture(raw, file.filename or "", file.content_type)
     suffix = uploads.safe_capture_suffix(file.filename or "")
@@ -351,9 +339,8 @@ class EapMethodsRequest(BaseModel):
 def operations_enterprise_eap_start(req: EapMethodsRequest):
     """Begin a live EAP enumeration in the background; poll /status for progress.
 
-    Returns immediately so the HTTP request is never held for the minutes the run
-    takes (which would fail the fetch). The background thread streams EAP_buster
-    output into _EAP_STATE, which /status reports (methods resolve one by one).
+    Returns immediately so the request isn't held for the minutes the run takes;
+    the background thread streams EAP_buster output into _EAP_STATE.
     """
     interface = (req.interface or "").strip()
     if not interface:
@@ -385,10 +372,9 @@ class MonitorRequest(BaseModel):
 
 @router.post("/live/monitor")
 def live_monitor(req: MonitorRequest):
-    """Put an interface into monitor mode (already-monitor is left as-is), for EAP.
+    """Put an interface into monitor mode (already-monitor left as-is), for EAP.
 
-    Returns the monitor interface name (airmon-ng may create a vif, wlan0 ->
-    wlan0mon). Does not touch a capture; the caller stops that first if needed.
+    Returns the monitor interface name (airmon-ng may create a vif, wlan0 -> wlan0mon).
     """
     iface = (req.interface or "").strip()
     if not iface:
@@ -427,18 +413,15 @@ def operations_enterprise_eap_status():
 def live_interfaces():
     """Wireless interfaces detected on this host, with their current mode.
 
-    Lets the UI offer a pick-list instead of a free-text interface name. Reads
-    sysfs only, so it works unprivileged (mode switching still needs root).
+    Reads sysfs only, so it works unprivileged (mode switching still needs root).
     """
     return {"interfaces": list_wireless_interfaces()}
 
 
 def _validate_local_path(path: str) -> str:
-    """Resolve and check a file path chosen with the in-app picker for reading.
+    """Resolve and check a picker-chosen path for reading (local app, no re-upload).
 
-    WiFiCatcher runs locally, so the server can read a file the user pointed it at
-    (no re-upload). Guards: it must be an existing regular file within the upload
-    size limit.
+    Guards: must be an existing regular file within the upload size limit.
     """
     p = os.path.abspath(os.path.expanduser((path or "").strip()))
     if not p or not os.path.isfile(p):
@@ -455,12 +438,9 @@ def _validate_local_path(path: str) -> str:
 def fs_list(path: str | None = None):
     """List a directory for the in-app save-location picker. Read-only.
 
-    Returns the resolved ``path``, its ``parent`` (``None`` at the root),
-    whether it is ``writable`` (so the UI can gate "save here"), and its visible
-    entries (dot-entries hidden) with directories first. WiFiCatcher runs locally
-    and the user already chooses arbitrary save paths, so browsing their own
-    filesystem is in the same trust model; it only ever lists names, never reads
-    file contents. Defaults to the user's home directory.
+    Returns the resolved ``path``, its ``parent``, ``writable``, and visible entries
+    (dot-entries hidden, directories first). Only ever lists names, never file
+    contents; same trust model as the user's own save-path choices. Defaults to home.
     """
     base = os.path.abspath(os.path.expanduser(path or "~"))
     if not os.path.isdir(base):
@@ -548,17 +528,15 @@ async def live_start(req: LiveStartRequest):
                     status_code=400,
                     detail="Choose an existing, writable folder and file name "
                            "(use Save as…) before starting.")
-        # Validate every optional BSSID filter up front: an invalid one would
-        # otherwise fail deep in the warden after the capture "started", leaving
-        # an empty graph with no explanation.
+        # Validate BSSID filters up front: an invalid one would otherwise fail deep
+        # in the warden after "start", leaving an unexplained empty graph.
         bssids = req.bssid if isinstance(req.bssid, list) else ([req.bssid] if req.bssid else [])
         if any(b and not normalize_mac(b) for b in bssids):
             raise HTTPException(
                 status_code=400,
                 detail="Invalid BSSID; use the AA:BB:CC:DD:EE:FF form.")
         # The warden enables monitor mode, runs airodump-ng and streams CSV +
-        # handshake events back; source.interface / saved_path come from its
-        # first event.
+        # handshake events back; source.interface / saved_path come from its first event.
         source = WardenAirodumpSource(
             req.interface, channel=req.channel, band=req.band,
             encrypt=req.encrypt, essid=req.essid, bssid=req.bssid,
@@ -600,11 +578,9 @@ class EapHandoffRequest(BaseModel):
 async def live_stop_for_eap(req: EapHandoffRequest):
     """Stop the live capture and re-establish a monitor vif for EAP_buster.
 
-    EAP_buster takes the interface into managed mode itself but needs it free of
-    NetworkManager, so we stop airodump and put the adapter back into monitor mode
-    (airmon-ng kills the interfering services). The warden restores managed
-    asynchronously after we disconnect, so monitor.start is retried until the base
-    interface has settled. Returns the monitor interface name to run EAP on.
+    The warden restores managed mode asynchronously after we disconnect, so
+    monitor.start is retried until the base interface has settled. Returns the
+    monitor interface name.
     """
     iface = (req.interface or "").strip()
     if not iface:

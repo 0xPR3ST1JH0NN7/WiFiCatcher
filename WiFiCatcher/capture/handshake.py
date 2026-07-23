@@ -1,14 +1,8 @@
 """WPA handshake detection over a live pcap.
 
-During a deauth, a reconnecting client performs the WPA 4-way handshake. A full
-handshake is four EAPOL frames between one AP and one client. We let airodump-ng
-write a pcap alongside the CSV and periodically count EAPOL frames per BSSID with
-``tshark``; a BSSID reaching the frame threshold is reported as "handshake
-captured".
-
-The frame-counting logic (:func:`parse_handshakes`) is pure and unit-tested; the
-``tshark`` call is best-effort and degrades to "no detection" when tshark is
-absent.
+A full 4-way handshake is 4 EAPOL frames; we count EAPOL frames per BSSID in
+airodump-ng's pcap with ``tshark`` and report a BSSID reaching the threshold.
+parse_handshakes is pure and tested; the tshark call degrades to no detection.
 """
 
 from __future__ import annotations

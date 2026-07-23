@@ -1,14 +1,8 @@
-"""The privileged warden daemon (``wc-privwarden``).
+"""The privileged warden daemon (``wc-privwarden``), run as root.
 
-Runs as root. Gets its listening socket either from **systemd socket
-activation** (the ``.socket`` unit passes fd 3) or from ``--socket PATH`` for
-local development, authenticates each peer with ``SO_PEERCRED``, dispatches
-validated operations, and exits after an idle period so systemd can re-launch it
-on the next connection.
-
-Run it:
-    python -m WiFiCatcher.privileged --socket /tmp/wc-priv.sock   # dev
-    (systemd sets $LISTEN_FDS and passes the socket as fd 3 in production)
+Takes its socket from systemd socket activation (fd 3) or ``--socket PATH`` (dev),
+authenticates each peer with ``SO_PEERCRED``, dispatches validated ops, and exits
+when idle so systemd re-launches it on the next connection.
 """
 
 from __future__ import annotations

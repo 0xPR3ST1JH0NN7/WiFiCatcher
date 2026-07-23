@@ -1,14 +1,6 @@
-"""Startup preflight: verify the Python packages and external tools are present.
-
-WiFiCatcher shells out to the aircrack-ng suite and ``tshark``. This module
-resolves each dependency, prints a checklist to the terminal, and reports
-whether they are all present so the CLI can refuse to start when something
-mandatory is missing.
-
-Every tool in the checklist is required and blocks startup when missing. A few
-extras are resolved at runtime instead of here: ``wpa_supplicant`` (EAP
-enumeration) and ``pcapFilter.sh`` (a faster RADIUS cert extractor that falls
-back to ``tshark``); ``EAP_buster`` is bundled with WiFiCatcher.
+"""Startup preflight: verify required Python packages and external tools (the
+aircrack-ng suite, ``tshark``) are present, printing a checklist so the CLI can
+refuse to start when something mandatory is missing.
 """
 
 from __future__ import annotations
@@ -73,12 +65,9 @@ def _dist_present(dist: str) -> bool:
 
 
 def _find_project_venv() -> Path | None:
-    """Locate a project virtualenv interpreter, preferring the app's own dir.
-
-    The app directory (the documented ``git clone`` + ``.venv`` layout) is
-    checked before the working directory, so an unrelated ``.venv`` in some other
-    cwd can't be mistaken for the project's. ``Path.cwd()`` is probed defensively:
-    a deleted working directory must not turn the error hint into a traceback.
+    """Locate a project virtualenv interpreter, checking the app's own dir before
+    cwd so an unrelated ``.venv`` isn't mistaken for the project's. ``Path.cwd()``
+    is probed defensively: a deleted cwd must not turn the hint into a traceback.
     """
     bases: list[Path] = [Path(__file__).resolve().parent.parent]
     try:
@@ -94,15 +83,9 @@ def _find_project_venv() -> Path | None:
 
 
 def _sudo_venv_hint() -> list[str] | None:
-    """Explain a missing Python package when ``sudo`` has hidden a virtualenv.
-
-    ``sudo python3`` resets ``PATH`` to a safe default and runs the *system*
-    interpreter, so packages installed into a project ``.venv`` are invisible
-    even though ``pip install`` succeeded there. This is by far the most common
-    reason a dependency reads as missing right after a successful install. Detect
-    that exact shape — launched via sudo, but not inside a venv — and point at
-    the venv's own interpreter. Returns display lines, or None when it doesn't
-    apply.
+    """Explain a missing Python package when ``sudo`` ran the system interpreter
+    and hid a project ``.venv`` (the most common cause right after a successful
+    install). Returns display lines pointing at the venv interpreter, or None.
     """
     if not os.environ.get("SUDO_USER"):
         return None  # not launched via sudo

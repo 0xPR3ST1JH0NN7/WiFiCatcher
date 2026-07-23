@@ -1,12 +1,8 @@
 """WPS detection over a live pcap.
 
-WPS-enabled access points advertise a WPS information element in their beacons
-and probe responses. airodump-ng's CSV does not carry it, but the pcap it writes
-alongside does, so we read the WPS version and AP-setup-locked state per BSSID
-with ``tshark`` (already used for handshake detection).
-
-:func:`parse_wps` is pure and unit-tested; the ``tshark`` call is best-effort and
-degrades to "no detection" when tshark is absent or the capture has no WPS APs.
+airodump-ng's CSV omits the WPS element, but the pcap has it, so we read WPS
+version and AP-setup-locked per BSSID with ``tshark``. parse_wps is pure and
+tested; the tshark call is best-effort and degrades to no detection if absent.
 """
 
 from __future__ import annotations
@@ -21,12 +17,9 @@ from WiFiCatcher.models import normalize_mac
 # tshark fields, joined by this separator so values with commas stay intact.
 _SEP = "|"
 
-# WPS attribute fields. The WPS 2.0 marker lives in the WFA vendor extension and
-# is exposed by tshark as ``wps.ext.version2`` (NOT ``wps.version2``, a name no
-# tshark build registers). A single unknown ``-e`` field or filter term makes
-# tshark reject the whole command and print nothing, which silently disables
-# detection, so the field names below are probed against the local tshark and
-# any it does not know are dropped rather than passed through blindly.
+# WPS attribute fields. The WPS 2.0 marker is ``wps.ext.version2`` (NOT
+# ``wps.version2``, which no tshark registers); one unknown ``-e`` field makes
+# tshark reject the whole command, so names below are probed and dropped if unknown.
 _BSSID = "wlan.bssid"
 _V1 = "wps.version"            # legacy Version attribute (0x10 even on WPS 2.0)
 _V2 = "wps.ext.version2"       # WFA extension Version2 attribute (0x20 = WPS 2.0)
@@ -40,11 +33,10 @@ _DESIRED = (_BSSID, _V2, _V1, _LOCKED)
 
 @functools.lru_cache(maxsize=1)
 def _known_fields() -> frozenset[str]:
-    """Filter names the local tshark registers, or empty when it cannot be run.
+    """Filter names the local tshark registers; empty if it cannot be run.
 
-    ``tshark -G fields`` prints one tab-separated row per field; ``F`` rows carry
-    the filter name in the third column. An empty result means "could not probe",
-    which callers treat as "assume every desired field is valid".
+    ``tshark -G fields`` prints ``F`` rows whose 3rd column is the filter name;
+    empty means "could not probe", which callers treat as "all fields valid".
     """
     try:
         out = subprocess.run(
@@ -61,11 +53,7 @@ def _known_fields() -> frozenset[str]:
 
 
 def wps_fields() -> list[str]:
-    """Ordered ``-e`` fields for the tshark WPS pass, limited to known ones.
-
-    Always begins with the BSSID; a version / locked field is dropped only when
-    the probe succeeded and the name is genuinely absent.
-    """
+    """Ordered ``-e`` fields for the WPS pass (BSSID first); a version/locked field is dropped only when the probe ran and the name is genuinely absent."""
     known = _known_fields()
     return [f for f in _DESIRED if f == _BSSID or not known or f in known]
 
@@ -73,9 +61,8 @@ def wps_fields() -> list[str]:
 def wps_filter() -> str:
     """Display filter selecting any WPS-bearing frame, from valid fields only.
 
-    Keying only on the legacy Version attribute misses APs that advertise WPS
-    solely via Version2 or expose just the setup-state attribute, so all three
-    are OR'd together (minus any the local tshark does not know).
+    Legacy Version alone misses APs advertising WPS only via Version2 or just the
+    setup-state attribute, so all three are OR'd (minus any tshark doesn't know).
     """
     known = _known_fields()
     terms = [f for f in (_V1, _V2, _STATE) if not known or f in known]
@@ -85,10 +72,8 @@ def wps_filter() -> str:
 def _decode_version(raw: str) -> Optional[str]:
     """Turn a raw WPS version byte into airodump-ng's ``major.minor`` string.
 
-    tshark prints the version attributes as a byte whose high nibble is the major
-    and low nibble the minor, exactly how airodump-ng derives the ``2.0`` / ``1.0``
-    it shows with ``--wps``. Both the hex form (``0x20``) and a bare decimal
-    (``32``) are accepted. Returns ``None`` only when empty or unparseable.
+    The byte's high nibble is the major, low nibble the minor (as airodump-ng's
+    ``--wps`` derives 2.0/1.0); accepts hex (``0x20``) or decimal (``32``).
     """
     raw = raw.strip().lower()
     if not raw:
@@ -103,12 +88,9 @@ def _decode_version(raw: str) -> Optional[str]:
 def parse_wps(tshark_output: str, fields: list[str]) -> dict[str, dict]:
     """Parse ``tshark`` WPS field rows into ``{bssid: {version, locked}}``.
 
-    ``fields`` is the same ordered ``-e`` list handed to tshark, so columns are
-    located by name and a probed-away field simply reads as empty. The Version2
-    attribute wins over the legacy one when both are present, matching airodump-ng.
-    A row only exists when a frame carried a WPS element, so the AP has WPS even if
-    no version byte decodes; in that case the version is reported as ``"0.0"``
-    rather than dropped. ap_setup_locked is truthy when tshark prints ``1`` / ``True``.
+    Columns are located by name from ``fields`` (a probed-away field reads empty).
+    Version2 wins over legacy (matching airodump-ng); a row means WPS is present,
+    so version falls back to ``"0.0"`` when no byte decodes rather than dropping.
     """
     index = {name: i for i, name in enumerate(fields)}
 

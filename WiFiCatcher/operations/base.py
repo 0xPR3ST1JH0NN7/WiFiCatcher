@@ -1,17 +1,7 @@
 """Offensive-operation framework with hard guardrails.
 
-These operations interact with *real* radio hardware and other people's
-networks. They are therefore:
-
-  * available only when the process runs as **root** (start WiFiCatcher with
-    ``sudo``); there is no separate flag to toggle;
-  * gated behind an explicit per-request authorization acknowledgement;
-  * dependency-checked (the required external tools must exist);
-  * logged.
-
-Only use them on networks you own or are explicitly authorized in writing to
-test. Unauthorized deauthentication / interception is illegal in most
-jurisdictions.
+Live-radio operations require root, an explicit per-request acknowledgement, and
+present tools; every call is logged. Authorized use only.
 """
 
 from __future__ import annotations

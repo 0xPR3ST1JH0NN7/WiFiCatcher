@@ -1,9 +1,7 @@
 """Capture controller: poll a source, diff the graph, broadcast patches.
 
-The controller owns a single live session. Each tick it asks the source for a
-fresh :class:`Scan`, rebuilds the graph with the existing :class:`WifiGraph`,
-computes a minimal diff against what it last sent, and pushes a patch to every
-subscribed WebSocket queue.
+Owns one live session; each tick reads a fresh Scan, diffs the rebuilt graph
+against the last sent, and pushes a patch to every subscribed WebSocket queue.
 """
 
 from __future__ import annotations
@@ -34,12 +32,10 @@ def _parse_ts(value: Optional[str]) -> Optional[datetime.datetime]:
 
 
 def prune_stale(scan: Scan, max_age: float) -> Scan:
-    """Drop APs/clients not seen within ``max_age`` seconds of the newest sighting.
+    """Drop APs/clients not seen within ``max_age`` s of the newest sighting.
 
-    airodump-ng's CSV keeps every station it has ever seen, so without this a
-    client that has left stays on the map forever. Entries are aged out relative
-    to the most recent ``last seen`` in the scan (robust to clock skew); an entry
-    whose timestamp cannot be parsed is kept.
+    airodump-ng's CSV never forgets a station; age out relative to the newest
+    ``last seen`` (robust to clock skew), keeping entries with unparsable stamps.
     """
     stamps = [t for t in (_parse_ts(x.last_seen)
                           for x in (*scan.access_points, *scan.clients)) if t]
@@ -71,10 +67,8 @@ def channels_from(spec) -> set:
 def filter_by_channel(scan: Scan, channels: set) -> Scan:
     """Drop APs whose channel is not one of ``channels``.
 
-    airodump-ng hears APs on adjacent channels through 2.4GHz overlap, so a
-    fixed channel still surfaces neighbours. When the user chose a channel (or a
-    set) keep only APs on those; an AP with an unknown/unparsable channel is kept
-    rather than hidden silently. Clients are untouched (they carry no channel).
+    airodump-ng hears neighbours via 2.4GHz overlap, so a fixed channel still
+    surfaces off-channel APs; unparsable channels are kept, clients untouched.
     """
     if not channels:
         return scan
@@ -198,12 +192,10 @@ class CaptureController:
             except Exception:
                 scan = None
             if scan is not None:
-                # Live radio: age out stations that stopped being heard, so a
-                # client that disconnected leaves the graph. Replay keeps all.
+                # Live radio: age out stations no longer heard; replay keeps all.
                 if self.mode == "airodump":
                     scan = prune_stale(scan, STALE_AFTER)
-                    # If a channel (or set) was chosen, hide APs on other
-                    # channels that airodump picked up via 2.4GHz overlap.
+                    # Hide APs on other channels airodump caught via 2.4GHz overlap.
                     scan = filter_by_channel(scan, channels_from(self.channel))
                 # Resolve vendors (live capture parses raw CSV, which has none).
                 oui.enrich_scan(scan)

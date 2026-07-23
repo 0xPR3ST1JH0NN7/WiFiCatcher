@@ -1,17 +1,8 @@
 """Live capture sources.
 
-A *source* yields successive :class:`~WiFiCatcher.models.Scan` snapshots. The
-:class:`CaptureController` polls a source and streams the resulting graph diffs
-to the browser.
-
-Two sources ship today:
-
-* :class:`ReplaySource` re-feeds a static airodump CSV as if it were being
-  discovered live. It needs no privileges or hardware, so it works everywhere
-  and powers the demo / test path.
-* :class:`AirodumpSource` spawns a real ``airodump-ng`` and tails its rotating
-  CSV. It touches radio hardware, so it is guardrailed exactly like the
-  offensive operations (authorized use, root, monitor-mode interface).
+A *source* yields successive Scan snapshots the CaptureController polls and
+streams to the browser: ReplaySource re-feeds a static CSV (no privileges),
+AirodumpSource / WardenAirodumpSource drive a real airodump-ng (guardrailed).
 """
 
 from __future__ import annotations
@@ -93,11 +84,8 @@ def _flag_values(value) -> list[str]:
 class AirodumpSource(Source):
     """Spawn airodump-ng and tail its rotating CSV (authorized use only).
 
-    Capture can be narrowed with the usual airodump-ng filters: a fixed channel
-    (``-c``), a band (``--band`` for 2.4 GHz / 5 GHz / both), encryption suite
-    (``--encrypt``), and a specific ESSID (``--essid``) or BSSID (``--bssid``).
-    When ``save`` is set the capture files are kept under ``./captures`` instead
-    of being discarded on stop.
+    Narrowed with the usual filters (channel, band, encrypt, essid, bssid); when
+    ``save`` is set the files are kept under ``./captures`` rather than discarded.
     """
 
     def __init__(self, interface: str, channel: Optional[str] = None,
@@ -118,8 +106,7 @@ class AirodumpSource(Source):
         self.save_dir = save_dir
         # Directory holding the kept capture once stop() runs (None if discarded).
         self.saved_path: Optional[str] = None
-        # When we enabled monitor mode for this capture, this handle lets stop()
-        # put the interface back to managed mode automatically.
+        # Handle to restore managed mode on stop() if we enabled monitor mode.
         self._monitor = monitor
         self._proc: Optional[subprocess.Popen] = None
         self._dir: Optional[str] = None
@@ -145,8 +132,7 @@ class AirodumpSource(Source):
 
     async def start(self) -> None:
         if self.save:
-            # Keep the capture in a readable folder: the one the user chose, or a
-            # git-ignored ./captures subfolder by default.
+            # Keep the capture in a readable folder: user's choice or ./captures.
             base = self.save_dir or os.path.join(os.getcwd(), "captures")
             os.makedirs(base, exist_ok=True)
             self._dir = tempfile.mkdtemp(
@@ -214,14 +200,11 @@ class AirodumpSource(Source):
 class WardenAirodumpSource(Source):
     """Live capture driven by the privileged warden.
 
-    The app is unprivileged, so it does not run airodump-ng itself: it opens a
-    ``capture.stream`` on the warden socket. The warden (root) enables monitor
-    mode, runs airodump-ng, and streams CSV snapshots back; closing the socket in
-    :meth:`stop` tells it to kill airodump and restore managed mode.
-
-    ``interface`` is filled in from the warden's first event (the monitor
-    interface), so deauth can target it. Handshake/WPS detection needs the pcap,
-    which lives on the warden, so :meth:`latest_cap` returns ``None`` for now.
+    The unprivileged app opens a ``capture.stream`` on the warden socket; the
+    warden (root) runs airodump-ng and streams CSV back, and :meth:`stop` closes
+    the socket to make it kill airodump and restore managed mode. ``interface``
+    is filled from the warden's first event so deauth can target it; the pcap
+    stays on the warden, so :meth:`latest_cap` returns ``None``.
     """
 
     def __init__(self, interface: str, channel: Optional[str] = None,
@@ -231,8 +214,7 @@ class WardenAirodumpSource(Source):
                  bssid: "str | list[str] | None" = None,
                  save: bool = False, save_dir: Optional[str] = None,
                  save_name: Optional[str] = None, acknowledged: bool = True):
-        # The interface the user picked; becomes the monitor interface once the
-        # warden reports it back (that is what the controller/deauth read).
+        # User's pick; becomes the monitor interface once the warden reports it.
         self.interface: Optional[str] = interface
         self.channel = channel
         # Where the warden kept the capture, reported in its first event.
@@ -346,8 +328,7 @@ class WardenAirodumpSource(Source):
     async def stop(self) -> None:
         sock, self._sock = self._sock, None
         if sock is not None:
-            # Closing the socket ends the warden's stream: it kills airodump and
-            # restores managed mode on its side.
+            # Closing the socket ends the warden stream (kills airodump, restores managed).
             try:
                 sock.shutdown(socket.SHUT_RDWR)
             except OSError:
@@ -359,8 +340,7 @@ class WardenAirodumpSource(Source):
 
 
 class WardenHandshakeWatcher:
-    """Adapts a :class:`WardenAirodumpSource`'s streamed handshake events to the
-    controller's ``poll()`` interface (the warden does the tshark detection)."""
+    """Adapt a WardenAirodumpSource's streamed handshake events to poll() (warden does the tshark detection)."""
 
     def __init__(self, source: "WardenAirodumpSource") -> None:
         self._source = source
@@ -370,8 +350,7 @@ class WardenHandshakeWatcher:
 
 
 class WardenWpsWatcher:
-    """Adapts a :class:`WardenAirodumpSource`'s streamed WPS events to the
-    controller's ``poll()`` interface (the warden does the tshark detection)."""
+    """Adapt a WardenAirodumpSource's streamed WPS events to poll() (warden does the tshark detection)."""
 
     def __init__(self, source: "WardenAirodumpSource") -> None:
         self._source = source

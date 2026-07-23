@@ -1,8 +1,7 @@
 """App-side client for the privileged warden.
 
-The unprivileged web app never runs radio tools itself: it asks the warden
-daemon over the unix socket. This module is the only thing that talks to that
-socket.
+The unprivileged app never runs radio tools itself; it asks the warden over the
+unix socket. This module is the only thing that talks to that socket.
 """
 
 from __future__ import annotations
@@ -72,8 +71,8 @@ class PrivClient:
     def stream(self, op: str, **params: Any) -> Iterator[dict]:
         """Run a streaming operation, yielding each event dict until it ends.
 
-        Closing the iterator (or breaking out of the loop) disconnects, which
-        tells the warden to stop the underlying work (e.g. kill airodump-ng).
+        Closing the iterator disconnects, telling the warden to stop the
+        underlying work (e.g. kill airodump-ng).
         """
         sock = self._connect(timeout=None)
         sock.settimeout(None)                     # long-lived stream, no read timeout

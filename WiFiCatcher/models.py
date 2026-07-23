@@ -1,8 +1,6 @@
-"""Core data model for WiFiCatcher.
-
-Two node types live in the graph: :class:`AccessPoint` (a WiFi AP / BSSID) and
-:class:`Client` (a station / STA). A :class:`Scan` is the parsed result of one
-capture file and is what every parser returns.
+"""Core data model: :class:`AccessPoint` (AP / BSSID) and :class:`Client` (station)
+are the graph node types; a :class:`Scan` is one parsed capture and is what every
+parser returns.
 """
 
 from __future__ import annotations
@@ -12,11 +10,8 @@ from typing import Optional
 
 
 def normalize_mac(mac: str) -> str:
-    """Return an upper-cased MAC in colon form. Empty if obviously invalid.
-
-    Hyphen-separated MACs (``AA-BB-CC-DD-EE-FF``, as some tools and paste sources
-    produce) are accepted and converted to the colon form, so a BSSID copied in
-    that shape still works.
+    """Return an upper-cased MAC in colon form, empty if invalid. Hyphen-separated
+    MACs (``AA-BB-CC-DD-EE-FF``) are accepted and converted.
     """
     mac = (mac or "").strip().upper().replace("-", ":")
     return mac if len(mac) == 17 and mac.count(":") == 5 else ""

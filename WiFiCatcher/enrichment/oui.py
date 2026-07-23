@@ -1,9 +1,6 @@
-"""OUI -> vendor resolution.
-
-The first 3 octets of a MAC (the OUI) identify the hardware vendor. We ship a
-small built in table of common vendors so the tool works offline with zero
-setup, and allow loading a fuller IEEE/Wireshark ``manuf`` file when available
-(``WIFICATCHER_OUI_FILE`` env var or :func:`load_oui_file`).
+"""OUI -> vendor resolution. A small built-in table works offline; a fuller
+IEEE/Wireshark ``manuf`` file is loaded when available (``WIFICATCHER_OUI_FILE``
+env var or :func:`load_oui_file`).
 """
 
 from __future__ import annotations
@@ -116,13 +113,9 @@ _IEEE_HEX_RE = re.compile(
 
 
 def load_oui_file(path: str) -> int:
-    """Load an OUI table from a Wireshark ``manuf`` file, an IEEE ``oui.txt``
-    (the ``ieee-data`` package / aircrack-ng), or an nmap prefixes file.
-
-    Handles ``00:11:22  Vendor``, ``001122 Vendor`` and the IEEE
-    ``D0-65-78   (hex)   Intel Corporate`` form. Comments, blanks, the IEEE
-    ``(base 16)`` duplicate rows and indented address lines are ignored. Only
-    three-octet prefixes are kept. Returns the number of entries added.
+    """Load an OUI table from a Wireshark ``manuf``, IEEE ``oui.txt``, or nmap
+    prefixes file. Handles ``00:11:22 Vendor``, ``001122 Vendor`` and the IEEE
+    ``D0-65-78 (hex) Vendor`` form; keeps only three-octet prefixes. Returns entries added.
     """
     added = 0
     with open(path, "r", encoding="utf-8", errors="ignore") as fh:
@@ -153,10 +146,7 @@ def load_oui_file(path: str) -> int:
 
 
 def enrich_scan(scan) -> int:
-    """Fill the ``vendor`` field on every AP and client in a scan.
-
-    Returns the number of nodes for which a vendor was resolved.
-    """
+    """Fill the ``vendor`` field on every AP and client; returns nodes resolved."""
     resolved = 0
     for ap in scan.access_points:
         vendor = lookup(ap.bssid)
@@ -171,9 +161,8 @@ def enrich_scan(scan) -> int:
     return resolved
 
 
-# System OUI databases, in preference order. The IEEE ``oui.txt`` shipped by the
-# ``ieee-data`` package (also used by aircrack-ng) is the common one on Linux, so
-# vendors resolve out of the box without setting anything.
+# System OUI databases in preference order; the ``ieee-data`` ``oui.txt`` is the
+# common one on Linux, so vendors resolve out of the box.
 _SYSTEM_OUI_PATHS = (
     "/var/lib/ieee-data/oui.txt",
     "/usr/share/ieee-data/oui.txt",
@@ -193,10 +182,8 @@ _CACHE_PATH = os.path.join(
 
 
 def _download_ieee_oui() -> None:
-    """Fetch the official IEEE OUI list into the cache and load it. Best-effort.
-
-    Runs in a background thread so startup is never blocked; vendors resolve once
-    it finishes, and later runs read the cached copy instead of re-downloading.
+    """Fetch the IEEE OUI list into the cache and load it. Best-effort, runs in a
+    background thread so startup is never blocked; later runs read the cache.
     """
     import urllib.request
     try:
@@ -217,12 +204,9 @@ def _download_ieee_oui() -> None:
 
 
 def _autoload() -> None:
-    """Load a fuller OUI table so vendors resolve beyond the built-in seed list.
-
-    Priority: the ``WIFICATCHER_OUI_FILE`` env var, then the first system OUI
-    database, then a cached IEEE download. If none exists, fetch the official
-    IEEE list in the background. Best-effort throughout: any failure just leaves
-    the built-in table in place.
+    """Load a fuller OUI table beyond the seed list. Priority: ``WIFICATCHER_OUI_FILE``,
+    a system OUI database, then a cached IEEE download; if none exists, fetch the
+    IEEE list in the background. Best-effort — failure leaves the built-in table.
     """
     env_file = os.environ.get("WIFICATCHER_OUI_FILE")
     candidates = (([env_file] if env_file else [])

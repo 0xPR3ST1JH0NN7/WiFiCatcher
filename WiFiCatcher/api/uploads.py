@@ -1,19 +1,6 @@
-"""Validation for user-uploaded files.
-
-Uploads are attacker-controlled, so every upload is validated before it touches
-the filesystem or an external tool. Checks, weakest to strongest:
-
-* **Size** — a hard cap so a huge body can't exhaust memory or disk.
-* **Content-Type** — advisory only; the client can forge it (a real upload
-  arrived as ``image/CAP``), so it is checked but never trusted on its own.
-* **Extension / filename** — allow-list. The client filename is *never* used to
-  build a filesystem path; only a whitelisted extension is derived from it, so
-  path separators, ``..`` and shell metacharacters in the name can't leak
-  through (see :func:`safe_capture_suffix`).
-* **Magic bytes / content sniff** — authoritative. Content can't lie: a capture
-  must start with a pcap/pcapng signature, a CSV import must be text.
-
-Failures raise ``HTTPException`` (415 for a bad format, 413 for oversize).
+"""Validation for attacker-controlled uploads, weakest to strongest: size cap,
+advisory Content-Type, extension allow-list (only a whitelisted extension is ever
+derived — the client filename never builds a path), authoritative magic-byte sniff.
 """
 
 from __future__ import annotations
@@ -22,9 +9,8 @@ import os
 
 from fastapi import HTTPException
 
-# Hard ceiling on an accepted upload. Enterprise handshakes are tiny and CSV
-# exports are small; a bounded cap keeps a giant body from being buffered and
-# processed. Override with WIFICATCHER_MAX_UPLOAD_MB.
+# Hard ceiling on an accepted upload; keeps a giant body from being buffered.
+# Override with WIFICATCHER_MAX_UPLOAD_MB.
 try:
     _MAX_MB = int(os.environ.get("WIFICATCHER_MAX_UPLOAD_MB", "50"))
 except ValueError:
@@ -78,12 +64,9 @@ def _ctype(content_type: str | None) -> str:
 
 
 def safe_capture_suffix(filename: str) -> str:
-    """Return a temp-file suffix from a *validated* extension only.
-
-    Never derive a filesystem path from the raw client filename: a name like
-    ``x.cap;ls > b;`` or ``a.c/../../etc/x`` would otherwise flow into the temp
-    path. Only a whitelisted extension is ever used; anything else falls back to
-    ``.cap``.
+    """Return a temp-file suffix from a *validated* extension only. Never derive a
+    path from the raw client filename (``x.cap;ls > b;``, ``a.c/../../etc/x``);
+    unknown extensions fall back to ``.cap``.
     """
     ext = _ext(filename)
     return ext if ext in _CAPTURE_EXTS else ".cap"
@@ -106,11 +89,9 @@ def validate_capture(raw: bytes, filename: str, content_type: str | None) -> Non
 
 
 def validate_csv(raw: bytes, filename: str, content_type: str | None) -> None:
-    """Reject anything that is not a plausible text CSV import.
-
-    There is no binary magic for CSV, so the authoritative check is a content
-    sniff: the payload must be text (no NUL bytes). Format is confirmed
-    downstream by the parser's own header detection.
+    """Reject anything that is not a plausible text CSV import. No binary magic
+    exists for CSV, so the authoritative check is a content sniff (no NUL bytes);
+    format is confirmed downstream by the parser's header detection.
     """
     _check_size(raw)
     ext = _ext(filename)
