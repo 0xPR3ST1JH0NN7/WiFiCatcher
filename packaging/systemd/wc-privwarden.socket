@@ -1,0 +1,16 @@
+[Unit]
+Description=WiFiCatcher privileged warden socket
+Documentation=https://github.com/0xPR3ST1JH0NN7/WiFiCatcher
+
+[Socket]
+# systemd owns this socket and starts the warden on demand when the app
+# connects, then stops it again when it goes idle. The socket is owned by the
+# app user with mode 0600, so only that user can reach the root warden.
+# install-warden.sh fills in the real user in place of APP_USER.
+ListenStream=/run/wc-privwarden.sock
+SocketUser=APP_USER
+SocketMode=0600
+RemoveOnStop=true
+
+[Install]
+WantedBy=sockets.target

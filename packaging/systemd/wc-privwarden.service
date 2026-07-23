@@ -1,13 +1,13 @@
 [Unit]
-Description=WiFiCatcher privileged radio helper
+Description=WiFiCatcher privileged radio warden
 Documentation=https://github.com/0xPR3ST1JH0NN7/WiFiCatcher
-Requires=wc-privhelper.socket
-After=wc-privhelper.socket
+Requires=wc-privwarden.socket
+After=wc-privwarden.socket
 
 [Service]
 Type=simple
-# Started on demand by wc-privhelper.socket, which passes the listening socket
-# as fd 3. install-helper.sh fills in the venv python, install dir and app uid.
+# Started on demand by wc-privwarden.socket, which passes the listening socket
+# as fd 3. install-warden.sh fills in the venv python, install dir and app uid.
 ExecStart=/opt/wificatcher/.venv/bin/python -m WiFiCatcher.privileged --idle 300 --peer-uid APP_UID
 WorkingDirectory=/opt/wificatcher
 

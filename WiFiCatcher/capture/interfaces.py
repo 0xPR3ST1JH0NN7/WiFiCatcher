@@ -225,9 +225,9 @@ def restart_network_services(run: Runner = _run) -> None:
 
     A capture stops NetworkManager (``airmon-ng check kill``) so monitor mode
     sticks; without bringing it back, normal Wi-Fi stays down after the app
-    exits. This runs (via the privileged helper) on every clean shutdown. It
+    exits. This runs (via the privileged warden) on every clean shutdown. It
     checks the live service state rather than in-memory bookkeeping, so it works
-    no matter which helper process stopped the service, and it leaves an
+    no matter which warden process stopped the service, and it leaves an
     already-running NetworkManager alone, so an import/replay session that never
     touched the radio does not bounce the user's connection. Best-effort: needs
     root, tries ``systemctl`` then the SysV ``service`` fallback, never raises.

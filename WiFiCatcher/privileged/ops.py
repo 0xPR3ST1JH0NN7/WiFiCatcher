@@ -1,4 +1,4 @@
-"""Validated privileged operations, executed helper-side (as root).
+"""Validated privileged operations, executed warden-side (as root).
 
 Each handler receives the request ``params`` (an untrusted dict from the app),
 validates every field, then calls the existing WiFiCatcher operation. Building

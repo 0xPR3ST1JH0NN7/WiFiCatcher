@@ -1009,10 +1009,10 @@ function showDetails(info) {
     ? techTags(info).map((t) =>
         `<span class="tech-badge tech-${t.cls}">${escapeHtml(t.label)}</span>`).join("")
     : "";
-  // The RADIUS cert button appears only once the helper has actually captured
+  // The RADIUS cert button appears only once the warden has actually captured
   // the certificate live for this AP (it rides along in the node details).
   const certReady = enterprise && info.radius_certs && info.radius_certs.length;
-  // RADIUS cert button appears only once the helper has captured it live for
+  // RADIUS cert button appears only once the warden has captured it live for
   // this AP. EAP enumeration is a standalone tool in the Enterprise panel.
   const entBtns = certReady
     ? `<button class="btn" id="op-cert-btn">Read RADIUS cert</button>` : "";
@@ -1433,7 +1433,7 @@ function closeCertModal() {
 }
 
 function inspectCert(info) {
-  // The certificate was extracted live by the helper and rides in the node
+  // The certificate was extracted live by the warden and rides in the node
   // details, so read it straight from there — no file, no round-trip.
   renderCert({ status: "ok", certificates: info.radius_certs || [] });
 }
@@ -1810,7 +1810,7 @@ function recomputeUnassoc() {
 }
 
 // Two ways to drive the live graph share one capture session: airodump (real
-// radio, via the privileged helper) and replay (offline reveal of an imported
+// radio, via the privileged warden) and replay (offline reveal of an imported
 // capture). Only one runs at a time; reflect that on both panels' buttons.
 // The airodump option controls — locked while a capture is running, since
 // changing them mid-capture is meaningless.
@@ -2260,7 +2260,7 @@ async function stopLive(opts = {}) {
     else toast(wasReplay ? "Replay stopped" : "Live capture stopped", "ok");
   }
   if (OFFENSIVE && !wasReplay && !opts.eapBase) {
-    // The helper restores managed mode + restarts NetworkManager asynchronously
+    // The warden restores managed mode + restarts NetworkManager asynchronously
     // after we disconnect, so auto-refresh the interface list now and a few times
     // shortly after: the adapter shows back in managed mode without the user
     // having to hit "rescan" manually. (Skipped for an EAP handoff, which
@@ -2607,11 +2607,11 @@ document.getElementById("settings-reset").onclick = () => {
     const cfg = await API.config();
     OFFENSIVE = !!cfg.offensive_available;
   } catch (e) {
-    // The privileged helper is required to launch, so live capture is available;
+    // The privileged warden is required to launch, so live capture is available;
     // a transient config hiccup shouldn't hide it.
     OFFENSIVE = true;
   }
-  // WiFiCatcher runs as a single mode: the privileged helper is always present,
+  // WiFiCatcher runs as a single mode: the privileged warden is always present,
   // so the live-capture panel is shown and the interface list is loaded.
   loadInterfaces();
 

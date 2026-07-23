@@ -1,6 +1,6 @@
-"""App-side client for the privileged helper.
+"""App-side client for the privileged warden.
 
-The unprivileged web app never runs radio tools itself: it asks the helper
+The unprivileged web app never runs radio tools itself: it asks the warden
 daemon over the unix socket. This module is the only thing that talks to that
 socket.
 """
@@ -13,7 +13,7 @@ from typing import Any, Iterator
 
 from WiFiCatcher.privileged.protocol import ProtocolError, recv_message, send_message
 
-DEFAULT_SOCKET = "/run/wc-privhelper.sock"
+DEFAULT_SOCKET = "/run/wc-privwarden.sock"
 
 
 def socket_path() -> str:
@@ -21,15 +21,15 @@ def socket_path() -> str:
 
 
 class PrivError(RuntimeError):
-    """The helper refused or failed an operation."""
+    """The warden refused or failed an operation."""
 
 
 class PrivUnavailable(PrivError):
-    """The helper socket could not be reached (not installed / not running)."""
+    """The warden socket could not be reached (not installed / not running)."""
 
 
 class PrivClient:
-    """Thin request/response (and streaming) client over the helper socket."""
+    """Thin request/response (and streaming) client over the warden socket."""
 
     def __init__(self, path: str | None = None, timeout: float = 10.0) -> None:
         self.path = path or socket_path()
@@ -43,11 +43,11 @@ class PrivClient:
         except OSError as exc:
             sock.close()
             raise PrivUnavailable(
-                f"privileged helper unreachable at {self.path}: {exc}")
+                f"privileged warden unreachable at {self.path}: {exc}")
         return sock
 
     def available(self) -> bool:
-        """True if the helper socket accepts a connection (systemd starts it)."""
+        """True if the warden socket accepts a connection (systemd starts it)."""
         try:
             self._connect(timeout=1.0).close()
             return True
@@ -61,11 +61,11 @@ class PrivClient:
             send_message(sock, {"op": op, "params": params})
             resp = recv_message(sock)
         except (ProtocolError, OSError) as exc:
-            raise PrivError(f"helper communication failed: {exc}") from exc
+            raise PrivError(f"warden communication failed: {exc}") from exc
         finally:
             sock.close()
         if not isinstance(resp, dict) or not resp.get("ok"):
-            raise PrivError(resp.get("error", "unknown helper error")
+            raise PrivError(resp.get("error", "unknown warden error")
                             if isinstance(resp, dict) else "malformed response")
         return resp.get("result", {})
 
@@ -73,7 +73,7 @@ class PrivClient:
         """Run a streaming operation, yielding each event dict until it ends.
 
         Closing the iterator (or breaking out of the loop) disconnects, which
-        tells the helper to stop the underlying work (e.g. kill airodump-ng).
+        tells the warden to stop the underlying work (e.g. kill airodump-ng).
         """
         sock = self._connect(timeout=None)
         sock.settimeout(None)                     # long-lived stream, no read timeout
@@ -98,6 +98,6 @@ class PrivClient:
             sock.close()
 
 
-def helper_available() -> bool:
-    """Convenience: is the privileged helper reachable right now?"""
+def warden_available() -> bool:
+    """Convenience: is the privileged warden reachable right now?"""
     return PrivClient().available()

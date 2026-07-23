@@ -5,9 +5,9 @@ Run WiFiCatcher (always unprivileged, never as root):
     python -m WiFiCatcher
     .venv/bin/python -m WiFiCatcher
 
-Live radio capture and deauth run through a privileged helper that you install
-once with ``sudo ./packaging/install-helper.sh``. systemd starts the helper on
-demand and stops it when idle, so the app itself never needs root. The helper is
+Live radio capture and deauth run through a privileged warden that you install
+once with ``sudo ./packaging/install-warden.sh``. systemd starts the warden on
+demand and stops it when idle, so the app itself never needs root. The warden is
 required: if it is not reachable, WiFiCatcher refuses to start and tells you how
 to install it.
 
@@ -100,6 +100,10 @@ def _open_browser_when_ready(host: str, port: int, url: str) -> None:
 
 def _serve(args: argparse.Namespace) -> int:
     print_banner()
+    print(_paint("For authorized security testing only. Use exclusively on networks you own "
+                 "or have explicit permission to test.", _DIM))
+    print(_paint("Provided as is, without warranty. The authors accept no liability for "
+                 "misuse or any damage.", _DIM))
 
     # Verify every required tool and library is present before doing anything.
     # The check always runs: a missing dependency aborts the launch here with a
@@ -114,18 +118,17 @@ def _serve(args: argparse.Namespace) -> int:
               file=sys.stderr)
         return 1
 
-    # The privileged helper is required: WiFiCatcher runs as one mode, the full
-    # app. If the helper is not reachable, don't start a crippled session.
-    from WiFiCatcher.privileged import helper_available
-    if not helper_available():
-        print(_paint("[!] cannot start: the privileged helper is not reachable.",
+    # The privileged warden is required: WiFiCatcher runs as one mode, the full
+    # app. If the warden is not reachable, don't start a crippled session.
+    from WiFiCatcher.privileged import warden_available
+    if not warden_available():
+        print(_paint("[!] cannot start: the privileged warden is not reachable.",
                      _RED))
         print(_paint("    Install it once, then launch again:", _DIM))
-        print(_paint("      sudo ./packaging/install-helper.sh", _DIM))
+        print(_paint("      sudo ./packaging/install-warden.sh", _DIM))
         return 1
-    print(_paint("[*] privileged helper reachable: live radio capture and deauth "
+    print(_paint("[*] privileged warden reachable: live radio capture and deauth "
                  "are available.", _DIM))
-    print(_paint("    Use only on networks you own or are authorized to test.", _DIM))
 
     url = f"http://{args.host}:{args.port}"
     print(_paint(f"[*] listening on {url}", _DIM))

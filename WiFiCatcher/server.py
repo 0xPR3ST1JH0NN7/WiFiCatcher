@@ -28,8 +28,8 @@ async def _lifespan(app: FastAPI):
         await CAPTURE.stop()
     except Exception:
         pass
-    # The app is unprivileged, so the actual restart runs in the root helper.
-    # The helper only (re)starts NetworkManager if it is currently down, so a
+    # The app is unprivileged, so the actual restart runs in the root warden.
+    # The warden only (re)starts NetworkManager if it is currently down, so a
     # session that never captured leaves a working connection untouched.
     try:
         from WiFiCatcher.privileged.client import PrivClient

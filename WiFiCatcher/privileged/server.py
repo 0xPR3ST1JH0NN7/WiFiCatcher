@@ -1,4 +1,4 @@
-"""The privileged helper daemon (``wc-privhelperd``).
+"""The privileged warden daemon (``wc-privwarden``).
 
 Runs as root. Gets its listening socket either from **systemd socket
 activation** (the ``.socket`` unit passes fd 3) or from ``--socket PATH`` for
@@ -157,7 +157,7 @@ def serve(srv: socket.socket, allowed_uids: set[int], idle_timeout: float) -> No
     if idle_timeout > 0:
         threading.Thread(target=_reaper, daemon=True).start()
 
-    logger.info("privileged helper ready")
+    logger.info("privileged warden ready")
     while True:
         try:
             conn, _ = srv.accept()
@@ -182,8 +182,8 @@ def _parse_uids(spec: str | None) -> set[int]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="wc-privhelperd",
-                                     description="WiFiCatcher privileged helper daemon.")
+    parser = argparse.ArgumentParser(prog="wc-privwarden",
+                                     description="WiFiCatcher privileged warden daemon.")
     parser.add_argument("--socket", help="bind this unix socket path "
                         "(dev/on-demand; omit under systemd socket activation)")
     parser.add_argument("--peer-uid", default=os.environ.get("WIFICATCHER_PEER_UID"),
@@ -196,7 +196,7 @@ def main(argv: list[str] | None = None) -> int:
 
     logging.basicConfig(
         level=logging.DEBUG if args.debug else logging.INFO,
-        format="%(asctime)s wc-privhelperd %(levelname)s %(message)s")
+        format="%(asctime)s wc-privwarden %(levelname)s %(message)s")
 
     if os.geteuid() != 0:
         logger.warning("not running as root; privileged operations will fail")

@@ -71,7 +71,8 @@ html, body {
   color: var(--text);
   font-family: var(--font);
 }
-body { font-size: 14px; }   /* design baseline; the size setting zooms the whole UI */
+/* Column layout so a slim footer can sit below the full-height app area. */
+body { font-size: 14px; display: flex; flex-direction: column; }   /* design baseline; the size setting zooms the whole UI */
 
 .hidden { display: none !important; }
 
@@ -257,7 +258,18 @@ body { font-size: 14px; }   /* design baseline; the size setting zooms the whole
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ----------------------------------------------------------------- layout */
-.layout { display: flex; height: calc(100% - 60px); }
+.layout { display: flex; flex: 1; min-height: 0; }
+
+/* Slim authorized-use + copyright footer along the bottom of the window. */
+.app-footer {
+  flex: 0 0 auto;
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center;
+  gap: 6px; padding: 5px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--panel); color: var(--muted);
+  font-size: 11px; line-height: 1.4; text-align: center;
+}
+.app-footer .foot-sep { opacity: .6; }
 
 .sidebar {
   width: 270px;

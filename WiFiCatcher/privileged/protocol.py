@@ -1,11 +1,11 @@
-"""Wire protocol for the privileged helper socket.
+"""Wire protocol for the privileged warden socket.
 
 Messages are length-prefixed JSON frames: a 4-byte big-endian unsigned length
 followed by that many bytes of UTF-8 JSON. Small, self-describing, and easy to
 validate.
 
-Request  (app -> helper):  {"op": "<name>", "params": {...}}
-Response (helper -> app):
+Request  (app -> warden):  {"op": "<name>", "params": {...}}
+Response (warden -> app):
   * unary:      {"ok": true, "result": {...}}  |  {"ok": false, "error": "..."}
   * streaming:  zero or more {"event": {...}} frames, then a terminal
                 {"ok": true, "done": true}  |  {"ok": false, "error": "..."}

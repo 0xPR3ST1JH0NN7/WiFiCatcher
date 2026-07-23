@@ -216,17 +216,17 @@ class AirodumpSource(Source):
                 pass
 
 
-class HelperAirodumpSource(Source):
-    """Live capture driven by the privileged helper.
+class WardenAirodumpSource(Source):
+    """Live capture driven by the privileged warden.
 
     The app is unprivileged, so it does not run airodump-ng itself: it opens a
-    ``capture.stream`` on the helper socket. The helper (root) enables monitor
+    ``capture.stream`` on the warden socket. The warden (root) enables monitor
     mode, runs airodump-ng, and streams CSV snapshots back; closing the socket in
     :meth:`stop` tells it to kill airodump and restore managed mode.
 
-    ``interface`` is filled in from the helper's first event (the monitor
+    ``interface`` is filled in from the warden's first event (the monitor
     interface), so deauth can target it. Handshake/WPS detection needs the pcap,
-    which lives on the helper, so :meth:`latest_cap` returns ``None`` for now.
+    which lives on the warden, so :meth:`latest_cap` returns ``None`` for now.
     """
 
     def __init__(self, interface: str, channel: Optional[str] = None,
@@ -237,10 +237,10 @@ class HelperAirodumpSource(Source):
                  save: bool = False, save_dir: Optional[str] = None,
                  save_name: Optional[str] = None, acknowledged: bool = True):
         # The interface the user picked; becomes the monitor interface once the
-        # helper reports it back (that is what the controller/deauth read).
+        # warden reports it back (that is what the controller/deauth read).
         self.interface: Optional[str] = interface
         self.channel = channel
-        # Where the helper kept the capture, reported in its first event.
+        # Where the warden kept the capture, reported in its first event.
         self.saved_path: Optional[str] = None
         self._params = {
             "iface": interface, "channel": channel, "band": band,
@@ -267,7 +267,7 @@ class HelperAirodumpSource(Source):
             sock.connect(client.socket_path())
         except OSError as exc:
             sock.close()
-            raise PrivUnavailable(f"helper unreachable: {exc}") from exc
+            raise PrivUnavailable(f"warden unreachable: {exc}") from exc
         send_message(sock, {"op": "capture.stream", "params": self._params})
         first = recv_message(sock)
         if isinstance(first, dict) and "event" in first:
@@ -326,32 +326,32 @@ class HelperAirodumpSource(Source):
         return self._parser.parse(text, "live.csv")
 
     def latest_cap(self) -> Optional[str]:
-        return None                      # the pcap lives on the helper
+        return None                      # the pcap lives on the warden
 
     def handshake_bssids(self) -> set[str]:
-        """BSSIDs the helper has reported a captured handshake for so far."""
+        """BSSIDs the warden has reported a captured handshake for so far."""
         with self._lock:
             return set(self._handshakes)
 
     def wps_info(self) -> dict[str, dict]:
-        """Per-BSSID WPS info ({version, locked}) the helper has reported so far."""
+        """Per-BSSID WPS info ({version, locked}) the warden has reported so far."""
         with self._lock:
             return dict(self._wps)
 
     def certs_info(self) -> dict:
-        """Per-BSSID RADIUS/EAP server certificates the helper has parsed so far."""
+        """Per-BSSID RADIUS/EAP server certificates the warden has parsed so far."""
         with self._lock:
             return dict(self._certs)
 
     def eap_identities(self) -> dict:
-        """Per-BSSID EAP Response/Identity usernames the helper has seen so far."""
+        """Per-BSSID EAP Response/Identity usernames the warden has seen so far."""
         with self._lock:
             return dict(self._eap_ids)
 
     async def stop(self) -> None:
         sock, self._sock = self._sock, None
         if sock is not None:
-            # Closing the socket ends the helper's stream: it kills airodump and
+            # Closing the socket ends the warden's stream: it kills airodump and
             # restores managed mode on its side.
             try:
                 sock.shutdown(socket.SHUT_RDWR)
@@ -363,22 +363,22 @@ class HelperAirodumpSource(Source):
                 pass
 
 
-class HelperHandshakeWatcher:
-    """Adapts a :class:`HelperAirodumpSource`'s streamed handshake events to the
-    controller's ``poll()`` interface (the helper does the tshark detection)."""
+class WardenHandshakeWatcher:
+    """Adapts a :class:`WardenAirodumpSource`'s streamed handshake events to the
+    controller's ``poll()`` interface (the warden does the tshark detection)."""
 
-    def __init__(self, source: "HelperAirodumpSource") -> None:
+    def __init__(self, source: "WardenAirodumpSource") -> None:
         self._source = source
 
     def poll(self) -> set[str]:
         return self._source.handshake_bssids()
 
 
-class HelperWpsWatcher:
-    """Adapts a :class:`HelperAirodumpSource`'s streamed WPS events to the
-    controller's ``poll()`` interface (the helper does the tshark detection)."""
+class WardenWpsWatcher:
+    """Adapts a :class:`WardenAirodumpSource`'s streamed WPS events to the
+    controller's ``poll()`` interface (the warden does the tshark detection)."""
 
-    def __init__(self, source: "HelperAirodumpSource") -> None:
+    def __init__(self, source: "WardenAirodumpSource") -> None:
         self._source = source
 
     def poll(self) -> dict[str, dict]:

@@ -2,7 +2,7 @@
 
 The web app runs unprivileged. The few operations that need root (monitor mode,
 airodump-ng, aireplay-ng, EAP enumeration, restoring NetworkManager) are carried
-out by a small **helper daemon** (:mod:`WiFiCatcher.privileged.server`) that
+out by a small **warden daemon** (:mod:`WiFiCatcher.privileged.server`) that
 listens on a unix socket and validates every request before acting. The app
 talks to it through :class:`WiFiCatcher.privileged.client.PrivClient`.
 
@@ -19,7 +19,7 @@ from WiFiCatcher.privileged.client import (
     PrivClient,
     PrivError,
     PrivUnavailable,
-    helper_available,
+    warden_available,
 )
 
-__all__ = ["PrivClient", "PrivError", "PrivUnavailable", "helper_available"]
+__all__ = ["PrivClient", "PrivError", "PrivUnavailable", "warden_available"]

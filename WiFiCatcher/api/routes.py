@@ -24,9 +24,9 @@ from WiFiCatcher import parsers
 from WiFiCatcher.api import uploads
 from WiFiCatcher.capture import (
     CaptureController,
-    HelperAirodumpSource,
-    HelperHandshakeWatcher,
-    HelperWpsWatcher,
+    WardenAirodumpSource,
+    WardenHandshakeWatcher,
+    WardenWpsWatcher,
     ReplaySource,
     interface_exists,
     list_wireless_interfaces,
@@ -134,10 +134,10 @@ def search(q: str = ""):
 
 @router.get("/config")
 def config():
-    # Live-radio features are available when the privileged helper is reachable
+    # Live-radio features are available when the privileged warden is reachable
     # (systemd starts it on demand); the app itself never runs as root.
-    from WiFiCatcher.privileged import helper_available
-    return {"offensive_available": helper_available()}
+    from WiFiCatcher.privileged import warden_available
+    return {"offensive_available": warden_available()}
 
 
 @router.post("/clear")
@@ -190,7 +190,7 @@ def operations_deauth(req: DeauthRequest):
                    "specific channel. Start a live capture with a channel first.",
         )
 
-    # 3) The privileged helper runs aireplay-ng (as root); the app never does.
+    # 3) The privileged warden runs aireplay-ng (as root); the app never does.
     try:
         return PrivClient().call(
             "deauth", iface=CAPTURE.interface, bssid=req.bssid,
@@ -198,7 +198,7 @@ def operations_deauth(req: DeauthRequest):
             acknowledged=req.acknowledged, dry_run=req.dry_run)
     except PrivUnavailable as exc:
         raise HTTPException(status_code=503,
-                            detail=f"Privileged helper unavailable: {exc}") from exc
+                            detail=f"Privileged warden unavailable: {exc}") from exc
     except PrivError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -208,7 +208,7 @@ def operations_deauth(req: DeauthRequest):
 _EAP_LOCK = threading.Lock()
 
 # Live state for a streaming EAP enumeration, updated by a background consumer of
-# the helper's eap.stream. A long-held HTTP request would time out (the fetch
+# the warden's eap.stream. A long-held HTTP request would time out (the fetch
 # fails with a NetworkError while EAP_buster keeps running), so the frontend
 # starts the run then polls this state and shows methods as they resolve.
 _EAP_STATE_LOCK = threading.Lock()
@@ -217,7 +217,7 @@ _EAP_STATE: dict = {"running": False, "done": False, "stdout": "", "methods": []
 
 
 def _run_eap_stream(iface: str, essid: str, identity: str) -> None:
-    """Consume the helper's eap.stream in a background thread, updating _EAP_STATE."""
+    """Consume the warden's eap.stream in a background thread, updating _EAP_STATE."""
     try:
         stream = PrivClient(timeout=None).stream(
             "eap.stream", iface=iface, essid=essid, identity=identity,
@@ -398,7 +398,7 @@ def live_monitor(req: MonitorRequest):
         mon = PrivClient().call("monitor.start", iface=iface)
     except PrivUnavailable as exc:
         raise HTTPException(status_code=503,
-                            detail=f"Privileged helper unavailable: {exc}") from exc
+                            detail=f"Privileged warden unavailable: {exc}") from exc
     except PrivError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"interface": mon.get("interface")}
@@ -521,7 +521,7 @@ async def live_start(req: LiveStartRequest):
             )
         source = ReplaySource(STATE.scan)
     elif req.mode == "airodump":
-        # Real radio capture runs in the privileged helper; the app is
+        # Real radio capture runs in the privileged warden; the app is
         # unprivileged and never touches the radio itself.
         if not req.acknowledged:
             raise HTTPException(status_code=403,
@@ -549,31 +549,31 @@ async def live_start(req: LiveStartRequest):
                     detail="Choose an existing, writable folder and file name "
                            "(use Save as…) before starting.")
         # Validate every optional BSSID filter up front: an invalid one would
-        # otherwise fail deep in the helper after the capture "started", leaving
+        # otherwise fail deep in the warden after the capture "started", leaving
         # an empty graph with no explanation.
         bssids = req.bssid if isinstance(req.bssid, list) else ([req.bssid] if req.bssid else [])
         if any(b and not normalize_mac(b) for b in bssids):
             raise HTTPException(
                 status_code=400,
                 detail="Invalid BSSID; use the AA:BB:CC:DD:EE:FF form.")
-        # The helper enables monitor mode, runs airodump-ng and streams CSV +
+        # The warden enables monitor mode, runs airodump-ng and streams CSV +
         # handshake events back; source.interface / saved_path come from its
         # first event.
-        source = HelperAirodumpSource(
+        source = WardenAirodumpSource(
             req.interface, channel=req.channel, band=req.band,
             encrypt=req.encrypt, essid=req.essid, bssid=req.bssid,
             save=req.save, save_dir=save_dir, save_name=save_name,
             acknowledged=req.acknowledged)
-        handshakes = HelperHandshakeWatcher(source)
+        handshakes = WardenHandshakeWatcher(source)
         # WPS detection is always on (cheap: one tshark pass every few seconds),
         # like handshake detection, so the user never has to enable it.
-        wps = HelperWpsWatcher(source)
+        wps = WardenWpsWatcher(source)
         try:
             await CAPTURE.start(source, mode=req.mode, interval=interval,
                                 handshakes=handshakes, wps=wps)
         except PrivUnavailable as exc:
             raise HTTPException(status_code=503,
-                                detail=f"Privileged helper unavailable: {exc}") from exc
+                                detail=f"Privileged warden unavailable: {exc}") from exc
         except PrivError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {"status": "running", "mode": req.mode,
@@ -602,7 +602,7 @@ async def live_stop_for_eap(req: EapHandoffRequest):
 
     EAP_buster takes the interface into managed mode itself but needs it free of
     NetworkManager, so we stop airodump and put the adapter back into monitor mode
-    (airmon-ng kills the interfering services). The helper restores managed
+    (airmon-ng kills the interfering services). The warden restores managed
     asynchronously after we disconnect, so monitor.start is retried until the base
     interface has settled. Returns the monitor interface name to run EAP on.
     """
@@ -614,11 +614,11 @@ async def live_stop_for_eap(req: EapHandoffRequest):
 
     def _reenable_monitor():
         last: Exception | None = None
-        for _ in range(8):   # ~8s for the helper's airodump kill + managed restore
+        for _ in range(8):   # ~8s for the warden's airodump kill + managed restore
             try:
                 return PrivClient().call("monitor.start", iface=iface)
             except PrivUnavailable:
-                raise                 # helper down: not transient, do not retry
+                raise                 # warden down: not transient, do not retry
             except PrivError as exc:
                 last = exc            # base iface not back yet; wait and retry
                 time.sleep(1.0)
@@ -630,7 +630,7 @@ async def live_stop_for_eap(req: EapHandoffRequest):
         mon = await asyncio.get_event_loop().run_in_executor(None, _reenable_monitor)
     except PrivUnavailable as exc:
         raise HTTPException(status_code=503,
-                            detail=f"Privileged helper unavailable: {exc}") from exc
+                            detail=f"Privileged warden unavailable: {exc}") from exc
     except PrivError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"status": "stopped", "saved_path": CAPTURE.last_saved_path,

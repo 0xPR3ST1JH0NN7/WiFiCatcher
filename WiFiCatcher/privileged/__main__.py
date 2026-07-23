@@ -1,4 +1,4 @@
-"""Entry point for the privileged helper daemon.
+"""Entry point for the privileged warden daemon.
 
     sudo python -m WiFiCatcher.privileged --socket /tmp/wc-priv.sock   # dev
     (under systemd socket activation the socket is passed as fd 3 instead)
