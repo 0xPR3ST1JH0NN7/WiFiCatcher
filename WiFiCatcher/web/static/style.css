@@ -705,7 +705,6 @@ details.ent-tool[open] > summary::after { transform: rotate(90deg); }
 .empty-logo { width: 160px; height: 160px; border-radius: 18px; opacity: .95;
   box-shadow: var(--shadow); }
 .empty-state h3 { margin: 0; color: var(--text); }
-.empty-import { margin-top: 4px; }
 /* Sleepy Wi-Fi waves drifting up off the cat while the app sits idle. */
 .empty-cat { position: relative; display: inline-block; margin-bottom: 8px; }
 /* Sit entirely above the cat (bottom at its top edge) so the waves are never

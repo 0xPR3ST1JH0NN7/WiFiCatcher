@@ -1715,8 +1715,6 @@ cy.on("tap", (evt) => {
 // graph is reloaded.
 cy.on("dragfree", "node", (evt) => evt.target.addClass("user-moved"));
 
-document.getElementById("empty-import-btn").onclick = importFromPicker;
-
 // Wipe the loaded capture from the view and the server (a fresh start).
 function clearGraph() {
   cy.elements().remove();

@@ -57,7 +57,6 @@ _BUNDLED_EAP_BUSTER = os.path.join(
     "vendor", "EAP_buster", "EAP_buster.sh")
 EAP_BUSTER = os.environ.get("WIFICATCHER_EAP_BUSTER") or _BUNDLED_EAP_BUSTER
 CERT_TIMEOUT = 120              # tshark TLS reassembly over a big cap is slow
-EAP_BUSTER_TIMEOUT = 15 * 60    # ~20s/method x ~18 methods; hung well past this
 
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 # "not supported" must precede "supported": the former contains the latter.
