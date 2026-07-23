@@ -37,7 +37,7 @@ Press Enter (or Ctrl+C) in the terminal to stop. WiFiCatcher checks for the help
 
 - **Graph & table views**. Every access point, client and association is laid out as an interactive map, or a sortable, searchable table when the scan gets crowded. Furthermore, you can filter by type, encryption or channel.
 
-- **Import & replay**. Load a saved airodump-ng CSV to explore a past scan, or replay it node by node as if it were being discovered live (no root needed).
+- **Replay**. Load a saved airodump-ng CSV to explore a past scan, or replay it node by node as if it were being discovered live (no root needed).
 
 - **Live capture**. Stream a live capture and watch the map build in real time, with per-AP detail like signal, channel, vendor and WPS.
 
