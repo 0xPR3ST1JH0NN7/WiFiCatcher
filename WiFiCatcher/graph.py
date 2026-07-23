@@ -95,6 +95,8 @@ class WifiGraph:
                 "kind": kind,
                 "essid": data.get("essid"),
                 "privacy": data.get("privacy"),
+                "cipher": data.get("cipher"),
+                "authentication": data.get("authentication"),
                 "channel": data.get("channel"),
                 "vendor": data.get("vendor"),
                 "power": data.get("power"),

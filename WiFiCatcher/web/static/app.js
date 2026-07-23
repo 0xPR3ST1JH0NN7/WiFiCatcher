@@ -500,8 +500,13 @@ const AP_COLUMNS = [
     val: (n) => numOr(n.data("channel")), render: (n) => cellOr(n.data("channel")) },
   { key: "privacy", label: "Encryption",
     val: (n) => (n.data("privacy") || "").toLowerCase(),
-    render: (n) => cellOr(n.data("privacy")) +
-      (n.data("enterprise") ? ' <span class="tbl-badge ent">802.1X</span>' : "") },
+    render: (n) => cellOr(n.data("privacy")) },
+  { key: "cipher", label: "Cipher",
+    val: (n) => (n.data("cipher") || "").toLowerCase(),
+    render: (n) => cellOr(n.data("cipher")) },
+  { key: "authentication", label: "Auth",
+    val: (n) => (n.data("authentication") || "").toLowerCase(),
+    render: (n) => cellOr(n.data("authentication")) },
   { key: "wps", label: "WPS",
     val: (n) => (n.data("wps") ? 0 : 1),   // WPS-on sorts to the top
     render: (n) => n.data("wps")

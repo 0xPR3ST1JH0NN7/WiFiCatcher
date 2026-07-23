@@ -688,7 +688,6 @@ details.ent-tool[open] > summary::after { transform: rotate(90deg); }
   display: inline-block; font-size: 10px; text-transform: uppercase; letter-spacing: .5px;
   padding: 1px 7px; border-radius: 12px; vertical-align: 1px;
 }
-.tbl-badge.ent { background: rgba(167,139,250,.15); color: #a78bfa; margin-left: 6px; }
 .tbl-badge.wps { background: rgba(245,158,11,.15); color: #f59e0b; }
 .tbl-badge.un { background: rgba(138,147,168,.18); color: var(--client-un); }
 .table-empty { color: var(--muted); font-size: 13px; padding: 10px 12px 0; }
