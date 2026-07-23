@@ -640,6 +640,9 @@ function renderTable() {
 function setView(view) {
   currentView = view === "table" ? "table" : "graph";
   const isTable = currentView === "table";
+  // The node details panel belongs to the graph; switching to the table closes
+  // it (clicking a table row reopens it for that node).
+  if (isTable) closeDetails();
   document.getElementById("table-view").classList.toggle("hidden", !isTable);
   document.querySelectorAll(".vt-btn").forEach((b) =>
     b.classList.toggle("active", b.dataset.view === currentView));
@@ -828,9 +831,7 @@ const ATTACK_DATA = {
     nodes: [
       {"id": "root", "parent": null, "label": "Open network", "kind": "root"},
       {"id": "g_access", "parent": "root", "label": "Get onto the network", "kind": "goal"},
-      {"id": "cpbypass", "parent": "g_access", "label": "Captive portal bypass", "kind": "attack", "desc": "A captive portal only gates internet access, so spoofing the MAC of an already-authorised client (or tunnelling over DNS / ICMP) slips past the login page and onto the network, opening the way to the traffic and impersonation attacks below."},
-      {"id": "g_read", "parent": "root", "label": "Read the traffic", "kind": "goal"},
-      {"id": "sniff", "parent": "g_read", "label": "Passive traffic capture", "kind": "attack", "desc": "Because an open network sends data unencrypted, anyone nearby can silently record packets and read the victim's browsing traffic."},
+      {"id": "cpbypass", "parent": "g_access", "label": "Captive portal bypass", "kind": "attack", "desc": "A captive portal only gates internet access, so spoofing the MAC of an already-authorised client (or tunnelling over DNS / ICMP) slips past the login page and onto the network, opening the way to the impersonation attacks below."},
       {"id": "g_imp", "parent": "root", "label": "Impersonate the network", "kind": "goal"},
       {"id": "twin", "parent": "g_imp", "label": "Evil twin", "kind": "attack", "desc": "The attacker broadcasts a fake access point, cloning the network name or using an inviting one, so devices connect and their traffic is intercepted."},
       {"id": "portal", "parent": "twin", "label": "Captive portal phishing", "kind": "attack", "desc": "A fake login page appears after connecting, tricking users into entering passwords or personal details that the attacker quietly steals."},
