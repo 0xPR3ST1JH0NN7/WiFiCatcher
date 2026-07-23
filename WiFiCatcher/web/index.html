@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32.png?v=2"/>
   <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon-16.png?v=2"/>
   <link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png?v=2"/>
-  <link rel="stylesheet" href="/static/style.css?v=42"/>
+  <link rel="stylesheet" href="/static/style.css?v=43"/>
   <script src="/static/vendor/cytoscape.min.js"></script>
   <script src="/static/vendor/layout-base.js"></script>
   <script src="/static/vendor/cose-base.js"></script>
@@ -177,52 +177,58 @@
             fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Enterprise (802.1X)</h2></summary>
         <div class="panel-body">
 
-          <section class="ent-tool">
-            <h4><svg class="cert-ico" viewBox="0 0 24 24" width="13" height="13"
+          <details class="ent-tool">
+            <summary><h4><svg class="cert-ico" viewBox="0 0 24 24" width="13" height="13"
               aria-hidden="true" focusable="false"><circle cx="12" cy="9" r="6" fill="none"
               stroke="currentColor" stroke-width="2"/><path d="M8.5 14l-1.5 7 5-3 5 3-1.5-7"
               fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle
-              cx="12" cy="9" r="2.2" fill="currentColor"/></svg>RADIUS certificate</h4>
-            <p class="hint">Read the RADIUS server certificate from an enterprise
-              <code>.cap</code> / <code>.pcap</code>.</p>
-            <button class="btn" id="cert-open-btn">Open .cap / .pcap</button>
-          </section>
+              cx="12" cy="9" r="2.2" fill="currentColor"/></svg>RADIUS certificate</h4></summary>
+            <div class="ent-body">
+              <p class="hint">Read the RADIUS server certificate from an enterprise
+                <code>.cap</code> / <code>.pcap</code>.</p>
+              <button class="btn" id="cert-open-btn">Open .cap / .pcap</button>
+            </div>
+          </details>
 
-          <section class="ent-tool">
-            <h4><svg class="cert-ico" viewBox="0 0 24 24" width="13" height="13"
+          <details class="ent-tool">
+            <summary><h4><svg class="cert-ico" viewBox="0 0 24 24" width="13" height="13"
               aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="4" fill="none"
               stroke="currentColor" stroke-width="2"/><path d="M3 21c0-4 3-6 6-6s6 2 6 6"
               fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path
               d="M16 10h5M16 13h5M16 16h3" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round"/></svg>EAP identity</h4>
-            <p class="hint">Read the EAP Response/Identity username (often
-              <code>DOMAIN\user</code>) from an enterprise <code>.cap</code> /
-              <code>.pcap</code>.</p>
-            <button class="btn" id="eapid-open-btn">Open .cap / .pcap</button>
-            <div id="eapid-result"></div>
-          </section>
+              stroke-linecap="round"/></svg>EAP identity</h4></summary>
+            <div class="ent-body">
+              <p class="hint">Read the EAP Response/Identity username (often
+                <code>DOMAIN\user</code>) from an enterprise <code>.cap</code> /
+                <code>.pcap</code>.</p>
+              <button class="btn" id="eapid-open-btn">Open .cap / .pcap</button>
+              <div id="eapid-result"></div>
+            </div>
+          </details>
 
-          <section class="ent-tool">
-            <h4><svg class="cert-ico" viewBox="0 0 24 24" width="13" height="13"
+          <details class="ent-tool" id="eap-enum-details">
+            <summary><h4><svg class="cert-ico" viewBox="0 0 24 24" width="13" height="13"
               aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="6" fill="none"
               stroke="currentColor" stroke-width="2"/><path d="M14.5 14.5L20 20"
-              stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>EAP enumeration</h4>
-            <p class="hint">Probe which EAP methods an AP accepts (802.1X, several
-              minutes). The chosen interface is put in <strong>monitor</strong>
-              mode; a live capture running on it is stopped first.</p>
-            <label class="filter-row">Interface
-              <select id="eap-iface"></select>
-            </label>
-            <label class="filter-row">SSID
-              <input id="eap-essid" class="mini-input" placeholder="HTB-Corp"/>
-            </label>
-            <label class="filter-row">Domain user
-              <input id="eap-identity" class="mini-input" placeholder="DOMAIN\user"/>
-            </label>
-            <div id="eap-id-suggest"></div>
-            <button class="btn" id="eap-run-btn">Enumerate EAP methods</button>
-            <div id="eap-enum-result"></div>
-          </section>
+              stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>EAP enumeration</h4></summary>
+            <div class="ent-body">
+              <p class="hint">Probe which EAP methods an AP accepts (802.1X, several
+                minutes). The chosen interface is put in <strong>monitor</strong>
+                mode; a live capture running on it is stopped first.</p>
+              <label class="filter-row">Interface
+                <select id="eap-iface"></select>
+              </label>
+              <label class="filter-row">SSID
+                <input id="eap-essid" class="mini-input" placeholder="HTB-Corp"/>
+              </label>
+              <label class="filter-row">Domain user
+                <input id="eap-identity" class="mini-input" placeholder="DOMAIN\user"/>
+              </label>
+              <div id="eap-id-suggest"></div>
+              <button class="btn" id="eap-run-btn">Enumerate EAP methods</button>
+              <div id="eap-enum-result"></div>
+            </div>
+          </details>
 
         </div>
       </details>
@@ -451,6 +457,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="/static/app.js?v=51"></script>
+  <script src="/static/app.js?v=52"></script>
 </body>
 </html>

@@ -564,9 +564,18 @@ button.fs-row:hover { background: var(--panel-2); }
 .fs-name-row input { flex: 1; min-width: 0; }
 .fs-hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
 
-/* Enterprise panel: three tools stacked, separated by a rule. */
-.ent-tool + .ent-tool { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 12px; }
-.ent-tool h4 { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; font-size: 13px; }
+/* Enterprise panel: three collapsible tools, each expandable on its own. */
+details.ent-tool + details.ent-tool { border-top: 1px solid var(--border); margin-top: 10px; padding-top: 10px; }
+details.ent-tool > summary {
+  list-style: none; cursor: pointer; user-select: none; display: flex; align-items: center;
+}
+details.ent-tool > summary::-webkit-details-marker { display: none; }
+details.ent-tool > summary::after {
+  content: "›"; margin-left: auto; font-size: 16px; color: var(--muted); transition: transform .15s;
+}
+details.ent-tool[open] > summary::after { transform: rotate(90deg); }
+.ent-tool h4 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; }
+.ent-body { padding-top: 8px; }
 .ent-tool .filter-row { margin: 8px 0; }
 .ent-tool .mini-input, .ent-tool select { min-width: 150px; }
 #eap-run-btn { margin-top: 8px; }
@@ -578,11 +587,6 @@ button.fs-row:hover { background: var(--panel-2); }
   background: var(--panel); color: var(--text); border: 1px solid var(--border); }
 .eapid-chip:hover { border-color: var(--accent); color: var(--accent); }
 
-/* Running EAP enumeration: spinner + elapsed clock in the AP side panel. */
-.eap-progress { display: flex; align-items: flex-start; gap: 10px; }
-.eap-progress > div { display: flex; flex-direction: column; gap: 2px; }
-.eap-progress strong { font-size: 13px; }
-.eap-progress .spinner { margin-top: 3px; flex: 0 0 auto; }
 .legend-toggle {
   display: flex; align-items: center; gap: 8px; width: 100%;
   background: none; border: none; color: var(--text); cursor: pointer;

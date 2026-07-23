@@ -1274,6 +1274,7 @@ async function fillEapInterfaces() {
   const sel = document.getElementById("eap-iface");
   if (!sel) return;
   const prefer = live.monitorIface;
+  const current = sel.value;   // keep the user's pick across refreshes if still present
   try {
     const { interfaces } = await API.interfaces();
     if (!interfaces.length) {
@@ -1287,7 +1288,8 @@ async function fillEapInterfaces() {
     }).join("");
     const pick = interfaces.find((i) => i.mode === "monitor")
       || interfaces.find((i) => i.mode === "managed") || interfaces[0];
-    sel.value = (prefer && interfaces.some((i) => i.name === prefer)) ? prefer : pick.name;
+    sel.value = (current && interfaces.some((i) => i.name === current)) ? current
+      : (prefer && interfaces.some((i) => i.name === prefer)) ? prefer : pick.name;
   } catch (e) {
     sel.innerHTML = '<option value="">scan failed</option>';
   }
@@ -1406,11 +1408,11 @@ function renderEapLive(st, iface, essid, t0) {
   const done = (st.methods || []).map((m) =>
     `<div class="detail-row"><span class="k">${dot(m.supported)} ${escapeHtml(m.method)}</span>` +
     `<span class="v">${escapeHtml(m.supported)}</span></div>`).join("");
+  // No "Enumerating…" heading here: the Run button already shows that with its
+  // spinner. Just the live status line and the methods as they resolve.
   box.innerHTML =
-    `<div class="eap-progress"><span class="spinner"></span>` +
-    `<div><strong>Enumerating EAP methods…</strong>` +
-    `<span class="hint">${escapeHtml(essid || "")} on ${escapeHtml(iface)} · ${clock} elapsed · ` +
-    `${(st.methods || []).length} tested. Each method is tried in turn.</span></div></div>` +
+    `<p class="hint">${escapeHtml(essid || "")} on ${escapeHtml(iface)} · ${clock} elapsed · ` +
+    `${(st.methods || []).length} tested. Each method is tried in turn.</p>` +
     done;
 }
 
@@ -1638,10 +1640,10 @@ document.getElementById("eapid-open-btn").onclick = () =>
     }
   });
 
-// EAP enumeration panel: fill the interface list + identity suggestions when the
-// Enterprise section is opened, and run the probe on demand.
+// Fill the interface list + identity suggestions when the EAP enumeration tool is
+// expanded, and run the probe on demand.
 document.getElementById("eap-run-btn").onclick = runEapEnum;
-document.getElementById("enterprise-panel").addEventListener("toggle", (e) => {
+document.getElementById("eap-enum-details").addEventListener("toggle", (e) => {
   if (e.target.open) refreshEapPanel();
 });
 
