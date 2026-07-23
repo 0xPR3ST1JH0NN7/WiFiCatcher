@@ -566,7 +566,7 @@ button.fs-row:hover { background: var(--panel-2); }
 
 /* Enterprise panel: three tools stacked, separated by a rule. */
 .ent-tool + .ent-tool { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 12px; }
-.ent-tool h4 { margin: 0 0 6px; font-size: 13px; }
+.ent-tool h4 { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; font-size: 13px; }
 .ent-tool .filter-row { margin: 8px 0; }
 .ent-tool .mini-input, .ent-tool select { min-width: 150px; }
 #eap-run-btn { margin-top: 8px; }
