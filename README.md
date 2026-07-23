@@ -48,8 +48,8 @@ Press Enter (or Ctrl+C) in the terminal to stop. WiFiCatcher checks for the help
 ## License
 This project is licensed under the MIT License. See the LICENSE file for details.
 
-> ⚠️ Use WiFiCatcher only on networks you own or are authorized to test.
-
 ## Authors
 
 [@0xPR3ST1JH0NN7](https://github.com/0xPR3ST1JH0NN7), [@tvasari](https://github.com/tvasari)
+
+> ⚠️ Use WiFiCatcher only on networks you own or are authorized to test.
