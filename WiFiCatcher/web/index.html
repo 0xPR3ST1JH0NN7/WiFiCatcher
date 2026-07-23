@@ -166,7 +166,7 @@
             <input id="replay-interval" class="mini-input" type="number" min="0.2" max="10"
                    step="0.1" value="1.2"/>
           </label>
-          <p class="hint" id="replay-hint">Import an airodump-ng CSV file (.csv) to enable replay.</p>
+          <p class="hint" id="replay-hint">Import a CSV file from airodump-ng capture, to enable replay.</p>
           <button class="btn primary" id="replay-toggle">Import capture</button>
         </div>
       </details>
@@ -174,7 +174,7 @@
       <details class="panel" id="enterprise-panel">
         <summary><h2><svg class="cert-ico" viewBox="0 0 24 24" width="14" height="14"
             aria-hidden="true" focusable="false"><path d="M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6z"
-            fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Enterprise (802.1X)</h2></summary>
+            fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>WPA Enterprise Enumeration</h2></summary>
         <div class="panel-body">
 
           <details class="ent-tool">
@@ -184,8 +184,8 @@
               fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle
               cx="12" cy="9" r="2.2" fill="currentColor"/></svg>RADIUS certificate</h4></summary>
             <div class="ent-body">
-              <p class="hint">Read the RADIUS server certificate from an enterprise
-                <code>.cap</code> / <code>.pcap</code>.</p>
+              <p class="hint">Read the RADIUS server certificate from a 
+                <code>.cap</code> / <code>.pcap</code> file.</p>
               <button class="btn" id="cert-open-btn">Open .cap / .pcap</button>
             </div>
           </details>
@@ -198,9 +198,8 @@
               d="M16 10h5M16 13h5M16 16h3" stroke="currentColor" stroke-width="2"
               stroke-linecap="round"/></svg>EAP identity</h4></summary>
             <div class="ent-body">
-              <p class="hint">Read the EAP Response/Identity username (often
-                <code>DOMAIN\user</code>) from an enterprise <code>.cap</code> /
-                <code>.pcap</code>.</p>
+              <p class="hint">Read the username, such as <code>DOMAIN\user</code>, from a <code>.cap</code> /
+                <code>.pcap</code> file.</p>
               <button class="btn" id="eapid-open-btn">Open .cap / .pcap</button>
               <div id="eapid-result"></div>
             </div>
@@ -212,17 +211,15 @@
               stroke="currentColor" stroke-width="2"/><path d="M14.5 14.5L20 20"
               stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>EAP enumeration</h4></summary>
             <div class="ent-body">
-              <p class="hint">Probe which EAP methods an AP accepts (802.1X, several
-                minutes). The chosen interface is put in <strong>monitor</strong>
-                mode; a live capture running on it is stopped first.</p>
+              <p class="hint">Probe which EAP methods an Enterprise AP accepts.</p>
               <label class="filter-row">Interface
                 <select id="eap-iface"></select>
               </label>
               <label class="filter-row">ESSID
-                <input id="eap-essid" class="mini-input" placeholder="WiFi-Ent"/>
+                <input id="eap-essid" class="mini-input" placeholder="WiFi-Enterprise"/>
               </label>
               <label class="filter-row">Domain user
-                <input id="eap-identity" class="mini-input" placeholder="DOMAIN\user"/>
+                <input id="eap-identity" class="mini-input" placeholder="DOMAIN\USER"/>
               </label>
               <div id="eap-id-suggest"></div>
               <button class="btn" id="eap-run-btn">Enumerate EAP methods</button>
@@ -318,9 +315,6 @@
           </svg>
           <img src="/static/img/cat_logo.png" alt="" class="empty-logo"/>
         </div>
-        <h3>No capture loaded</h3>
-        <p>Import an airodump-ng CSV file (.csv) or start a live capture.</p>
-        <button class="btn primary empty-import" id="empty-import-btn">Import capture</button>
       </div>
     </section>
 
