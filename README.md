@@ -46,15 +46,15 @@ WiFiCatcher is built around three ways of working. Whichever you use, the result
 
 ### Live capture
 
-Point it at a wireless interface and watch the map build in real time as access points and clients appear, each one carrying its signal, channel, vendor, encryption, cipher, auth and WPS state. From here you can fire targeted deauthentication frames at a client or an AP (shown as a pulse on the graph); any WPA handshake that follows is detected and flagged automatically.
+Point it at a wireless interface and watch the map build in real time as access points and clients appear, each carrying its signal, channel, vendor, encryption, cipher, auth and WPS state. This is the hands-on mode. You handle the reconnaissance, fire targeted deauthentication at a client or an AP, and follow the attack paths suggested for each technology. Any WPA handshake that follows a deauth is detected and flagged automatically, and on WPA-Enterprise networks you watch RADIUS server certificates and captured domain users appear in real time.
 
 ### Replay
 
-Load a saved airodump-ng CSV to go back over a past scan. Step through it node by node, as if it were being discovered live, or jump straight to the full picture. Handy for reviewing a capture away from the radio.
+Load a saved airodump-ng CSV to go back over a past scan offline. Step through it node by node as if it were being discovered live, or jump straight to the full picture. You work with the same graph, table, details and attack paths as a live session, so you can review the reconnaissance and plan against each technology away from the radio. The enterprise tools read a saved capture too, so certificates and usernames can come from an earlier grab.
 
 ### Enterprise (802.1X)
 
-For WPA-Enterprise networks, WiFiCatcher singles out the 802.1X access points, reads and exports the RADIUS server certificate, pulls EAP Response/Identity usernames (often `DOMAIN\user`) out of the traffic, and enumerates which EAP methods a network accepts.
+For WPA-Enterprise networks WiFiCatcher works with the 802.1X access points. You can export the RADIUS server certificates, read usernames from the captures such as `DOMAIN\user`, and run the EAP method enumeration to see which methods a network accepts.
 
 ## License
 
