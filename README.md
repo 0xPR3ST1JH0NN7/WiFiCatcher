@@ -56,8 +56,6 @@ Load a saved airodump-ng CSV to go back over a past scan. Step through it node b
 
 For WPA-Enterprise networks, WiFiCatcher singles out the 802.1X access points, reads and exports the RADIUS server certificate, pulls EAP Response/Identity usernames (often `DOMAIN\user`) out of the traffic, and enumerates which EAP methods a network accepts.
 
-For any selected AP, the attack-paths view then lays out the exploitation routes that fit its security type.
-
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
