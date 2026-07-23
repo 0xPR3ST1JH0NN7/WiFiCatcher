@@ -5,7 +5,7 @@
 
 ## Hardware requirements
 
-Live capture and deauthentication need a Wi-Fi adapter that supports monitor mode and packet injection. Many built-in laptop adapters do not, so a compatible external adapter is usually the safe choice. Import and replay work on any machine, since they read a capture file rather than the radio.
+Some features (live capture and deauthentication) need a Wi-Fi adapter that supports monitor mode and packet injection, which many built-in laptop adapters do not; a compatible external adapter is usually the safe choice. Everything else works on any machine, since it reads a capture file rather than the radio.
 
 ## Quick start
 
@@ -24,13 +24,17 @@ pip install -r requirements.txt
 sudo ./packaging/install-warden.sh
 ```
 
+## How it runs
+
+WiFiCatcher itself is a normal, unprivileged app. The few operations that need root (putting the adapter into monitor mode, running airodump-ng and aireplay-ng, restoring NetworkManager afterwards) are delegated to a small separate component called the **warden**. You install it once, as shown above, as a systemd socket-activated service: from then on systemd starts it on demand whenever the app needs the radio, so the app never runs as root and never has to ask you for a password. Import and replay don't touch the radio, so they never go near the warden.
+
 ## Run
 
 ```bash
 .venv/bin/python -m WiFiCatcher      # http://127.0.0.1:8000
 ```
 
-Open the printed address in your browser and you are ready to go. Live capture and deauth run through the privileged warden, so WiFiCatcher checks that it is reachable at startup and won't run without it, pointing you back at the installer above if it is missing. Press Enter (or Ctrl+C) in the terminal to stop.
+Open the printed address in your browser. WiFiCatcher checks that the warden is reachable at startup and won't run without it, pointing you back at the installer above if it is missing. Press Enter (or Ctrl+C) in the terminal to stop.
 
 ## What it does
 
