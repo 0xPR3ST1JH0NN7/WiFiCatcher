@@ -47,7 +47,6 @@ CAPTURE = CaptureController()
 
 
 # --------------------------------------------------------------------- import
-@router.post("/import")
 class LocalFileRequest(BaseModel):
     # An absolute path chosen with the in-app file browser; the server reads it.
     path: str
@@ -73,11 +72,6 @@ def _load_capture(raw: bytes, filename: str, content_type: str | None) -> dict:
         "parser": parser.id,
         **STATE.to_cytoscape(),
     }
-
-
-async def import_capture(file: UploadFile = File(...)):
-    raw = await file.read(uploads.MAX_UPLOAD_BYTES + 1)
-    return _load_capture(raw, file.filename or "", file.content_type)
 
 
 @router.post("/import/local")
