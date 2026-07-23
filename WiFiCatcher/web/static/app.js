@@ -842,7 +842,6 @@ const ATTACK_DATA = {
     nodes: [
       {"id": "root", "parent": null, "label": "WPA3", "kind": "root"},
       {"id": "g_soon", "parent": "root", "label": "Coming soon", "kind": "goal"},
-      {"id": "soon", "parent": "g_soon", "label": "WPA3 attacks (coming soon)", "kind": "attack", "desc": "WPA3 uses SAE, which resists the offline dictionary attacks that break WPA2. WPA3-SAE and OWE (enhanced open) techniques are still being verified and will be added here."},
     ],
   },
 };
