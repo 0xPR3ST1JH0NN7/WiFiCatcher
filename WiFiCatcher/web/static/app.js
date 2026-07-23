@@ -91,9 +91,8 @@ const cy = cytoscape({
         "text-outline-color": "#0a1016",
         "text-outline-width": 2.5,
         "min-zoomed-font-size": 6,
-        // Nodes are SVG glyphs floating on the canvas: no fill, render the icon
-        // unclipped, and keep the border invisible until a status class turns
-        // it into a coloured frame (selected / fresh / handshake / enterprise).
+        // SVG glyphs floating on the canvas: no fill/clip; border stays invisible
+        // until a status class colours it (selected / fresh / handshake / enterprise).
         shape: "round-rectangle",
         "background-opacity": 0,
         "background-fit": "contain",
@@ -123,9 +122,8 @@ const cy = cytoscape({
       selector: 'node[kind = "client"][?unassociated]',
       style: { "background-image-opacity": 0.4 },
     },
-    // Per-encryption AP icons (same router, different coloured waves). Order
-    // matters: enterprise is last so an 802.1X AP keeps its purple waves even
-    // when its privacy string also matches WPA3.
+    // Per-encryption AP icons. Order matters: enterprise is last so an 802.1X AP
+    // keeps its purple waves even when its privacy also matches WPA3.
     {
       selector: 'node[kind = "ap"][privacy *= "WEP"]',
       style: { "background-image": "/static/img/node-ap-wep.svg?v=1" },
@@ -238,10 +236,8 @@ function setEmptyState(empty) {
     const wasHidden = legend.classList.contains("hidden");
     const hide = empty || currentView === "table";   // legend is graph-only chrome
     legend.classList.toggle("hidden", hide);
-    // Only on the hidden->visible transition (a capture just appeared): show the
-    // overlay fully, then let it fade again. Doing this on every setEmptyState
-    // would re-arm the timer on each live/replay patch (~1.2s < 3s), so it could
-    // never dim during an active capture — the very moment it should get away.
+    // Only on the hidden->visible transition (a capture just appeared): running it
+    // every setEmptyState would re-arm the dim timer each patch (~1.2s < 3s) and never dim.
     if (!hide && wasHidden) { wakeLegend(); armLegendDim(); }
   }
 }
@@ -397,10 +393,8 @@ function fillMultiSelect(id, values) {
   sync();
 }
 
-// The dropdown currently open (its menu + trigger), or null. A single source of
-// truth so clicking a trigger toggles reliably, and scrolling the panel just
-// repositions the fixed menu instead of closing it (closing on scroll made the
-// bar feel unresponsive — clicks landed mid-scroll and were swallowed).
+// The dropdown currently open (menu + trigger), or null. Scrolling repositions the
+// fixed menu rather than closing it (closing on scroll swallowed mid-scroll clicks).
 let openMs = null;
 function closeMs() {
   if (!openMs) return;
@@ -458,11 +452,8 @@ function applyFilters() {
 }
 
 /* -------------------------------------------------------------- table view */
-// A sortable, searchable table alternative to the node graph — much easier to
-// scan once a capture has too many APs / clients for the graph to stay legible.
-// Rows are read straight from the live Cytoscape model, so the table always
-// matches the graph and follows its live updates. It honours the same legend
-// filters: nodes hidden by a filter (.hidden-node) are omitted here too.
+// Sortable, searchable table alternative to the graph, read straight from the live
+// Cytoscape model so it tracks live updates and honours the same legend filters (.hidden-node).
 let currentView = "graph";
 const tableSort = {
   ap: { key: "degree", dir: "desc" },     // busiest APs first by default
@@ -651,9 +642,8 @@ function setView(view) {
   document.getElementById("table-view").classList.toggle("hidden", !isTable);
   document.querySelectorAll(".vt-btn").forEach((b) =>
     b.classList.toggle("active", b.dataset.view === currentView));
-  // The node search overlay navigates the canvas (it focuses / zooms a node), so
-  // it only makes sense in graph mode; the table has its own row filter. Hide it
-  // in table view (and when empty) and close any open results dropdown.
+  // The node search overlay navigates the canvas, so it is graph-only; the table has
+  // its own row filter. Hide it in table view (and when empty) and close the dropdown.
   const empty = cy.nodes().length === 0;
   const graphSearch = document.getElementById("graph-search");
   if (graphSearch) graphSearch.classList.toggle("hidden", empty || isTable);
@@ -711,9 +701,8 @@ document.addEventListener("visibilitychange", () => {
 // The node whose details panel is open, so its values can be refreshed live.
 let detailNodeId = null;
 
-// Build just the field rows (+ probed ESSIDs) for a node. Kept separate so the
-// panel's values can be refreshed in place during a live capture without
-// rebuilding the action buttons (whose state a running op may be driving).
+// Just the field rows (+ probed ESSIDs), kept separate so a live capture can refresh
+// values in place without rebuilding the action buttons a running op may be driving.
 function buildDetailFields(info) {
   const isAp = info.kind === "ap";
   const rows = [];
@@ -774,9 +763,8 @@ function attachCopyable(container) {
   });
 }
 
-// Refresh only the open panel's field values (signal, last seen, clients…) in
-// place, leaving the action buttons untouched so a running op's button state
-// survives.
+// Refresh only the open panel's field values in place, leaving the action buttons
+// untouched so a running op's button state survives.
 function refreshDetails(info) {
   if (!info || info.id !== detailNodeId) return;
   const fields = document.getElementById("detail-fields");
@@ -785,9 +773,8 @@ function refreshDetails(info) {
   attachCopyable(fields);
 }
 
-// Attack advisor content, per WiFi security type. Each entry has a plain-language
-// list (shown in the panel), short bar-toast blurbs (one per attack type), and an
-// attack tree as flat nodes with parent pointers (rendered as a graph on demand).
+// Attack advisor content per WiFi security type: an attack tree as flat nodes with
+// parent pointers, rendered as the panel list and, on demand, a graph.
 const ATTACK_DATA = {
   "wpa-psk": {
     family: "WPA/WPA2-PSK",
@@ -860,9 +847,8 @@ function wpsNote(info) {
     : "Given that WPS is enabled, a WPS PIN brute-force attack should be the primary exploitation attempt on this AP.";
 }
 
-// The "Suggested attacks" panel block for an AP, or "" when nothing applies. It
-// mirrors the attack path graph: one block per category, then its attacks with a
-// one-line description. Open by default; the button opens the full graph.
+// The "Suggested attacks" panel block for an AP (or "" when nothing applies),
+// mirroring the attack path graph: one block per category, then its attacks.
 function attackAdvisorHtml(info) {
   const datas = attackDataFor(info);
   if (!datas.length) return "";
@@ -898,9 +884,8 @@ function attackAdvisorHtml(info) {
   </details>`;
 }
 
-// Render the attack tree for a security type as an on-demand Cytoscape graph in a
-// modal. A fresh instance is built on open and destroyed on close so it never
-// competes with the live network graph.
+// Render the attack tree as an on-demand Cytoscape graph in a modal — a fresh
+// instance per open, destroyed on close so it never competes with the live graph.
 let attackCy = null;
 function _cssVar(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "#888";
@@ -910,10 +895,8 @@ function openAttackModal(info) {
   if (!datas.length || typeof cytoscape === "undefined") return;
   document.getElementById("attack-modal-title").textContent =
     "Attack paths: " + datas.map((d) => d.data.family).join(" / ");
-  // Left to right tidy tree per technology: x is set by depth, y is packed by
-  // leaves and each parent sits at the midpoint of its children. When more than
-  // one technology applies (WPA2/WPA3), the trees are stacked vertically. Node
-  // ids are namespaced by technology so the two roots never collide.
+  // Left-to-right tidy tree: x by depth, y packed by leaves (parent at children's
+  // midpoint). Multiple techs stack vertically; ids namespaced by tech so roots don't collide.
   const XS = 300, YS = 72;
   const elements = [];
   let yOffset = 0;
@@ -990,9 +973,8 @@ function showDetails(info) {
   const title = isAp ? info.essid || "&lt;Hidden&gt;" : info.id;
   const clientAssociated =
     !isAp && info.associated_bssid && info.associated_bssid !== "(not associated)";
-  // Offensive / enterprise actions act on a *live* radio capture, so they are
-  // pointless on a static import or replay — only offer them during a live
-  // airodump session (deauth additionally needs a fixed channel).
+  // Offensive / enterprise actions need a *live* airodump session, not a static
+  // import or replay (deauth additionally needs a fixed channel).
   const liveActive = live.running && live.mode === "airodump";
   let offBtn = "";
   if (live.canDeauth && isAp) {
@@ -1017,9 +999,8 @@ function showDetails(info) {
   const entBtns = certReady
     ? `<button class="btn" id="op-cert-btn">Read RADIUS cert</button>` : "";
 
-  // Attack advisor is informational and static per AP, so it lives outside
-  // #detail-fields (which the live tick rebuilds) — otherwise opening it would
-  // snap shut on the next refresh.
+  // Attack advisor is static per AP, so it lives outside #detail-fields (which the
+  // live tick rebuilds) — otherwise opening it would snap shut on the next refresh.
   const advisor = isAp ? attackAdvisorHtml(info) : "";
 
   body.innerHTML = `
@@ -1150,9 +1131,8 @@ document.addEventListener("click", (e) => {
 
 /* ------------------------------------------------------------- operations */
 let pendingOp = null;
-// True while a live EAP enumeration is running: it writes its result into the
-// details panel asynchronously (minutes), so a background tap must not close
-// the panel out from under it.
+// True while a live EAP enumeration is running: it writes into the details panel
+// asynchronously (minutes), so a background tap must not close the panel.
 let eapRunning = false;
 
 function openDeauthModal(info) {
@@ -1192,10 +1172,8 @@ document.getElementById("op-confirm").onclick = () => {
   if (pendingOp) confirmDeauth();
 };
 
-// Pulse a red circular halo while a deauth runs server-side, so it is clear
-// something is happening. A client deauth lights the client, its AP and the link
-// between them (the deauth targets that association); an AP deauth lights the AP
-// and its links. Returns a stop function that ends and clears the effect.
+// Pulse a red halo while a deauth runs server-side: a client deauth lights the client,
+// its AP and their link; an AP deauth lights the AP and its links. Returns a stop fn.
 function startDeauthFx(op) {
   let targets = cy.collection();
   if (op.client) {
@@ -1272,9 +1250,8 @@ async function confirmDeauth() {
 // Standalone Enterprise tool: pick an interface, SSID and domain user, then
 // probe which EAP methods the AP accepts (live, streamed).
 
-// Populate the interface picker from the present adapters, preferring the one a
-// live capture is running on (its monitor vif). data-mode carries each mode so
-// run() knows whether it must switch the adapter to monitor first.
+// Populate the interface picker, preferring a running capture's monitor vif.
+// data-mode carries each mode so run() knows whether to switch to monitor first.
 async function fillEapInterfaces() {
   const sel = document.getElementById("eap-iface");
   if (!sel) return;
@@ -1337,10 +1314,8 @@ async function runEapEnum() {
   };
   eapRunning = true;
   setEapButtonBusy(true);
-  // EAP_buster needs the adapter in monitor mode (NM-free); it sets managed
-  // itself. If the chosen interface is the live capture's monitor vif, stop the
-  // capture keeping monitor; if it is not already monitor, switch it; otherwise
-  // use it as-is.
+  // EAP_buster needs the adapter in monitor mode (NM-free). If it's the live capture's
+  // monitor vif, stop keeping monitor; else switch to monitor if not already.
   let monIface = iface;
   try {
     if (live.running && iface === live.monitorIface) {
@@ -1705,19 +1680,16 @@ async function openNode(id) {
 
 cy.on("tap", "node", (evt) => openNode(evt.target.id()));
 cy.on("tap", (evt) => {
-  // Tapping the empty background deselects the focused node: clear any
-  // isolate/highlight fade and close the details panel on the right. Keep the
-  // panel open while a live EAP enumeration is streaming its result into it.
+  // Tapping the empty background clears any isolate/highlight fade and closes the
+  // details panel — but keep it open while a live EAP enumeration streams into it.
   if (evt.target === cy) {
     cy.elements().removeClass("faded");
     if (!eapRunning) closeDetails();
   }
 });
 
-// Remember any node the user drags: the live layout then pins it in place (see
-// scheduleLiveLayout) instead of pulling it back on the next discovery. The mark
-// is a plain class, so it clears automatically when the node is removed / the
-// graph is reloaded.
+// Mark a dragged node so the live layout pins it in place (see scheduleLiveLayout)
+// instead of pulling it back on the next discovery. Plain class, clears on reload.
 cy.on("dragfree", "node", (evt) => evt.target.addClass("user-moved"));
 
 // Wipe the loaded capture from the view and the server (a fresh start).
@@ -1747,9 +1719,8 @@ document.querySelectorAll(".legend-toggle").forEach((btn) =>
   btn.addEventListener("click", () => { btn.classList.toggle("off"); applyFilters(); })
 );
 
-// The filters overlay auto-dims when the pointer has been away for a moment so
-// it stops covering the graph; hovering it (or a fresh capture appearing) brings
-// it back. A collapse button also folds it down to just its title chip.
+// The filters overlay auto-dims when the pointer is away so it stops covering the
+// graph; hovering it (or a fresh capture) brings it back. Collapse folds it to a chip.
 const LEGEND_IDLE_MS = 3000;
 let legendDimTimer = null;
 function wakeLegend() {
@@ -1786,9 +1757,8 @@ if (legendCollapseBtn && legendEl) {
   });
 }
 
-// Sidebar feature panels behave as an accordion: opening one collapses the
-// others, so a single tool is expanded at a time. (Closing a panel never
-// re-triggers this, so there is no toggle loop.)
+// Sidebar panels act as an accordion: opening one collapses the others. Closing
+// never re-triggers this, so there is no toggle loop.
 const sidebarPanels = Array.from(document.querySelectorAll(".sidebar details.panel"));
 sidebarPanels.forEach((d) =>
   d.addEventListener("toggle", () => {
@@ -1809,11 +1779,8 @@ function recomputeUnassoc() {
   });
 }
 
-// Two ways to drive the live graph share one capture session: airodump (real
-// radio, via the privileged warden) and replay (offline reveal of an imported
-// capture). Only one runs at a time; reflect that on both panels' buttons.
-// The airodump option controls — locked while a capture is running, since
-// changing them mid-capture is meaningless.
+// Airodump (real radio, via the warden) and replay share one session; only one runs
+// at a time. These airodump option controls are locked while a capture runs.
 const AIRODUMP_OPT_IDS = ["live-iface", "live-iface-refresh", "live-band",
   "live-save", "live-save-path", "live-save-browse",
   "live-channel", "live-encrypt", "live-essid", "live-bssid", "live-interval"];
@@ -1829,9 +1796,8 @@ function setDisabled(ids, disabled) {
 }
 
 /* ----------------------------------------------------- repeatable fields */
-// The live-capture Protocol / ESSID / BSSID inputs can each hold several values
-// (one airodump-ng flag apiece). Each field is a stack of rows: the first row's
-// button adds another, later rows' buttons remove themselves.
+// Live-capture Protocol / ESSID / BSSID fields each hold several values (one airodump
+// flag apiece) as a stack of rows: the first row adds, later rows remove themselves.
 const PROTO_OPTS = [["", "any"], ["WEP", "WEP"], ["WPA2", "WPA2"],
   ["WPA3", "WPA3"], ["OPN", "Open"]];
 
@@ -1880,9 +1846,8 @@ function collectMultiField(id) {
 }
 
 // -------------------------------------------------------- channel picker
-// Valid channels per band. A novice shouldn't have to know these, so we offer
-// them as toggle chips instead of a free-text field; the band select decides
-// which set is shown. Multi-select is allowed (airodump hops across them).
+// Valid channels per band, offered as toggle chips (not free text); the band select
+// picks the set. Multi-select is allowed (airodump hops across them).
 const CH_24 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
 const CH_5 = [36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120,
   124, 128, 132, 136, 140, 144, 149, 153, 157, 161, 165];
@@ -1958,9 +1923,8 @@ function refreshLiveButtons() {
 
   const rep = document.getElementById("replay-toggle");
   const replaying = running && mode === "replay";
-  // With no capture loaded the button imports one; once a capture exists it
-  // replays it; while replaying it stops. "primary" only in the import state,
-  // to flag it as the way in.
+  // No capture loaded → imports; capture loaded → replays; replaying → stops.
+  // "primary" only in the import state, to flag it as the way in.
   const importMode = !replaying && !live.loaded;
   rep.textContent = replaying ? "Stop replay" : importMode ? "Import capture" : "Replay capture";
   rep.classList.toggle("danger", replaying);
@@ -1976,9 +1940,8 @@ function refreshLiveButtons() {
     ? "Replays the loaded capture node by node."
     : "Import an airodump-ng CSV file (.csv) to enable replay.";
 
-  // The scan filters (technology / channel / ESSID / BSSID) are for reviewing a
-  // finished scan, so hide them while a live capture is still running and show
-  // them once it is stopped or a capture is being replayed.
+  // Scan filters (tech / channel / ESSID / BSSID) are for reviewing a finished scan,
+  // so hide them during a live capture and show them once stopped or replaying.
   const repFilters = document.getElementById("replay-filters");
   if (repFilters) repFilters.classList.toggle("hidden", capturing);
 }
@@ -1986,9 +1949,8 @@ function refreshLiveButtons() {
 function setLiveUI(running) {
   live.running = running;
   refreshLiveButtons();
-  // Stopping a live capture (or a replay) reveals the scan filters; build their
-  // options from whatever ended up on the graph so the menus are ready to use.
-  // (During a live capture they stay hidden, so they are populated only now.)
+  // Stopping reveals the scan filters; build their options from the final graph
+  // (they stay hidden during a live capture, so are populated only now).
   if (!running) populateFilterOptions();
 }
 
@@ -2008,9 +1970,8 @@ function applyPatch(p) {
       const added = cy.add(el);
       if (el.group === "nodes") {
         added.addClass("fresh");
-        // Drop each new node a moderate distance from the graph centre (random
-        // angle, modest radius): spread enough not to stack on one spot, close
-        // enough not to fling nodes far away.
+        // Drop each new node at a random angle and modest radius from the centre:
+        // spread enough not to stack, close enough not to fling far away.
         const ang = Math.random() * Math.PI * 2;
         const rad = 120 + Math.random() * 180;
         added.position({
@@ -2029,9 +1990,8 @@ function applyPatch(p) {
   if (p.summary) updateStats(p.summary);
   setEmptyState(cy.nodes().length === 0);
   setTimeout(() => cy.nodes(".fresh").removeClass("fresh"), 1600);
-  // Only relayout when the graph's shape actually changed (nodes/edges added or
-  // removed). A data-only update (signal, beacons…) must not reshuffle nodes the
-  // user may have arranged by hand.
+  // Only relayout on structural changes (nodes/edges added or removed); a data-only
+  // update (signal, beacons…) must not reshuffle nodes the user arranged by hand.
   const structural = (p.add && p.add.length) || (p.remove && p.remove.length);
   if (structural) scheduleLiveLayout();
   if (detailNodeId) tickDetailRefresh();   // keep the open panel's values live
@@ -2050,11 +2010,8 @@ async function tickDetailRefresh() {
 function scheduleLiveLayout() {
   clearTimeout(live.layoutTimer);
   live.layoutTimer = setTimeout(() => {
-    // Keep the existing graph where it is: pin every node that is not brand-new
-    // (".fresh"), so the layout only places the just-discovered nodes around the
-    // stable graph instead of reshuffling everything into a tight cluster each
-    // scan. Pinning almost all nodes also keeps the layout cheap (few free
-    // nodes) and, with animation off, stops it pegging the CPU during a capture.
+    // Pin every non-fresh node so the layout only places just-discovered nodes around
+    // the stable graph (no reshuffle). Few free nodes + no animation keeps CPU low.
     const pinned = cy.nodes().not(".fresh").map((n) => ({
       nodeId: n.id(), position: { x: n.position("x"), y: n.position("y") },
     }));
@@ -2130,9 +2087,8 @@ function openLiveSocket() {
 // Populate the interface pick-list from the host's detected wireless adapters.
 async function loadInterfaces(prefer) {
   const sel = document.getElementById("live-iface");
-  // Prefer an explicitly requested interface (the one the last capture used),
-  // else keep the current selection. Stops the picker snapping back to the first
-  // adapter (wlan0) after a capture, when the chosen one briefly left the list.
+  // Prefer an explicitly requested interface (the last capture's), else keep the
+  // current pick — stops the picker snapping back to wlan0 when it briefly drops out.
   const want = prefer || sel.value;
   try {
     const { interfaces } = await API.interfaces();
@@ -2230,9 +2186,8 @@ async function startReplay() {
 
 async function stopLive(opts = {}) {
   const wasReplay = live.mode === "replay";
-  // Teardown (killing airodump, restoring the interface) takes a couple of
-  // seconds, so show a spinner on the button right away. setLiveUI(false) below
-  // rewrites the button text and clears it.
+  // Teardown (killing airodump, restoring the interface) takes a couple of seconds,
+  // so spin the button now; setLiveUI(false) below rewrites and clears it.
   const btn = document.getElementById(wasReplay ? "replay-toggle" : "live-toggle");
   if (btn) {
     btn.disabled = true;
@@ -2260,11 +2215,8 @@ async function stopLive(opts = {}) {
     else toast(wasReplay ? "Replay stopped" : "Live capture stopped", "ok");
   }
   if (OFFENSIVE && !wasReplay && !opts.eapBase) {
-    // The warden restores managed mode + restarts NetworkManager asynchronously
-    // after we disconnect, so auto-refresh the interface list now and a few times
-    // shortly after: the adapter shows back in managed mode without the user
-    // having to hit "rescan" manually. (Skipped for an EAP handoff, which
-    // deliberately keeps the adapter in monitor mode.)
+    // The warden restores managed mode + restarts NetworkManager asynchronously, so
+    // refresh the interface list now and a few times after (skipped for EAP, which keeps monitor).
     loadInterfaces(live.iface);
     [1500, 3000, 5000].forEach((ms) => setTimeout(() => loadInterfaces(live.iface), ms));
   }
@@ -2289,10 +2241,8 @@ if (liveSaveChk) liveSaveChk.addEventListener("change", () =>
   document.getElementById("save-path-row").classList.toggle("hidden", !liveSaveChk.checked));
 
 /* ------------------------------------------------------- in-app file picker */
-// A themed filesystem browser (served by the backend) used both to choose where
-// to SAVE a live capture and to OPEN a capture off disk — no OS dialog, and no
-// re-upload, since WiFiCatcher runs locally and the server reads the path.
-// Modes: "save" (navigate + name a file) and "open" (pick an existing file).
+// Themed backend filesystem browser to SAVE a capture or OPEN one off disk (no OS
+// dialog, no upload — the server reads the path). Modes: "save" and "open".
 let fsCurrent = null;      // folder currently shown
 let fsWritable = false;    // is fsCurrent writable (save mode)
 let fsMode = "save";
@@ -2434,9 +2384,8 @@ async function importFromPicker() {
 }
 
 /* -------------------------------------------------------------- resizing */
-// Drag a handle to resize the panel it sits beside. The sidebar (left) grows
-// as the handle moves right; the details panel (right) grows as it moves left.
-// Min/max come from the panels' CSS, so the graph never collapses to nothing.
+// Drag a handle to resize the panel beside it (sidebar grows rightward, details
+// leftward). Min/max come from the panels' CSS, so the graph never fully collapses.
 function makeResizer(handleId, panelId, side) {
   const handle = document.getElementById(handleId);
   const panel = document.getElementById(panelId);
@@ -2615,9 +2564,8 @@ document.getElementById("settings-reset").onclick = () => {
   // so the live-capture panel is shown and the interface list is loaded.
   loadInterfaces();
 
-  // A live/replay session that is still running should survive a reload — rejoin
-  // it. Otherwise a reload starts fresh: stale imported data is discarded so the
-  // page never resurrects a capture the user thought they had moved on from.
+  // A still-running live/replay session should survive a reload, so rejoin it.
+  // Otherwise start fresh: discard stale imported data rather than resurrect it.
   let reconnected = false;
   try {
     const status = await API.liveStatus();

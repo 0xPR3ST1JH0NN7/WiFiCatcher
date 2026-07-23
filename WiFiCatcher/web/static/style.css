@@ -1,7 +1,6 @@
 :root {
-  /* Default theme: "hacker" — red on black. Switchable in Appearance settings.
-     Node colors (--ap/--client/--client-un) stay fixed across themes so the
-     graph and its legend always agree, regardless of the chrome palette. */
+  /* Default theme "hacker" (red on black), switchable in Appearance. Node colors
+     (--ap/--client/--client-un) stay fixed across themes so graph and legend agree. */
   --bg: #000000;
   --bg-2: #070707;
   --panel: #0d0a0a;
@@ -46,11 +45,8 @@
 * { box-sizing: border-box; }
 
 /* ---------------------------------------------------------------- scrollbars */
-/* One themed, thin scrollbar in every scrollable area (sidebar, details panel,
-   search results, filters overlay) so it stops looking like a stock OS bar —
-   most jarring in Chrome. WebKit/Blink (Chrome, Edge, Safari, Brave, Opera) get
-   the full custom look via ::-webkit-scrollbar; Firefox uses the two standard
-   properties. Colours come from the palette, so the bar retints with the theme. */
+/* One themed thin scrollbar everywhere instead of the stock OS bar: WebKit/Blink
+   gets the full look via ::-webkit-scrollbar; Firefox uses the two standard properties. */
 * { scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) transparent; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -130,17 +126,13 @@ body { font-size: 14px; display: flex; flex-direction: column; }   /* design bas
 .icon-btn { padding: 8px 11px; font-size: 16px; line-height: 1; }
 
 /* ---------------------------------------------------------- runner mascot */
-/* A Chrome-dino-style endless runner in the toolbar: a pixel cat chasing a
-   password key. Pure CSS/SVG (no assets), tinted from the palette. Decorative —
-   hidden on narrow screens and when reduced motion is preferred. */
-/* The lane is a content-sized flex item whose auto left margin, paired with the
-   actions' own auto margin, splits the leftover toolbar space into two equal
-   halves — so the cat stays centred midway between the search box and the
-   settings gear, and remains centred as the window is resized. */
+/* Chrome-dino-style toolbar runner: a pixel cat chasing a key. Pure CSS/SVG,
+   decorative — hidden on narrow screens and when reduced motion is preferred. */
+/* The lane's auto left margin, paired with the actions' auto margin, splits the
+   free toolbar space evenly so the cat stays centred between search and gear. */
 .cat-runner {
   flex: 0 0 auto;
-  margin-left: auto;                /* pairs with the actions' auto margin: the */
-  /* two even splits of the free space centre the cat between search and gear. */
+  margin-left: auto;                /* auto margins split free space, centring the cat */
   height: 40px;
   display: flex;
   align-items: center;
@@ -163,9 +155,8 @@ body { font-size: 14px; display: flex; flex-direction: column; }   /* design bas
   animation: cat-bob .24s steps(2) infinite;
   pointer-events: auto; cursor: pointer;   /* clickable even though the lane isn't */
 }
-/* Click the cat: one hop of the cat alone (.hop). A captured handshake makes the
-   cat and the key hop together 5 times (.jump celebration). Either overrides the
-   running gait, then reverts when the class is cleared on animationend. */
+/* Click the cat → one hop (.hop); a captured handshake → cat + key hop 5 times
+   (.jump). Either overrides the running gait, reverting when cleared on animationend. */
 .cat-run.hop { animation: cat-jump .5s ease-out; }
 .cat-run.jump, .cat-key.jump { animation: cat-jump .5s ease-out 5; }
 @keyframes cat-jump {
@@ -209,9 +200,8 @@ body { font-size: 14px; display: flex; flex-direction: column; }   /* design bas
 /* Dust puffs removed to cut CPU: the element stays but no longer animates. */
 .cat-dust { display: none; }
 
-/* The runner walks continuously (gait and road loop the whole time). Every loop
-   is stepped, so it stays cheap on a software renderer, and the tab still costs
-   nothing while backgrounded thanks to .anim-paused below. */
+/* The runner walks continuously; every loop is stepped so it stays cheap on a
+   software renderer (and costs nothing backgrounded, via .anim-paused below). */
 .cat-track { pointer-events: auto; }
 
 /* keep the toolbar usable where a running mascot would crowd it */
@@ -290,9 +280,8 @@ body { font-size: 14px; display: flex; flex-direction: column; }   /* design bas
   margin: 0 0 12px;
 }
 
-/* Panel / section headers read as distinct bars — a boxed rectangle with an
-   accent edge — so a tool's title stands apart from the option rows inside it
-   instead of blending in once the panel is opened. */
+/* Panel / section headers read as distinct bars (boxed, accent edge) so a tool's
+   title stands apart from the option rows inside it. */
 .sidebar > .panel > h2,
 details.panel > summary {
   background: var(--panel);
@@ -380,9 +369,8 @@ details.subpanel[open] > summary::after { transform: rotate(90deg); }
 .attack-advisor .btn { width: 100%; margin-top: 8px; }
 .attack-advisor .advisor-note { margin: 10px 0 0; font-size: 11px; color: var(--muted); }
 
-/* Attack path graph modal: a near full page card holding an on-demand Cytoscape
-   tree, so the whole path is easy to read; drag/scroll pans and zooms. The
-   compound selector beats the base .modal-card width defined further down. */
+/* Attack path graph modal: a near full-page card holding an on-demand Cytoscape
+   tree. The compound selector beats the base .modal-card width defined below. */
 .modal-card.attack-card { width: 96vw; max-width: none; padding: 16px; }
 #attack-graph {
   width: 100%; height: 82vh; min-height: 340px;
@@ -425,9 +413,8 @@ details.subpanel[open] > summary::after { transform: rotate(90deg); }
   transform: translateY(-50%); color: var(--muted); font-size: 11px;
 }
 .ms-trigger.active { border-color: var(--accent); color: var(--accent); }
-/* Fixed, not absolute: the menu is positioned from the trigger's screen rect on
-   open, so it floats above the panel instead of being clipped by its scroll box
-   (same way the browser's native select popup escapes its container). */
+/* Fixed, not absolute: positioned from the trigger's screen rect on open so it
+   floats above the panel instead of being clipped by its scroll box. */
 .ms-menu {
   position: fixed; z-index: 60; max-height: 240px; overflow-y: auto;
   background: var(--panel); border: 1px solid var(--border);
@@ -441,9 +428,8 @@ details.subpanel[open] > summary::after { transform: rotate(90deg); }
 .ms-opt input { accent-color: var(--accent); margin: 0; }
 .ms-empty { color: var(--muted); margin: 4px 7px; font-size: 12px; }
 
-/* Repeatable capture filter (Protocol / ESSID / BSSID): a stack of rows, each
-   carrying its own label, input and a +/- button so several values can be given
-   (one airodump flag apiece). Rows are centred and every added row is labelled. */
+/* Repeatable capture filter (Protocol / ESSID / BSSID): a stack of labelled rows,
+   each with an input and +/- button, so several values can be given (one flag apiece). */
 .multi-field { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
 .mf-row { display: flex; gap: 6px; align-items: center; justify-content: center; }
 .mf-label { flex: 0 0 62px; text-align: right; color: var(--muted); font-size: 12px; }
@@ -464,8 +450,7 @@ details.subpanel[open] > summary::after { transform: rotate(90deg); }
 .mini-input { width: 110px; background: var(--panel); color: var(--text);
   border: 1px solid var(--border); border-radius: 7px; padding: 5px 8px; }
 
-/* Channel picker: wrapping toggle chips whose options follow the selected band,
-   so a novice picks from valid channels instead of typing them. The hidden
+/* Channel picker: toggle chips whose options follow the selected band. The hidden
    #live-channel mirrors the selection as a comma list ("" = Any / whole band). */
 .filter-col { margin: 10px 0; }
 .filter-col-head {
@@ -616,9 +601,8 @@ details.ent-tool[open] > summary::after { transform: rotate(90deg); }
   margin: 8px 0 0; border-top: 1px solid var(--border); padding-top: 7px; }
 
 /* ------------------------------------------------------------- table view */
-/* A Graph / Table segmented toggle, top-left of the graph area (mirrors the
-   legend at top-right). Table view swaps the canvas for a sortable, searchable
-   list — far easier to read once a capture has too many nodes for the graph. */
+/* Graph / Table segmented toggle, top-left of the graph area. Table view swaps the
+   canvas for a sortable, searchable list when a capture outgrows the graph. */
 .view-toggle {
   position: absolute; top: 12px; left: 12px; z-index: 6;
   display: flex; gap: 2px; padding: 3px;
@@ -633,9 +617,8 @@ details.ent-tool[open] > summary::after { transform: rotate(90deg); }
 .vt-btn:hover { color: var(--text); }
 .vt-btn.active { background: var(--accent); color: var(--btn-primary-text); font-weight: 600; }
 
-/* Node search overlay, docked on the canvas beside the view toggle (graph mode
-   only). Reuses the .search-results dropdown styles; sized to match the table
-   view's row filter so the two searches look identical. */
+/* Node search overlay, docked beside the view toggle (graph mode only). Reuses the
+   .search-results styles, sized to match the table's row filter so they look alike. */
 .graph-search {
   position: absolute; top: 12px; left: 174px; z-index: 6;
   flex: none; width: 340px; max-width: calc(100% - 480px);
@@ -718,11 +701,8 @@ details.ent-tool[open] > summary::after { transform: rotate(90deg); }
 .empty-state h3 { margin: 0; color: var(--text); }
 /* Sleepy Wi-Fi waves drifting up off the cat while the app sits idle. */
 .empty-cat { position: relative; display: inline-block; margin-bottom: 8px; }
-/* Sit entirely above the cat (bottom at its top edge) so the waves are never
-   hidden behind it.
-   `contain: paint` isolates the waves into their own repaint box, so animating
-   them only redraws these ~60x50px, not a big slice of the page. That is what
-   keeps the loop cheap on a VM / software renderer (no GPU compositing). */
+/* Sit entirely above the cat so the waves are never hidden behind it. `contain: paint`
+   isolates them into their own repaint box, so animating redraws ~60x50px, not the page. */
 .wifi-z { position: absolute; bottom: calc(100% + 4px); left: 50%; margin-left: -31px;
   width: 62px; height: 50px; color: var(--accent); z-index: 2; pointer-events: none;
   contain: paint; }
@@ -731,10 +711,8 @@ details.ent-tool[open] > summary::after { transform: rotate(90deg); }
 .wifi-z .wz1 { fill: currentColor; stroke: none; }
 .wifi-z .wz2 { animation-delay: .22s; }
 .wifi-z .wz3 { animation-delay: .44s; }
-/* A short radar "blip" (the three arcs light up in sequence) followed by a long
-   still pause. Nothing changes during the pause, so the browser does no repaints
-   for most of the cycle: the animation only costs CPU during the brief blip.
-   That keeps it affordable even on a software renderer (a Linux VM with no GPU). */
+/* A short radar "blip" (arcs light in sequence) then a long still pause with no
+   repaints, so the animation only costs CPU during the brief blip. */
 @keyframes wifi-pulse {
   0%   { opacity: .12; }
   10%  { opacity: 1; }
