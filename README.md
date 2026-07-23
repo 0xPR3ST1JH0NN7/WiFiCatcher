@@ -1,6 +1,6 @@
 <div align="center">
   <img src="WiFiCatcher/web/static/img/logo-wordmark.png" alt="WiFiCatcher" width="420"/>
-  <p><em>A simplified tool for fast Wi-Fi penetration testing, and an easy starting point for beginners.</em></p>
+  <p><em>A simplified tool for fast Wi-Fi assessment.</em></p>
 </div>
 
 ## Quick start
@@ -9,14 +9,14 @@
 git clone https://github.com/0xPR3ST1JH0NN7/WiFiCatcher
 cd WiFiCatcher
 
-# system tools used for live capture + deauth (zenity powers the save-folder picker)
+# linux dependencies
 sudo apt install aircrack-ng tshark zenity
 
 # python dependencies (the app runs from this venv)
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# one-time: install the privileged helper (required to run WiFiCatcher; powers live capture + deauth)
+# installing the service
 sudo ./packaging/install-helper.sh
 ```
 
@@ -26,8 +26,6 @@ Start the app. It always runs unprivileged, never as root:
 
 ```bash
 .venv/bin/python -m WiFiCatcher                 # http://127.0.0.1:8000
-.venv/bin/python -m WiFiCatcher --port 9000     # flags: --host, --port, --no-browser, --debug
-.venv/bin/python -m WiFiCatcher stop            # stop a running server from another terminal
 ```
 
 Press Enter (or Ctrl+C) in the terminal to stop. WiFiCatcher checks for the
