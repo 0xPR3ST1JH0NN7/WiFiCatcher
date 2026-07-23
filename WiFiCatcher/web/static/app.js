@@ -827,6 +827,8 @@ const ATTACK_DATA = {
     family: "Open network",
     nodes: [
       {"id": "root", "parent": null, "label": "Open network", "kind": "root"},
+      {"id": "g_access", "parent": "root", "label": "Get onto the network", "kind": "goal"},
+      {"id": "cpbypass", "parent": "g_access", "label": "Captive portal bypass", "kind": "attack", "desc": "A captive portal only gates internet access, so spoofing the MAC of an already-authorised client (or tunnelling over DNS / ICMP) slips past the login page and onto the network, opening the way to the traffic and impersonation attacks below."},
       {"id": "g_read", "parent": "root", "label": "Read the traffic", "kind": "goal"},
       {"id": "sniff", "parent": "g_read", "label": "Passive traffic capture", "kind": "attack", "desc": "Because an open network sends data unencrypted, anyone nearby can silently record packets and read the victim's browsing traffic."},
       {"id": "g_imp", "parent": "root", "label": "Impersonate the network", "kind": "goal"},
@@ -839,8 +841,8 @@ const ATTACK_DATA = {
     family: "WPA3",
     nodes: [
       {"id": "root", "parent": null, "label": "WPA3", "kind": "root"},
-      {"id": "g_soon", "parent": "root", "label": "To be added", "kind": "goal"},
-      {"id": "soon", "parent": "g_soon", "label": "WPA3 attacks", "kind": "attack", "desc": "WPA3 uses SAE, which resists the offline dictionary attacks that break WPA2. Specific WPA3 techniques will be added here."},
+      {"id": "g_soon", "parent": "root", "label": "Coming soon", "kind": "goal"},
+      {"id": "soon", "parent": "g_soon", "label": "WPA3 attacks (coming soon)", "kind": "attack", "desc": "WPA3 uses SAE, which resists the offline dictionary attacks that break WPA2. WPA3-SAE and OWE (enhanced open) techniques are still being verified and will be added here."},
     ],
   },
 };
