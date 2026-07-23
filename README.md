@@ -1,6 +1,7 @@
 <div align="center">
   <img src="WiFiCatcher/web/static/img/logo-wordmark.png" alt="WiFiCatcher" width="420"/>
   <p><em>A simplified tool for fast Wi-Fi assessment.</em></p>
+  <img src="assets/hero.png" alt="WiFiCatcher graph view" width="860"/>
 </div>
 
 ## Hardware requirements
@@ -40,6 +41,10 @@ Open the printed address in your browser. WiFiCatcher checks that the warden is 
 
 WiFiCatcher is built around three ways of working. Whichever you use, the results share the same views: an interactive graph of every access point, client and association, a sortable and searchable table for when the scan gets crowded, per-node details, and filters by type, encryption or channel.
 
+<div align="center">
+  <img src="assets/table.png" alt="Sortable table view with per-AP encryption, cipher and auth" width="820"/>
+</div>
+
 ### Live capture
 
 Point it at a wireless interface and watch the map build in real time as access points and clients appear, each one carrying its signal, channel, vendor, encryption, cipher, auth and WPS state. From here you can fire targeted deauthentication frames at a client or an AP (shown as a pulse on the graph); any WPA handshake that follows is detected and flagged automatically.
@@ -52,7 +57,15 @@ Load a saved airodump-ng CSV to go back over a past scan. Step through it node b
 
 For WPA-Enterprise networks, WiFiCatcher singles out the 802.1X access points, reads and exports the RADIUS server certificate, pulls EAP Response/Identity usernames (often `DOMAIN\user`) out of the traffic, and enumerates which EAP methods a network accepts.
 
+<div align="center">
+  <img src="assets/enterprise.png" alt="Enterprise panel reading an EAP identity from a capture" width="360"/>
+</div>
+
 For any selected AP, the attack-paths view then lays out the exploitation routes that fit its security type.
+
+<div align="center">
+  <img src="assets/attack-paths.png" alt="Attack-paths view for a WPA/WPA2-PSK network" width="720"/>
+</div>
 
 ## License
 
