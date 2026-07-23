@@ -25,9 +25,8 @@ from WiFiCatcher.operations.base import (
 
 SYSFS_NET = "/sys/class/net"
 
-# Values reported by /sys/class/net/<iface>/type (Linux ARPHRD_* constants).
-ARPHRD_ETHER = 1                  # managed-mode Wi-Fi presents as ethernet
-ARPHRD_IEEE80211_RADIOTAP = 803   # monitor mode (radiotap headers)
+# Value reported by /sys/class/net/<iface>/type for monitor mode (radiotap).
+ARPHRD_IEEE80211_RADIOTAP = 803
 
 
 def _read(path: str) -> Optional[str]:

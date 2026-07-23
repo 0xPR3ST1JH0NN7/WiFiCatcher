@@ -54,11 +54,6 @@ class ReplaySource(Source):
         self._snapshots = self._build(scan, max(1, steps))
         self._tick = 0
 
-    @classmethod
-    def from_csv(cls, text: str, filename: str = "", steps: int = 6) -> "ReplaySource":
-        scan = AirodumpCsvParser().parse(text, filename)
-        return cls(scan, steps=steps)
-
     @staticmethod
     def _build(scan: Scan, steps: int) -> list[Scan]:
         aps, clients = scan.access_points, scan.clients

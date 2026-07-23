@@ -46,12 +46,6 @@ class AccessPoint:
     def is_hidden(self) -> bool:
         return not self.essid or self.essid == "<Hidden>"
 
-    @property
-    def is_enterprise(self) -> bool:
-        """WPA-Enterprise (802.1X): airodump reports MGT in the Authentication
-        column, versus PSK / SAE for personal networks."""
-        return "MGT" in (self.authentication or "").upper()
-
 
 @dataclass
 class Client:
