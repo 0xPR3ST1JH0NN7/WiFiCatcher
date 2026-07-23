@@ -580,6 +580,10 @@ details.ent-tool[open] > summary::after { transform: rotate(90deg); }
 .ent-tool .mini-input, .ent-tool select { min-width: 150px; }
 #eap-run-btn { margin-top: 8px; }
 
+/* Read EAP identities: no trailing row border, so it doesn't draw an extra line
+   right above the tool separator below. */
+.eapid-list .detail-row:last-child { border-bottom: none; }
+
 /* Captured domain users offered as one-click fills in the EAP dialog. */
 .eapid-suggest-label { margin: 8px 0 4px; }
 .eapid-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
