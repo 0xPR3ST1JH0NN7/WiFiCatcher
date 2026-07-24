@@ -1341,6 +1341,9 @@ function setEapButtonBusy(busy) {
   const btn = document.getElementById("eap-run-btn");
   if (btn) {
     btn.disabled = busy;
+    // "busy" keeps it bright (like the live-capture Stop button) instead of
+    // dimming to a dark maroon while it runs.
+    btn.classList.toggle("busy", busy);
     btn.innerHTML = busy
       ? '<span class="spinner"></span>Enumerating EAP methods…'
       : "Enumerate EAP methods";

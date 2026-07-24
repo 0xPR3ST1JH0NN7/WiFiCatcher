@@ -580,6 +580,11 @@ details.ent-tool[open] > summary::after { transform: rotate(90deg); }
 .ent-tool .iface-pick select { min-width: 0; }
 #eap-run-btn { margin-top: 8px; }
 #eap-stop-btn { margin-top: 8px; }
+/* While enumerating, the disabled Run button stays bright (solid danger red,
+   like the live-capture Stop button) instead of dimming to a dark maroon. */
+#eap-run-btn.busy, #eap-run-btn.busy:disabled {
+  opacity: 1; background: var(--danger); color: #2a0509; font-weight: 600;
+}
 /* EAP enumeration results: separate them from the Enumerate button, frame the
    list in a card, and offer export buttons like the RADIUS certificate. */
 #eap-enum-result { margin-top: 18px; }
