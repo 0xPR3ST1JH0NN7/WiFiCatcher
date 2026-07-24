@@ -68,14 +68,16 @@ class PrivClient:
                             if isinstance(resp, dict) else "malformed response")
         return resp.get("result", {})
 
-    def stream(self, op: str, **params: Any) -> Iterator[dict]:
+    def stream(self, op: str, on_socket=None, **params: Any) -> Iterator[dict]:
         """Run a streaming operation, yielding each event dict until it ends.
 
-        Closing the iterator disconnects, telling the warden to stop the
-        underlying work (e.g. kill airodump-ng).
+        Closing the iterator (or the socket, via ``on_socket``) disconnects,
+        telling the warden to stop the underlying work (e.g. kill airodump-ng).
         """
         sock = self._connect(timeout=None)
         sock.settimeout(None)                     # long-lived stream, no read timeout
+        if on_socket is not None:
+            on_socket(sock)                       # let a caller close it to stop early
         try:
             send_message(sock, {"op": op, "params": params})
             while True:

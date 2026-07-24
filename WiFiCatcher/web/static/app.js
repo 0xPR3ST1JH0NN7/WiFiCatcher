@@ -19,6 +19,7 @@ const API = {
       body: JSON.stringify(payload),
     }),
   eapStatus: () => fetchJSON("/api/operations/enterprise/eap-methods/status"),
+  eapStop: () => fetchJSON("/api/operations/enterprise/eap-methods/stop", { method: "POST" }),
   eapIdentitiesAll: () => fetchJSON("/api/operations/enterprise/eap-identities"),
   ensureMonitor: (iface) =>
     fetchJSON("/api/live/monitor", {
@@ -1335,14 +1336,29 @@ async function runEapEnum() {
 }
 
 // Toggle the "Enumerate EAP methods" button between idle and a disabled, spinning
-// "Enumerating EAP methods…" state.
+// "Enumerating EAP methods…" state, revealing the Stop button while it runs.
 function setEapButtonBusy(busy) {
   const btn = document.getElementById("eap-run-btn");
-  if (!btn) return;
-  btn.disabled = busy;
-  btn.innerHTML = busy
-    ? '<span class="spinner"></span>Enumerating EAP methods…'
-    : "Enumerate EAP methods";
+  if (btn) {
+    btn.disabled = busy;
+    btn.innerHTML = busy
+      ? '<span class="spinner"></span>Enumerating EAP methods…'
+      : "Enumerate EAP methods";
+  }
+  const stop = document.getElementById("eap-stop-btn");
+  if (stop) stop.classList.toggle("hidden", !busy);
+}
+
+// Cancel a running EAP enumeration: stop polling, reset the UI, and tell the
+// backend to close the stream (which makes the warden kill EAP_buster).
+async function stopEapEnum() {
+  clearTimeout(eapPollTimer);
+  eapRunning = false;
+  setEapButtonBusy(false);
+  const box = document.getElementById("eap-enum-result");
+  if (box) box.innerHTML = `<p class="hint">Enumeration stopped.</p>`;
+  try { await API.eapStop(); } catch (e) { /* best effort */ }
+  toast("EAP enumeration stopped", "ok");
 }
 
 let eapPollTimer = null;
@@ -1393,7 +1409,7 @@ function renderEapLive(st, iface, essid, t0) {
   box.innerHTML =
     `<p class="hint">${escapeHtml(essid || "")} on ${escapeHtml(iface)} · ${clock} elapsed · ` +
     `${(st.methods || []).length} tested. Each method is tried in turn.</p>` +
-    done;
+    (done ? `<div class="eap-result-card">${done}</div>` : "");
 }
 
 /* ----------------------------------------------------------- enterprise */
@@ -1671,6 +1687,7 @@ document.getElementById("eapid-open-btn").onclick = () =>
 // Fill the interface list + identity suggestions when the EAP enumeration tool is
 // expanded, and run the probe on demand.
 document.getElementById("eap-run-btn").onclick = runEapEnum;
+document.getElementById("eap-stop-btn").onclick = stopEapEnum;
 document.getElementById("eap-iface-refresh").onclick = () => fillEapInterfaces();
 document.getElementById("eap-enum-details").addEventListener("toggle", (e) => {
   if (e.target.open) refreshEapPanel();

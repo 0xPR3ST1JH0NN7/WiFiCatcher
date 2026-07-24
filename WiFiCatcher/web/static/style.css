@@ -579,6 +579,7 @@ details.ent-tool[open] > summary::after { transform: rotate(90deg); }
    let it shrink instead of holding the 150px min-width and pushing the button out. */
 .ent-tool .iface-pick select { min-width: 0; }
 #eap-run-btn { margin-top: 8px; }
+#eap-stop-btn { margin-top: 8px; }
 /* EAP enumeration results: separate them from the Enumerate button, frame the
    list in a card, and offer export buttons like the RADIUS certificate. */
 #eap-enum-result { margin-top: 18px; }

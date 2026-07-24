@@ -208,15 +208,25 @@ _EAP_LOCK = threading.Lock()
 # warden's eap.stream. A long-held HTTP request would time out, so the frontend polls.
 _EAP_STATE_LOCK = threading.Lock()
 _EAP_STATE: dict = {"running": False, "done": False, "stdout": "", "methods": [],
-                    "error": None, "essid": None, "interface": None}
+                    "error": None, "essid": None, "interface": None, "stopped": False}
+
+# The active EAP stream socket, so a stop request can close it (which makes the
+# warden kill EAP_buster). Set while a run streams, cleared when it ends.
+_EAP_SOCK = None
+
+
+def _set_eap_sock(sock) -> None:
+    global _EAP_SOCK
+    _EAP_SOCK = sock
 
 
 def _run_eap_stream(iface: str, essid: str, identity: str) -> None:
     """Consume the warden's eap.stream in a background thread, updating _EAP_STATE."""
+    global _EAP_SOCK
     try:
         stream = PrivClient(timeout=None).stream(
-            "eap.stream", iface=iface, essid=essid, identity=identity,
-            acknowledged=True)
+            "eap.stream", on_socket=_set_eap_sock, iface=iface, essid=essid,
+            identity=identity, acknowledged=True)
         for event in stream:
             if "line" in event:
                 with _EAP_STATE_LOCK:
@@ -224,13 +234,12 @@ def _run_eap_stream(iface: str, essid: str, identity: str) -> None:
             elif event.get("done"):
                 with _EAP_STATE_LOCK:
                     _EAP_STATE["methods"] = event.get("methods", [])
-    except (PrivError, PrivUnavailable) as exc:
+    except Exception as exc:                       # a stop closes the socket mid-read
         with _EAP_STATE_LOCK:
-            _EAP_STATE["error"] = str(exc)
-    except Exception as exc:                       # never leave the lock held
-        with _EAP_STATE_LOCK:
-            _EAP_STATE["error"] = str(exc)
+            if not _EAP_STATE.get("stopped"):
+                _EAP_STATE["error"] = str(exc)
     finally:
+        _EAP_SOCK = None
         with _EAP_STATE_LOCK:
             _EAP_STATE["running"] = False
             _EAP_STATE["done"] = True
@@ -352,11 +361,27 @@ def operations_enterprise_eap_start(req: EapMethodsRequest):
     with _EAP_STATE_LOCK:
         _EAP_STATE.update({"running": True, "done": False, "stdout": "",
                            "methods": [], "error": None, "essid": req.essid,
-                           "interface": interface})
+                           "interface": interface, "stopped": False})
     threading.Thread(target=_run_eap_stream,
                      args=(interface, req.essid, req.identity),
                      daemon=True).start()
     return {"status": "started", "essid": req.essid, "interface": interface}
+
+
+@router.post("/operations/enterprise/eap-methods/stop")
+def operations_enterprise_eap_stop():
+    """Stop a running EAP enumeration by closing its stream, which makes the
+    warden kill EAP_buster. A no-op when nothing is running."""
+    global _EAP_SOCK
+    with _EAP_STATE_LOCK:
+        _EAP_STATE["stopped"] = True
+    sock, _EAP_SOCK = _EAP_SOCK, None
+    if sock is not None:
+        try:
+            sock.close()
+        except OSError:
+            pass
+    return {"stopped": True}
 
 
 @router.get("/operations/enterprise/eap-identities")
