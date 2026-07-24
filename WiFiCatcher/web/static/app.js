@@ -1623,6 +1623,7 @@ document.getElementById("eapid-open-btn").onclick = () =>
 // Fill the interface list + identity suggestions when the EAP enumeration tool is
 // expanded, and run the probe on demand.
 document.getElementById("eap-run-btn").onclick = runEapEnum;
+document.getElementById("eap-iface-refresh").onclick = () => fillEapInterfaces();
 document.getElementById("eap-enum-details").addEventListener("toggle", (e) => {
   if (e.target.open) refreshEapPanel();
 });

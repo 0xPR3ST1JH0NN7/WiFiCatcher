@@ -575,6 +575,9 @@ details.ent-tool[open] > summary::after { transform: rotate(90deg); }
 .ent-body { padding-top: 8px; }
 .ent-tool .filter-row { margin: 8px 0; }
 .ent-tool .mini-input, .ent-tool select { min-width: 150px; }
+/* In the interface picker the select shares the row with the rescan button, so
+   let it shrink instead of holding the 150px min-width and pushing the button out. */
+.ent-tool .iface-pick select { min-width: 0; }
 #eap-run-btn { margin-top: 8px; }
 
 /* Read EAP identities: space them from the Import button, drop the trailing row
