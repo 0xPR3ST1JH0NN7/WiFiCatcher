@@ -1455,6 +1455,8 @@ function parseDN(dn) {
 
 // The most recently rendered certificate, kept so it can be exported.
 let lastCert = null;
+// The most recently enumerated EAP methods, kept so they can be exported.
+let lastEap = null;
 
 function renderCert(res) {
   if (res.status === "empty" || !res.certificates || !res.certificates.length) {
@@ -1543,11 +1545,11 @@ function exportCertTxt(res) {
   toast("Certificate exported (.txt)", "ok");
 }
 
-// Draw the certificate text onto a canvas and save it as a PNG. Rendering the
-// text ourselves keeps the canvas untainted — no external capture library.
-function exportCertImage(res) {
-  if (!res) return;
-  const lines = certToText(res).split("\n");
+// Draw plain text onto a canvas and save it as a PNG. Rendering the text
+// ourselves keeps the canvas untainted — no external capture library. Shared by
+// the certificate and EAP-methods exports.
+function saveTextImage(text, fileBase, okMsg) {
+  const lines = text.split("\n");
   const css = getComputedStyle(document.documentElement);
   const pick = (name, fallback) => (css.getPropertyValue(name) || fallback).trim();
   const bg = pick("--panel-2", "#140e0e");
@@ -1576,25 +1578,71 @@ function exportCertImage(res) {
     ctx.fillText(l, pad, pad + i * lineH);
   });
   canvas.toBlob((blob) => {
-    if (!blob) return toast("Could not render certificate image", "error");
-    downloadBlob(blob, certFileBase() + ".png");
-    toast("Certificate image saved", "ok");
+    if (!blob) return toast("Could not render image", "error");
+    downloadBlob(blob, fileBase + ".png");
+    toast(okMsg, "ok");
   }, "image/png");
+}
+
+function exportCertImage(res) {
+  if (res) saveTextImage(certToText(res), certFileBase(), "Certificate image saved");
+}
+
+/* ------------------------------------------------- EAP methods export */
+function eapFileBase() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `eap-methods-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}` +
+         `-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
+
+// Flatten enumerated EAP methods into plain, copy-pasteable text.
+function eapToText(res) {
+  if (!res) return "";
+  const rank = { yes: 0, maybe: 1, no: 2 };
+  const methods = (res.methods || []).slice()
+    .sort((a, b) => (rank[a.supported] ?? 3) - (rank[b.supported] ?? 3));
+  const lines = [`EAP methods: ${res.essid || ""}`, "=".repeat(42)];
+  methods.forEach((m) => lines.push(`  ${m.method}: ${m.supported}`));
+  return lines.join("\n");
+}
+
+function exportEapTxt(res) {
+  if (!res) return;
+  downloadBlob(new Blob([eapToText(res)], { type: "text/plain;charset=utf-8" }),
+               eapFileBase() + ".txt");
+  toast("EAP methods exported (.txt)", "ok");
+}
+
+function exportEapImage(res) {
+  if (res) saveTextImage(eapToText(res), eapFileBase(), "EAP methods image saved");
 }
 
 function renderEap(res) {
   const box = document.getElementById("eap-enum-result");
   if (!box) return;
+  lastEap = res;
   const rank = { yes: 0, maybe: 1, no: 2 };
   const dot = (s) => (s === "yes" ? "🟢" : s === "maybe" ? "🟡" : "⚪");
   const methods = (res.methods || []).slice()
     .sort((a, b) => (rank[a.supported] ?? 3) - (rank[b.supported] ?? 3));
-  box.innerHTML = `<h4>EAP methods: ${escapeHtml(res.essid || "")}</h4>` +
+  box.innerHTML =
+    `<h4>EAP methods: ${escapeHtml(res.essid || "")}</h4>` +
+    `<div class="eap-result-card">` +
     methods
       .map((m) =>
         `<div class="detail-row"><span class="k">${dot(m.supported)} ${escapeHtml(m.method)}</span>` +
         `<span class="v">${escapeHtml(m.supported)}</span></div>`)
-      .join("");
+      .join("") +
+    `</div>` +
+    `<div class="eap-actions">
+       <button class="btn" id="eap-copy">Copy text</button>
+       <button class="btn" id="eap-txt">Export .txt</button>
+       <button class="btn" id="eap-img">Save image</button>
+     </div>`;
+  document.getElementById("eap-copy").onclick = () => copyText(eapToText(lastEap));
+  document.getElementById("eap-txt").onclick = () => exportEapTxt(lastEap);
+  document.getElementById("eap-img").onclick = () => exportEapImage(lastEap);
 }
 
 // Inspect the RADIUS certificate from a locally-picked .cap (offline, no root).
