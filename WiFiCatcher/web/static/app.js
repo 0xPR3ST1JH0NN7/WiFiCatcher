@@ -1315,15 +1315,24 @@ async function runEapEnum() {
   };
   eapRunning = true;
   setEapButtonBusy(true);
-  // EAP_buster needs the adapter in monitor mode (NM-free). If it's the live capture's
-  // monitor vif, stop keeping monitor; else switch to monitor if not already.
+  // EAP_buster needs the adapter in monitor mode. Match the running live capture
+  // by either name (base wlan0 or its monitor vif wlan0mon), so picking that same
+  // adapter is caught here and not sent through ensureMonitor again.
+  const isCaptureAdapter =
+    live.running && (iface === live.monitorIface || iface === live.iface);
+  const alreadyMonitor =
+    !!sel.selectedOptions[0] && sel.selectedOptions[0].dataset.mode === "monitor";
   let monIface = iface;
   try {
-    if (live.running && iface === live.monitorIface) {
-      toast("Stopping capture, keeping monitor mode for EAP…");
+    if (isCaptureAdapter) {
+      // Same radio as the capture: it is already in monitor, so free it by
+      // stopping the capture and reuse its monitor interface (no re-enable).
+      toast("Stopping live capture to reuse this adapter for EAP…");
       await stopLive({ silent: true, eapBase: live.iface });
       monIface = live.eapMonitorIface || iface;
-    } else if (!sel.selectedOptions[0] || sel.selectedOptions[0].dataset.mode !== "monitor") {
+    } else if (!alreadyMonitor) {
+      // A different adapter (or none capturing): enable monitor if needed. Any
+      // capture on another adapter keeps running.
       toast("Enabling monitor mode…");
       monIface = (await API.ensureMonitor(iface)).interface || iface;
     }
