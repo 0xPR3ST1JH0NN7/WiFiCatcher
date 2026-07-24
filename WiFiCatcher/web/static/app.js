@@ -1993,11 +1993,9 @@ function refreshLiveButtons() {
   const rep = document.getElementById("replay-toggle");
   const replaying = running && mode === "replay";
   // No capture loaded → imports; capture loaded → replays; replaying → stops.
-  // "primary" only in the import state, to flag it as the way in.
   const importMode = !replaying && !live.loaded;
   rep.textContent = replaying ? "Stop replay" : importMode ? "Import capture" : "Replay capture";
   rep.classList.toggle("danger", replaying);
-  rep.classList.toggle("primary", importMode);
   // Locked only while a live airodump capture owns the session; importing or
   // replaying is otherwise always available.
   rep.disabled = capturing;
