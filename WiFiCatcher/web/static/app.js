@@ -1004,10 +1004,12 @@ function showDetails(info) {
   // live tick rebuilds) — otherwise opening it would snap shut on the next refresh.
   const advisor = isAp ? attackAdvisorHtml(info) : "";
 
-  body.innerHTML = `
+  // Header (badges + name) stays pinned; only the body below it scrolls.
+  document.getElementById("details-header").innerHTML = `
     <span class="kind-badge ${info.kind}">${isAp ? "Access Point" : "Client"}</span>
     ${techBadge}
-    <h3>${escapeHtml(title)}</h3>
+    <h3>${escapeHtml(title)}</h3>`;
+  body.innerHTML = `
     <div id="detail-fields">${buildDetailFields(info)}</div>
     <div class="actions">
       <button class="btn" id="neighbors-btn">Highlight neighbors</button>
