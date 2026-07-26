@@ -3,7 +3,7 @@
   <p><em>A simplified tool for a fast Wi-Fi assessment, and an easy starting point for beginners.</em></p>
 </div>
 
-WiFiCatcher is an open-source tool for Wi-Fi reconnaissance. It brings the best-known tools (`airodump-ng`, `aireplay-ng`, `tshark`, `EAP_buster`) together behind a single visual interface, turning the wall of text they produce into an interactive map: every access point and client is a node, every association an edge.
+WiFiCatcher is an open-source tool for Wi-Fi reconnaissance. From a functional standpoint, the project is built on tools already established in the pentesting field, such as `airodump-ng`, `aireplay-ng`, `tshark` and `EAP_buster`. Instead of a traditional scrolling wall of text, the network is turned into an interactive map. Every access point and every client becomes a node, and every client-AP association becomes an edge.
 
 <div align="center">
   <img src="assets/hero.png" alt="WiFiCatcher graph view" width="760"/>
@@ -11,11 +11,11 @@ WiFiCatcher is an open-source tool for Wi-Fi reconnaissance. It brings the best-
 
 ## 🏗️ Architecture
 
-The app is split into two parts. The main **WiFiCatcher** app always runs as a normal, unprivileged user: a **FastAPI** backend (served by `uvicorn`, listening locally only) plus a browser frontend that draws the graph with **Cytoscape.js** (fCoSE layout). The few operations that need root, such as monitor mode, running `airodump-ng` and `aireplay-ng`, and restoring NetworkManager, are handed off to a small separate component, the **warden**. You install it once as a systemd socket-activated service, and from then on the system starts it on demand, so the app never runs as root. External tools are driven, not reimplemented or bundled: you install them and WiFiCatcher runs them as separate programs.
+The application is split into two separate components. The main WiFiCatcher app always runs with the permissions of the user who starts it. The few operations that require root access are handed off to a small separate service called the warden. You install it once as a systemd socket-activated service, and from then on the operating system starts it on demand only when network hardware access is truly needed. This ensures the main application never has to run as root.
 
 ## 📡 Hardware requirements
 
-Live capture and deauthentication need a Wi-Fi adapter that supports monitor mode and packet injection, which many built-in laptop adapters do not; a compatible external adapter is usually the safe choice. Everything else works on any machine, since it reads a capture file rather than the radio.
+To fully utilize the live capture and deauthentication features, you will need a compatible Wi-Fi adapter that explicitly supports both monitor mode and packet injection. On the other hand, all the remaining functionalities are completely hardware-independent. Since they rely on reading pre-existing capture files, you can run them on any standard machine without requiring specialized networking equipment.
 
 ## 📥 Installation
 
@@ -62,7 +62,7 @@ Licensed under the MIT License; see [LICENSE](LICENSE). The MIT license covers W
 
 ## 📦 Third-party software
 
-WiFiCatcher drives well-known tools such as aircrack-ng, Wireshark's `tshark` and `wpa_supplicant`. You install those yourself and WiFiCatcher runs them as separate programs, so their licenses stay with them. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the full list.
+WiFiCatcher drives several well-known external tools. You install those yourself and WiFiCatcher runs them as separate programs, so their licenses stay with them. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the full list.
 
 ## 👥 Authors
 
