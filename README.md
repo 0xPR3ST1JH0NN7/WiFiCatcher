@@ -58,7 +58,7 @@ For WPA-Enterprise networks WiFiCatcher gives you three tools: export the RADIUS
 
 ## ⚖️ License
 
-Licensed under the MIT License; see [LICENSE](LICENSE). The MIT license covers WiFiCatcher's own code only.
+Licensed under the MIT License. See [LICENSE](LICENSE). The MIT license covers WiFiCatcher's own code only.
 
 ## 📦 Third-party software
 
