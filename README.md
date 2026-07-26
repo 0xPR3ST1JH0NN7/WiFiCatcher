@@ -40,8 +40,6 @@ sudo ./packaging/install-warden.sh
 .venv/bin/python -m WiFiCatcher      # http://127.0.0.1:8000
 ```
 
-At startup WiFiCatcher runs a small preflight and checks the warden is reachable: if it is missing, it refuses to start and points you back to the installer. Press **Enter** (or `Ctrl+C`) in the terminal to stop.
-
 ## ✨ What it does
 
 WiFiCatcher is built around three ways of working. Whichever you use, the results share the same views: an interactive graph, a sortable and searchable table for busier scans, per-node details, and filters by type, encryption or channel.
