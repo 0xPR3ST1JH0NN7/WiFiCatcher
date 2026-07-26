@@ -5,6 +5,8 @@
 
 WiFiCatcher is an open-source tool for Wi-Fi reconnaissance. From a functional standpoint, the project is built on tools already established in the pentesting field, such as `airodump-ng`, `aireplay-ng`, `tshark` and `EAP_buster`. Instead of a traditional scrolling wall of text, the network is turned into an interactive map. Every access point and every client becomes a node, and every client-AP association becomes an edge.
 
+> 📖 A full write-up of the project is available on my website: **[the WiFiCatcher article](https://williamprestigiovanni.com/article/2026/07/26/wificatcher/)**.
+
 <div align="center">
   <img src="assets/hero.png" alt="WiFiCatcher graph view" width="760"/>
 </div>
