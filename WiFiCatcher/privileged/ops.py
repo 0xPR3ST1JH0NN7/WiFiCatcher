@@ -232,8 +232,9 @@ def _capture_stream(params: dict):
             if caps and tick % 4 == 0:
                 try:
                     out = subprocess.run(
-                        ["tshark", "-r", caps[-1], "-Y", "eapol",
-                         "-T", "fields", "-e", "wlan.bssid"],
+                        ["tshark", "-r", caps[-1], "-Y", "eapol.type == 3",
+                         "-T", "fields", "-e", "wlan.bssid",
+                         "-e", "wlan_rsna_eapol.keydes.msgnr"],
                         capture_output=True, text=True, timeout=15,
                         check=False).stdout
                     for bssid in parse_handshakes(out) - seen_hs:
