@@ -2132,12 +2132,18 @@ function handleLiveMessage(msg) {
 function markHandshake(msg) {
   const node = cy.getElementById(msg.bssid);
   const name = msg.essid || msg.bssid;
+  let where = "";
   if (node.nonempty()) {
     node.data("hsLabel", "🔑 " + (node.data("label") || msg.bssid));
     node.addClass("has-handshake");
+    // Show the AP's own channel: in 2.4 GHz the channels overlap (only 1/6/11
+    // don't), so a capture locked to one channel still hears its neighbours,
+    // and the handshake may belong to an AP on a nearby channel.
+    const ch = node.data("channel");
+    if (ch) where = ` (channel ${ch})`;
   }
   celebrateCat();   // cat + key hop 5 times on every captured WPA handshake
-  toast(`WPA handshake captured: ${name}`, "ok");
+  toast(`WPA handshake captured: ${name}${where}`, "ok");
 }
 
 function markCert(msg) {
