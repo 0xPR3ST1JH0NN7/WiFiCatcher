@@ -172,8 +172,8 @@ const cy = cytoscape({
       // A client that presented an EAP identity: mark it and show the username
       // under its own label, so it is clear which station authenticated as whom.
       selector: "node.has-eap-id",
-      style: { "border-color": "#34d399", "border-width": 4,
-               label: "data(eapLabel)", "text-wrap": "wrap", "font-weight": "bold" },
+      style: { label: "data(eapLabel)", "text-wrap": "wrap",
+               "line-height": 1.7, "font-weight": "bold" },
     },
     { selector: ".hidden-node", style: { display: "none" } },
     {
@@ -750,6 +750,8 @@ function buildDetailFields(info) {
     rowCopy("MAC", info.id);
     row("Vendor", info.vendor);
     rowCopy("Associated to", info.associated_bssid);
+    // Username this station presented in its EAP Response/Identity, captured live.
+    if (eapByClient[info.id]) rowCopy("EAP identity", eapByClient[info.id]);
     row("Signal", info.power != null ? `${info.power} dBm` : null);
     row("Packets", info.packets);
     row("First seen", info.first_seen);
