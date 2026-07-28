@@ -168,6 +168,13 @@ const cy = cytoscape({
       style: { "border-color": "#fbbf24", "border-width": 5,
                label: "data(hsLabel)", "font-weight": "bold" },
     },
+    {
+      // A client that presented an EAP identity: mark it and show the username
+      // under its own label, so it is clear which station authenticated as whom.
+      selector: "node.has-eap-id",
+      style: { "border-color": "#34d399", "border-width": 4,
+               label: "data(eapLabel)", "text-wrap": "wrap", "font-weight": "bold" },
+    },
     { selector: ".hidden-node", style: { display: "none" } },
     {
       selector: "node:selected",
@@ -2166,8 +2173,19 @@ function markCert(msg) {
 function markEapIdentity(msg) {
   const name = msg.essid || msg.bssid;
   toast(`EAP identity captured on ${name}: ${msg.identity}`, "ok");
-  // Refresh the AP panel if it is open so the captured identity shows there too.
+  // Tag the client (station) that presented the username, so the graph shows
+  // which node authenticated as whom, not just that the AP saw an identity.
+  if (msg.client) {
+    const cnode = cy.getElementById(msg.client);
+    if (cnode.nonempty()) {
+      cnode.data("eapUser", msg.identity);
+      cnode.data("eapLabel", (cnode.data("label") || msg.client) + "\n👤 " + msg.identity);
+      cnode.addClass("has-eap-id");
+    }
+  }
+  // Refresh an open panel (the AP's, or the client's) so the identity shows there too.
   if (detailNodeId === msg.bssid) openNode(msg.bssid);
+  if (msg.client && detailNodeId === msg.client) openNode(msg.client);
 }
 
 function openLiveSocket() {

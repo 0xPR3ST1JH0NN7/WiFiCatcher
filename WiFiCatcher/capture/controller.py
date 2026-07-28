@@ -131,7 +131,7 @@ class CaptureController:
         self._certs: dict[str, list] = {}
         self._seen_certs: set[str] = set()
         self._eap_ids: dict[str, list] = {}
-        self._seen_eap: set[str] = set()
+        self._seen_eap: set = set()
         self.running = False
         self.mode: Optional[str] = None
         # Where the most recent capture was kept, if "save" was requested.
@@ -271,7 +271,11 @@ class CaptureController:
         return self._certs.get((bssid or "").upper())
 
     async def _poll_eap_identities(self) -> None:
-        """Pull EAP Response/Identity usernames from the source; announce each once."""
+        """Pull EAP Response/Identity usernames from the source; announce each once.
+
+        Each announcement carries the client (station) that presented the
+        username, so the UI can tag the node that authenticated, not just the AP.
+        """
         getter = getattr(self._source, "eap_identities", None)
         if not callable(getter):
             return
@@ -280,15 +284,19 @@ class CaptureController:
         except Exception:
             return
         for bssid, ids in self._eap_ids.items():
-            if bssid in self._seen_eap or not ids:
-                continue
-            self._seen_eap.add(bssid)
             node = self._graph.node(bssid)
             essid = node.get("essid") if node else None
-            await self._broadcast({
-                "type": "eap_identity", "bssid": bssid, "essid": essid,
-                "identity": ids[0].get("identity"),
-            })
+            for entry in ids or []:
+                identity = entry.get("identity")
+                client = entry.get("client")
+                key = (bssid, client, identity)
+                if not identity or key in self._seen_eap:
+                    continue
+                self._seen_eap.add(key)
+                await self._broadcast({
+                    "type": "eap_identity", "bssid": bssid, "essid": essid,
+                    "identity": identity, "client": client,
+                })
 
     def eap_identities(self, bssid: str):
         """EAP Response/Identity usernames captured live for an AP, if any."""
