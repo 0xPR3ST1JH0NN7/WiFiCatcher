@@ -5,7 +5,7 @@ parser returns.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from typing import Optional
 
 
@@ -76,11 +76,4 @@ class Scan:
             "clients": len(self.clients),
             "associated_clients": associated,
             "hidden_aps": sum(1 for ap in self.access_points if ap.is_hidden),
-        }
-
-    def to_dict(self) -> dict:
-        return {
-            "access_points": [asdict(ap) for ap in self.access_points],
-            "clients": [asdict(c) for c in self.clients],
-            "summary": self.summary(),
         }

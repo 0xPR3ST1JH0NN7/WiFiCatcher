@@ -1,7 +1,7 @@
 """Live capture: stream a scan into the graph in real time."""
 
 from WiFiCatcher.capture.controller import CaptureController, diff_elements
-from WiFiCatcher.capture.handshake import HandshakeWatcher, parse_handshakes
+from WiFiCatcher.capture.handshake import parse_handshakes
 from WiFiCatcher.capture.interfaces import (
     MonitorHandle,
     ensure_monitor_mode,
@@ -30,7 +30,6 @@ __all__ = [
     "WardenAirodumpSource",
     "WardenHandshakeWatcher",
     "WardenWpsWatcher",
-    "HandshakeWatcher",
     "parse_handshakes",
     "WpsWatcher",
     "parse_wps",

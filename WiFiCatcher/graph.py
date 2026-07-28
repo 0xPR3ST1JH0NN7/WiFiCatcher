@@ -9,7 +9,7 @@ from typing import Optional
 
 import networkx as nx
 
-from WiFiCatcher.models import AccessPoint, Client, Scan
+from WiFiCatcher.models import AccessPoint, Scan
 
 
 def _is_enterprise(data: dict) -> bool:
