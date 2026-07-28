@@ -262,6 +262,7 @@ function renderGraph(payload) {
   cy.elements().remove();
   cy.add(nodes);
   cy.add(payload.elements.edges);
+  applyEapTags();
   applyFilters();
   runLayout(); // fits (with zoom cap) once the layout settles
   setEmptyState(cy.nodes().length === 0);
@@ -2071,6 +2072,7 @@ function applyPatch(p) {
     });
   });
   recomputeUnassoc();
+  applyEapTags();
   applyFilters();
   if (p.summary) updateStats(p.summary);
   setEmptyState(cy.nodes().length === 0);
@@ -2156,9 +2158,7 @@ function markHandshake(msg) {
     // exchange, not a passphrase, so this 4-way handshake cannot be cracked
     // offline like a PSK one. Note it plainly, without the "captured" fanfare,
     // and point at the tools that are actually useful on enterprise.
-    toast(`Enterprise 4-way handshake seen: ${name}${where}. 802.1X keys come `
-        + `from RADIUS, so it can't be cracked offline; use the certificate / `
-        + `identities tools.`, "info");
+    toast(`Enterprise 4-way handshake seen: ${name}${where} (802.1X, not crackable offline)`, "info");
     return;
   }
   celebrateCat();   // cat + key hop 5 times on every captured WPA handshake
@@ -2170,22 +2170,35 @@ function markCert(msg) {
   toast(`RADIUS certificate captured: ${name}. Open the AP to read it.`, "ok");
 }
 
+// Captured EAP identities by client MAC. Re-applied on every graph change so a
+// client that appears (or reappears) after its identity was seen still gets the
+// tag, instead of losing it to event/node-creation ordering.
+const eapByClient = {};
+
+function tagEapClient(client, identity) {
+  const cnode = cy.getElementById(client);
+  if (cnode.nonempty()) {
+    cnode.data("eapUser", identity);
+    cnode.data("eapLabel", (cnode.data("label") || client) + "\n👤 " + identity);
+    cnode.addClass("has-eap-id");
+  }
+}
+
+function applyEapTags() {
+  for (const client in eapByClient) tagEapClient(client, eapByClient[client]);
+}
+
 function markEapIdentity(msg) {
   const name = msg.essid || msg.bssid;
   toast(`EAP identity captured on ${name}: ${msg.identity}`, "ok");
   // Tag the client (station) that presented the username, so the graph shows
   // which node authenticated as whom, not just that the AP saw an identity.
   if (msg.client) {
-    const cnode = cy.getElementById(msg.client);
-    if (cnode.nonempty()) {
-      cnode.data("eapUser", msg.identity);
-      cnode.data("eapLabel", (cnode.data("label") || msg.client) + "\n👤 " + msg.identity);
-      cnode.addClass("has-eap-id");
-    }
+    eapByClient[msg.client] = msg.identity;
+    tagEapClient(msg.client, msg.identity);
+    if (detailNodeId === msg.client) openNode(msg.client);
   }
-  // Refresh an open panel (the AP's, or the client's) so the identity shows there too.
   if (detailNodeId === msg.bssid) openNode(msg.bssid);
-  if (msg.client && detailNodeId === msg.client) openNode(msg.client);
 }
 
 function openLiveSocket() {
