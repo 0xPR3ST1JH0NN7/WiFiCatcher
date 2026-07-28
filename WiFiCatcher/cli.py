@@ -36,7 +36,7 @@ def _banner() -> str:
 
 def print_banner() -> None:
     sys.stdout.write(_paint(_banner(), _RED))
-    sys.stdout.write(_paint(f"  WiFi recon, mapped.  v{__version__}\n\n", _DIM))
+    sys.stdout.write(_paint(f"  WiFiCatcher v{__version__}  ·  WiFi recon, mapped.\n\n", _DIM))
 
 
 def _install_stdin_quit() -> None:
