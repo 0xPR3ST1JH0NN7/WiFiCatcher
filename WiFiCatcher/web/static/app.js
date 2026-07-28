@@ -2133,6 +2133,7 @@ function markHandshake(msg) {
   const node = cy.getElementById(msg.bssid);
   const name = msg.essid || msg.bssid;
   let where = "";
+  let enterprise = false;
   if (node.nonempty()) {
     node.data("hsLabel", "🔑 " + (node.data("label") || msg.bssid));
     node.addClass("has-handshake");
@@ -2141,6 +2142,17 @@ function markHandshake(msg) {
     // and the handshake may belong to an AP on a nearby channel.
     const ch = node.data("channel");
     if (ch) where = ` (channel ${ch})`;
+    enterprise = apTech(node.data()) === "enterprise";
+  }
+  if (enterprise) {
+    // WPA-Enterprise (802.1X) derives its session key from the RADIUS/EAP
+    // exchange, not a passphrase, so this 4-way handshake cannot be cracked
+    // offline like a PSK one. Note it plainly, without the "captured" fanfare,
+    // and point at the tools that are actually useful on enterprise.
+    toast(`Enterprise 4-way handshake seen: ${name}${where}. 802.1X keys come `
+        + `from RADIUS, so it can't be cracked offline; use the certificate / `
+        + `identities tools.`, "info");
+    return;
   }
   celebrateCat();   // cat + key hop 5 times on every captured WPA handshake
   toast(`WPA handshake captured: ${name}${where}`, "ok");
