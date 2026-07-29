@@ -40,7 +40,7 @@ sudo ./packaging/install-warden.sh
 
 ```bash
 # After activating virtual env
-python -m WiFiCatcher      # http://127.0.0.1:8000
+python -m WiFiCatcher
 ```
 
 ## ✨ What it does
