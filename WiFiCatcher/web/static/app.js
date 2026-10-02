@@ -141,7 +141,7 @@ const cy = cytoscape({
       // OWE ("enhanced open") reports as "WPA3 ... OWE", so it would otherwise take
       // the WPA3-SAE icon; match on authentication to give it its own, after WPA3.
       selector: 'node[kind = "ap"][authentication *= "OWE"]',
-      style: { "background-image": "/static/img/node-ap-owe.svg?v=1" },
+      style: { "background-image": "/static/img/node-ap-owe.svg?v=2" },
     },
     {
       selector: 'node[kind = "ap"][?enterprise]',
