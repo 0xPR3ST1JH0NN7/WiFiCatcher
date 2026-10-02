@@ -812,6 +812,7 @@ details.ent-tool[open] > summary::after { transform: rotate(90deg); }
 .tech-badge.tech-wep { background: rgba(52,211,153,.15); color: #34d399; }
 .tech-badge.tech-open { background: rgba(255,255,255,.12); color: #e6edf3; }
 .tech-badge.tech-wpa3 { background: rgba(56,189,248,.15); color: #38bdf8; }
+.tech-badge.tech-owe { background: rgba(45,212,191,.15); color: #2dd4bf; }
 .tech-badge.tech-ent { background: rgba(167,139,250,.15); color: #a78bfa; }
 #enterprise-result, #cert-modal-body { margin-top: 12px; }
 #enterprise-result h4, #cert-modal-body h4 { margin: 14px 0 6px; font-size: 14px; }

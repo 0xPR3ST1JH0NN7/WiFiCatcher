@@ -138,6 +138,12 @@ const cy = cytoscape({
       style: { "background-image": "/static/img/node-ap-wpa3.svg?v=1" },
     },
     {
+      // OWE ("enhanced open") reports as "WPA3 ... OWE", so it would otherwise take
+      // the WPA3-SAE icon; match on authentication to give it its own, after WPA3.
+      selector: 'node[kind = "ap"][authentication *= "OWE"]',
+      style: { "background-image": "/static/img/node-ap-owe.svg?v=1" },
+    },
+    {
       selector: 'node[kind = "ap"][?enterprise]',
       style: { "background-image": "/static/img/node-ap-enterprise.svg?v=1" },
     },
@@ -279,9 +285,13 @@ function updateStats(s) {
 
 // Canonical WiFi technology token for an AP. Pure WPA3 (SAE only) is kept
 // distinct from a WPA2/WPA3 transition network, since they don't share attacks.
+// OWE ("enhanced open") is detected by its authentication, not its privacy:
+// airodump reports an OWE BSS as "WPA3 ... OWE", so a privacy check alone would
+// mislabel it as plain WPA3-SAE even though they have different attack paths.
 function apTech(d) {
   const priv = (d.privacy || "").toUpperCase();
   if (d.enterprise || priv.includes("MGT")) return "enterprise";
+  if ((d.authentication || "").toUpperCase().includes("OWE")) return "owe";
   if (priv.includes("WEP")) return "wep";
   const wpa3 = priv.includes("WPA3");
   const wpa2 = priv.includes("WPA2") || (priv.includes("WPA") && !wpa3);
@@ -293,11 +303,11 @@ function apTech(d) {
 }
 
 const TECH_LABEL = {
-  enterprise: "WPA2-Enterprise", wep: "WEP", wpa3: "WPA3",
+  enterprise: "WPA2-Enterprise", wep: "WEP", wpa3: "WPA3-SAE", owe: "WPA3-OWE",
   "wpa2-wpa3": "WPA2/WPA3", "wpa-psk": "WPA/WPA2-PSK", open: "Open",
 };
 const TECH_BADGE_CLASS = {
-  enterprise: "ent", wep: "wep", wpa3: "wpa3", "wpa-psk": "psk", open: "open",
+  enterprise: "ent", wep: "wep", wpa3: "wpa3", owe: "owe", "wpa-psk": "psk", open: "open",
 };
 
 // User-facing technology label for the graph filter (groups real technology
@@ -321,7 +331,7 @@ function techKeysFor(info) {
   const t = apTech(info);
   if (t === "wpa2-wpa3") return ["wpa-psk", "wpa3"];
   if (t === "enterprise") return ["wpa-enterprise"];
-  return ["wep", "wpa3", "wpa-psk", "open"].includes(t) ? [t] : [];
+  return ["wep", "wpa3", "owe", "wpa-psk", "open"].includes(t) ? [t] : [];
 }
 
 // [{key, data}] of every attack-data set that applies to this AP.
@@ -842,10 +852,31 @@ const ATTACK_DATA = {
     ],
   },
   "wpa3": {
-    family: "WPA3",
+    family: "WPA3-SAE",
     nodes: [
-      {"id": "root", "parent": null, "label": "WPA3", "kind": "root"},
-      {"id": "g_soon", "parent": "root", "label": "Coming soon", "kind": "goal"},
+      {"id": "root", "parent": null, "label": "WPA3-SAE", "kind": "root"},
+      {"id": "g_pw", "parent": "root", "label": "Recover the passphrase", "kind": "goal"},
+      {"id": "downgrade", "parent": "g_pw", "label": "SAE Downgrade Attack", "kind": "attack", "desc": "When the network runs in WPA2/WPA3 transition mode, a WPA2-PSK rogue AP lures clients into a 4-way handshake. Because the passphrase is shared between the WPA2 and SAE BSS, cracking that handshake offline yields a key valid for the WPA3 network too."},
+      {"id": "half", "parent": "downgrade", "label": "Half-handshake capture", "kind": "attack", "desc": "Only messages 1 and 2 of the 4-way handshake are needed to begin cracking; without messages 3 and 4 the result is a password candidate, confirmed with a quick online check."},
+      {"id": "online", "parent": "g_pw", "label": "Online brute-forcing", "kind": "attack", "desc": "Against an SAE-only network the Dragonfly handshake cannot be cracked offline, so each candidate password is tested live against the AP. Practical only for weak passwords, and slow and detectable."},
+      {"id": "g_twin", "parent": "root", "label": "Impersonate the network", "kind": "goal"},
+      {"id": "collider", "parent": "g_twin", "label": "SAE Collider Evil Twin Attack", "kind": "attack", "desc": "WPA3 mandates Protected Management Frames, so deauth is blocked. A WPA2-PSK rogue AP cloning the BSSID answers clients aggressively (Loud MANA) to cause a collision and deny service, while a paired open AP lures them to connect manually to a captive portal."},
+      {"id": "twin", "parent": "g_twin", "label": "SAE Evil Twin Attack", "kind": "attack", "desc": "Once the passphrase is known, a rogue AP with the same ESSID/BSSID and SAE configuration lets clients connect normally, opening the way to a man-in-the-middle against them."},
+      {"id": "mitm", "parent": "twin", "label": "Man in the Middle", "kind": "attack", "desc": "With clients on the rogue AP, their traffic is relayed through the attacker, who can read or alter it."},
+      {"id": "g_dos", "parent": "root", "label": "Denial of service", "kind": "goal"},
+      {"id": "dos", "parent": "g_dos", "label": "SAE DoS attacks", "kind": "attack", "desc": "The SAE (Dragonfly) handshake is CPU-intensive, so flooding an AP with commit frames (SAE-flooding / Dragondrain), together with PMF and beacon CSA/bandwidth DoS, can exhaust it. Resilience testing only."},
+    ],
+  },
+  "owe": {
+    family: "WPA3-OWE",
+    nodes: [
+      {"id": "root", "parent": null, "label": "WPA3-OWE", "kind": "root"},
+      {"id": "g_twin", "parent": "root", "label": "Impersonate the network", "kind": "goal"},
+      {"id": "twin", "parent": "g_twin", "label": "OWE Evil Twin Attack", "kind": "attack", "desc": "OWE encrypts traffic but verifies no identity (association is effectively MAC-based), so a rogue AP cloning the SSID lures clients in and opens the way to captive-portal phishing and MITM."},
+      {"id": "portal", "parent": "twin", "label": "Captive portal phishing", "kind": "attack", "desc": "A fake login page shown after connecting tricks users into entering credentials the attacker captures."},
+      {"id": "mitm", "parent": "twin", "label": "Man in the Middle", "kind": "attack", "desc": "Traffic from the lured client is relayed through the attacker, exposing it to sniffing, SSL stripping and DNS spoofing."},
+      {"id": "collider", "parent": "g_twin", "label": "OWE Collider Evil Twin Attack", "kind": "attack", "desc": "A rogue AP sharing the SSID and BSSID but running WPA2-PSK instead of OWE breaks the client's association logic (a denial of service); a second OWE rogue AP on a different BSSID, disguised with SSID stripping, then lures users to connect manually."},
+      {"id": "transition", "parent": "g_twin", "label": "OWE Transition Mode Evil Twin", "kind": "attack", "desc": "An OWE transition network advertises a paired Open and OWE BSSID under one SSID; cloning the Open companion and replicating the OWE Transition Mode element (using beacon flooding or deauth to move clients) downgrades them onto an attacker-controlled open network."},
     ],
   },
 };
