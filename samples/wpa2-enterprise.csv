@@ -1,0 +1,13 @@
+
+BSSID, First time seen, Last time seen, channel, Speed, Privacy, Cipher, Authentication, Power, # beacons, # IV, LAN IP, ID-length, ESSID, Key
+
+00:18:0A:5C:33:71, 2026-10-17 10:00:00, 2026-10-17 10:25:00, 44, 866, WPA2, CCMP, MGT, -61,      360,       48,   0.  0.  0.  0,   9, Corp-WiFi, 
+00:18:0A:5C:33:72, 2026-10-17 10:01:00, 2026-10-17 10:25:00,  1, 130, WPA2, CCMP, MGT, -66,      342,       19,   0.  0.  0.  0,   9, Corp-WiFi, 
+00:00:0C:9F:F0:2A, 2026-10-17 10:02:00, 2026-10-17 10:25:00,  6, 130, WPA2, CCMP, MGT, -70,      220,        7,   0.  0.  0.  0,   9, Lab-8021X, 
+
+Station MAC, First time seen, Last time seen, Power, # packets, BSSID, Probed ESSIDs
+
+3C:A9:F4:55:6B:21, 2026-10-17 10:01:00, 2026-10-17 10:25:00, -60,      145, 00:18:0A:5C:33:71, 
+A4:5E:60:2B:91:7E, 2026-10-17 10:02:00, 2026-10-17 10:25:00, -64,      120, 00:18:0A:5C:33:72, 
+DC:A6:32:41:8E:05, 2026-10-17 10:03:00, 2026-10-17 10:25:00, -69,       70, 00:00:0C:9F:F0:2A, 
+8C:77:12:EE:41:3A, 2026-10-17 10:04:00, 2026-10-17 10:25:00, -73,       13, (not associated) , Corp-WiFi

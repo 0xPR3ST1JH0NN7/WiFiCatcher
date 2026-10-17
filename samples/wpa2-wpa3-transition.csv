@@ -1,0 +1,13 @@
+
+BSSID, First time seen, Last time seen, channel, Speed, Privacy, Cipher, Authentication, Power, # beacons, # IV, LAN IP, ID-length, ESSID, Key
+
+A0:40:A0:72:5D:E8, 2026-10-17 10:00:00, 2026-10-17 10:25:00, 36, 866, WPA2 WPA3, CCMP, PSK SAE, -55,      350,       40,   0.  0.  0.  0,  12, Office-Mixed, 
+A0:40:A0:72:5D:E9, 2026-10-17 10:01:00, 2026-10-17 10:25:00,  6, 130, WPA2 WPA3, CCMP, PSK SAE, -61,      330,       18,   0.  0.  0.  0,  12, Office-Mixed, 
+C0:25:06:1F:88:30, 2026-10-17 10:02:00, 2026-10-17 10:25:00, 11, 130, WPA2 WPA3, CCMP, PSK SAE, -50,      300,       26,   0.  0.  0.  0,  10, Home-Mixed, 
+
+Station MAC, First time seen, Last time seen, Power, # packets, BSSID, Probed ESSIDs
+
+34:23:BA:7D:02:C8, 2026-10-17 10:01:00, 2026-10-17 10:25:00, -53,      175, A0:40:A0:72:5D:E8, 
+BC:92:6B:4F:21:D0, 2026-10-17 10:02:00, 2026-10-17 10:25:00, -58,      130, A0:40:A0:72:5D:E9, 
+F4:F5:E8:62:1A:9B, 2026-10-17 10:03:00, 2026-10-17 10:25:00, -49,      210, C0:25:06:1F:88:30, 
+6A:3F:91:C2:08:B7, 2026-10-17 10:04:00, 2026-10-17 10:25:00, -76,       10, (not associated) , Office-Mixed

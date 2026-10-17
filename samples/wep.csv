@@ -1,0 +1,11 @@
+
+BSSID, First time seen, Last time seen, channel, Speed, Privacy, Cipher, Authentication, Power, # beacons, # IV, LAN IP, ID-length, ESSID, Key
+
+00:14:6C:7E:40:80, 2026-10-17 10:00:00, 2026-10-17 10:25:00,  3, 130, WEP, WEP, , -68,      240,    18452,   0.  0.  0.  0,  10, Old-Router, 
+00:26:5A:4C:12:9E, 2026-10-17 10:01:00, 2026-10-17 10:25:00, 11, 130, WEP, WEP, , -73,      150,      320,   0.  0.  0.  0,  13, Printer-Setup, 
+
+Station MAC, First time seen, Last time seen, Power, # packets, BSSID, Probed ESSIDs
+
+00:1B:77:3A:9C:44, 2026-10-17 10:01:00, 2026-10-17 10:25:00, -66,      980, 00:14:6C:7E:40:80, 
+B8:27:EB:6A:CF:13, 2026-10-17 10:02:00, 2026-10-17 10:25:00, -70,       60, 00:26:5A:4C:12:9E, 
+8C:77:12:EE:41:3A, 2026-10-17 10:03:00, 2026-10-17 10:25:00, -74,       16, (not associated) , Old-Router

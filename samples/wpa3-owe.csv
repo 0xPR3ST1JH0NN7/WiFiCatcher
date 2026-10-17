@@ -1,0 +1,14 @@
+
+BSSID, First time seen, Last time seen, channel, Speed, Privacy, Cipher, Authentication, Power, # beacons, # IV, LAN IP, ID-length, ESSID, Key
+
+C8:D7:19:6B:20:11, 2026-10-17 10:00:00, 2026-10-17 10:25:00, 11, 130, WPA3, CCMP, OWE, -57,      380,       61,   0.  0.  0.  0,  16, Airport-FreeWiFi, 
+C8:D7:19:6B:20:2F, 2026-10-17 10:01:00, 2026-10-17 10:25:00, 44, 866, WPA3, CCMP, OWE, -64,      310,       14,   0.  0.  0.  0,  12, Library-WiFi, 
+00:18:0A:5C:40:10, 2026-10-17 10:02:00, 2026-10-17 10:25:00,  1, 130, OPN, , , -46,      395,        0,   0.  0.  0.  0,  12, Station-WiFi, 
+00:18:0A:5C:40:11, 2026-10-17 10:03:00, 2026-10-17 10:25:00,  1, 130, WPA3, CCMP, OWE, -47,      393,       35,   0.  0.  0.  0,   0, , 
+
+Station MAC, First time seen, Last time seen, Power, # packets, BSSID, Probed ESSIDs
+
+AC:DE:48:10:93:FE, 2026-10-17 10:01:00, 2026-10-17 10:25:00, -55,      190, C8:D7:19:6B:20:11, 
+8C:77:12:EE:41:3A, 2026-10-17 10:02:00, 2026-10-17 10:25:00, -63,      110, C8:D7:19:6B:20:2F, 
+3C:A9:F4:55:6B:21, 2026-10-17 10:03:00, 2026-10-17 10:25:00, -48,      205, 00:18:0A:5C:40:11, 
+6A:3F:91:C2:08:B7, 2026-10-17 10:04:00, 2026-10-17 10:25:00, -75,        9, (not associated) , Station-WiFi

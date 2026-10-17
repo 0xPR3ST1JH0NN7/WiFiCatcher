@@ -1,0 +1,13 @@
+
+BSSID, First time seen, Last time seen, channel, Speed, Privacy, Cipher, Authentication, Power, # beacons, # IV, LAN IP, ID-length, ESSID, Key
+
+1C:7E:E5:0B:44:9A, 2026-10-17 10:00:00, 2026-10-17 10:25:00,  1, 130, OPN, , , -39,      450,        0,   0.  0.  0.  0,  10, Cafe-Guest, 
+94:10:3E:5A:22:C1, 2026-10-17 10:01:00, 2026-10-17 10:25:00,  6, 130, OPN, , , -52,      330,        0,   0.  0.  0.  0,  11, Hotel-Lobby, 
+A4:2B:B0:19:7D:03, 2026-10-17 10:02:00, 2026-10-17 10:25:00, 11, 130, OPN, , , -60,      290,        0,   0.  0.  0.  0,   8, FreeWiFi, 
+
+Station MAC, First time seen, Last time seen, Power, # packets, BSSID, Probed ESSIDs
+
+DC:A6:32:41:8E:05, 2026-10-17 10:01:00, 2026-10-17 10:25:00, -41,      230, 1C:7E:E5:0B:44:9A, 
+F0:18:98:2C:7A:11, 2026-10-17 10:02:00, 2026-10-17 10:25:00, -50,      190, 94:10:3E:5A:22:C1, 
+5C:F3:70:91:0D:4E, 2026-10-17 10:03:00, 2026-10-17 10:25:00, -58,      120, A4:2B:B0:19:7D:03, 
+6A:3F:91:C2:08:B7, 2026-10-17 10:04:00, 2026-10-17 10:25:00, -77,       11, (not associated) , FreeWiFi,Cafe-Guest
