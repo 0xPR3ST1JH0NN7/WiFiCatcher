@@ -52,5 +52,5 @@ systemctl reset-failed wc-privwarden.socket wc-privwarden.service 2>/dev/null ||
 systemctl enable wc-privwarden.socket
 systemctl restart wc-privwarden.socket
 
-echo "[*] done. Just run the app:"
-echo "      cd $INSTALL_DIR && .venv/bin/python -m WiFiCatcher"
+echo "[*] done. Just run the app (from the activated venv):"
+echo "      python -m WiFiCatcher"
